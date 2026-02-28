@@ -8,6 +8,7 @@ from pathlib import Path
 from soc_forge.report.html_report import write_html_report
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.config import load_config
+from soc_forge.ingest.windows_security_csv import iter_windows_security_events
 from dataclasses import asdict
 
 from rich.console import Console
@@ -156,6 +157,8 @@ def main():
     ap.add_argument("--bf-window", type=int, default=None, help="Bruteforce window minutes (overrides config)")
     ap.add_argument("--config", default="config.yml", help="Path to YAML config (default: config.yml)")
     ap.add_argument("--html", default=None, help="Output HTML report path (overrides config)")
+    ap.add_argument("--format", default="jsonl", choices=["jsonl", "windows-security-csv"], help="Input format")
+    ap.add_argument("--write-events", default=None, help="Write normalized events to this JSON path")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -166,7 +169,22 @@ def main():
     bf_threshold = args.bf_threshold if args.bf_threshold is not None else cfg.bruteforce.threshold
     bf_window = args.bf_window if args.bf_window is not None else cfg.bruteforce.window_minutes
     input_path = Path(args.input)
-    events = list(read_jsonl(input_path))
+
+    if args.format == "jsonl":
+        events = list(read_jsonl(input_path))
+    elif args.format == "windows-security-csv":
+        events = list(iter_windows_security_events(input_path))
+    else:
+        raise ValueError(f"Unsupported format: {args.format}")
+
+    if args.write_events:
+        from pathlib import Path
+        import json
+        out_events = Path(args.write_events)
+        out_events.parent.mkdir(parents=True, exist_ok=True)
+        with out_events.open("w", encoding="utf-8") as f:
+            for ev in events:
+                f.write(json.dumps(ev) + "\n")
 
     alerts = []
     alerts += detect_bruteforce(events, threshold=bf_threshold, window_minutes=bf_window, severity=cfg.bruteforce.severity, score=cfg.bruteforce.score)
