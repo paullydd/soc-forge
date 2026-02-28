@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from hashlib import sha1
 from typing import Any, Dict, List
@@ -17,18 +16,29 @@ def _cid(*parts: str) -> str:
     return sha1(raw.encode("utf-8")).hexdigest()[:12]
 
 
-def correlate_alerts(alerts: List[Dict[str, Any]], window_minutes: int = 15) -> List[Dict[str, Any]]:
+def correlate_alerts(
+    alerts: List[Dict[str, Any]],
+    window_minutes: int = 15,
+    bruteforce_lockout_enabled: bool = True,
+    bruteforce_lockout_severity: str = "critical",
+    bruteforce_lockout_score: int = 120,
+) -> List[Dict[str, Any]]:
     """
     Correlation Rules (Phase 2 starter):
       - SOCF-CORR-001: Brute force (SOCF-001) + account lockout (SOCF-002) within window
-        -> create correlated CRITICAL alert
-
-    Returns: original alerts + any new correlated alerts
+        -> create correlated alert
     """
+    # Always keep deterministic ordering
+    alerts_sorted = sorted(alerts, key=lambda a: a.get("timestamp", ""))
+
+    if not bruteforce_lockout_enabled:
+        return alerts_sorted
+
     window = timedelta(minutes=window_minutes)
 
-    # Sort oldest->newest for correlation scanning
-    alerts_sorted = sorted(alerts, key=lambda a: a.get("timestamp", ""))
+    if not bruteforce_lockout_enabled:
+        # Sort oldest->newest for correlation scanning
+        alerts_sorted = sorted(alerts, key=lambda a: a.get("timestamp", ""))
 
     brute_by_ip: Dict[str, List[Dict[str, Any]]] = {}
     lockouts: List[Dict[str, Any]] = []
@@ -60,7 +70,7 @@ def correlate_alerts(alerts: List[Dict[str, Any]], window_minutes: int = 15) -> 
 
                     correlated.append({
                         "rule_id": "SOCF-CORR-001",
-                        "severity": "critical",
+                        "severity": bruteforce_lockout_severity,
                         "title": "Brute force + lockout correlation (confirmed credential attack)",
                         "timestamp": max(brute["timestamp"], lock["timestamp"]),
                         "details": {
@@ -75,7 +85,7 @@ def correlate_alerts(alerts: List[Dict[str, Any]], window_minutes: int = 15) -> 
                         "mitre": [
                             {"tactic": "Credential Access", "technique": "Brute Force", "id": "T1110"}
                         ],
-                        "score": 120,
+                        "score": bruteforce_lockout_score,
                         "status": "new",
                         "correlation_id": corr_id,
                     })

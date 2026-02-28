@@ -26,6 +26,6 @@ correlation:
   window_minutes: 15
   rules:
     bruteforce_lockout:
-      enabled: true
+      enabled: false
       severity: "critical"
       score: 120

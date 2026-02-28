@@ -174,7 +174,13 @@ def main():
     alerts += detect_new_admin(events, severity=cfg.new_admin.severity, score=cfg.new_admin.score)
 
     alert_dicts = [asdict(a) for a in alerts]
-    alert_dicts = correlate_alerts(alert_dicts, window_minutes=cfg.correlation.window_minutes)
+    alert_dicts = correlate_alerts(
+        alert_dicts,
+        window_minutes=cfg.correlation.window_minutes,
+        bruteforce_lockout_enabled=cfg.correlation.bruteforce_lockout_enabled,
+        bruteforce_lockout_severity=cfg.correlation.bruteforce_lockout_severity,
+        bruteforce_lockout_score=cfg.correlation.bruteforce_lockout_score,
+)
 
     out_path = Path(out_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)

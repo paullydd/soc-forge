@@ -27,13 +27,20 @@ def test_correlation_bruteforce_plus_lockout_creates_critical():
         },
     ]
 
-    out = correlate_alerts(alerts, window_minutes=15)
+    out = correlate_alerts(
+        alerts,
+        window_minutes=15,
+        bruteforce_lockout_enabled=True,
+        bruteforce_lockout_severity="critical",
+        bruteforce_lockout_score=123,
+    )
 
     corr = [a for a in out if a["rule_id"] == "SOCF-CORR-001"]
     assert len(corr) == 1
     assert corr[0]["severity"] == "critical"
     assert corr[0]["details"]["ip"] == "10.0.0.5"
     assert corr[0]["details"]["username"] == "bob"
+    assert corr[0]["score"] == 123
 
     # Nice-to-have: originals get correlation_id tagged
     cid = corr[0].get("correlation_id")
@@ -41,3 +48,37 @@ def test_correlation_bruteforce_plus_lockout_creates_critical():
     for a in out:
         if a["rule_id"] in ("SOCF-001", "SOCF-002"):
             assert a.get("correlation_id") == cid
+
+def test_correlation_disabled_creates_no_correlated_alert():
+    alerts = [
+        {
+            "rule_id": "SOCF-001",
+            "severity": "high",
+            "title": "Possible brute-force login attempts",
+            "timestamp": "2026-02-27T21:07:00Z",
+            "details": {"ip": "10.0.0.5"},
+            "mitre": [],
+            "score": 60,
+            "status": "new",
+            "correlation_id": None,
+        },
+        {
+            "rule_id": "SOCF-002",
+            "severity": "medium",
+            "title": "Account lockout observed",
+            "timestamp": "2026-02-27T21:08:00Z",
+            "details": {"username": "bob", "ip": "10.0.0.5"},
+            "mitre": [],
+            "score": 40,
+            "status": "new",
+            "correlation_id": None,
+        },
+    ]
+
+    out = correlate_alerts(
+        alerts,
+        window_minutes=15,
+        bruteforce_lockout_enabled=False,
+    )
+
+    assert not any(a["rule_id"] == "SOCF-CORR-001" for a in out)
