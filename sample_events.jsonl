@@ -1,0 +1,10 @@
+{"timestamp":"2026-02-27T21:00:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
+{"timestamp":"2026-02-27T21:01:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
+{"timestamp":"2026-02-27T21:02:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
+{"timestamp":"2026-02-27T21:03:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
+{"timestamp":"2026-02-27T21:04:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
+{"timestamp":"2026-02-27T21:05:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
+{"timestamp":"2026-02-27T21:06:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
+{"timestamp":"2026-02-27T21:07:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
+{"timestamp":"2026-02-27T21:08:00Z","event_id":4740,"username":"bob","ip":"10.0.0.5","host":"DC01","message":"account locked"}
+{"timestamp":"2026-02-27T21:09:00Z","event_id":4728,"username":"bob","group":"Administrators","actor":"alice","host":"DC01","message":"added to group"}
