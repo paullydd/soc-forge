@@ -1,0 +1,31 @@
+# SOC-Forge configuration (Phase 2)
+
+input:
+  timezone: "UTC"
+
+output:
+  alerts_json: "out/alerts.json"
+  report_html: "out/report.html"
+
+detections:
+  brute_force:
+    threshold: 8
+    window_minutes: 10
+    severity: "high"
+    score: 60
+
+  account_lockout:
+    severity: "medium"
+    score: 40
+
+  new_admin:
+    severity: "high"
+    score: 90
+
+correlation:
+  window_minutes: 15
+  rules:
+    bruteforce_lockout:
+      enabled: true
+      severity: "critical"
+      score: 120

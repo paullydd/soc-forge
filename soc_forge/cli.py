@@ -7,6 +7,7 @@ from pathlib import Path
 
 from soc_forge.report.html_report import write_html_report
 from soc_forge.correlate.rules import correlate_alerts
+from soc_forge.config import load_config
 from dataclasses import asdict
 
 from rich.console import Console
@@ -43,7 +44,7 @@ def read_jsonl(path: Path):
             yield json.loads(line)
 
 # ---------- Detectors ----------
-def detect_bruteforce(events, threshold=8, window_minutes=10):
+def detect_bruteforce(events, threshold=8, window_minutes=10, severity="high", score=60):
     """
     Rule: >= threshold failed logons (4625) from same IP in window
     """
@@ -67,7 +68,7 @@ def detect_bruteforce(events, threshold=8, window_minutes=10):
         if len(dq) == threshold:
             alerts.append(Alert(
                 rule_id="SOCF-001",
-                severity="high",
+                severity=severity,
                 title="Possible brute-force login attempts",
                 timestamp=ts.isoformat().replace("+00:00", "Z"),
                 details={
@@ -78,11 +79,11 @@ def detect_bruteforce(events, threshold=8, window_minutes=10):
                     "host": ev.get("host"),
                 },
                 mitre=[{"tactic":"Credential Access","technique":"Brute Force","id":"T1110"}],
-                score=40,
+                score=score,
             ))
     return alerts
 
-def detect_account_lockout(events):
+def detect_account_lockout(events, severity="medium", score=40):
     alerts = []
     for ev in events:
         if ev.get("event_id") == 4740:
@@ -97,7 +98,7 @@ def detect_account_lockout(events):
             ))
     return alerts
 
-def detect_new_admin(events):
+def detect_new_admin(events, severity="high", score=90):
     """
     Basic: group membership changes that might grant admin rights.
     You can refine later once you normalize exact fields.
@@ -150,24 +151,32 @@ def print_summary(alerts):
 def main():
     ap = argparse.ArgumentParser(prog="soc-forge", description="Mini SOC detection engine (Phase 1)")
     ap.add_argument("--input", required=True, help="Path to JSONL events file")
-    ap.add_argument("--out", default="out/alerts.json", help="Output alerts.json path")
-    ap.add_argument("--bf-threshold", type=int, default=8)
-    ap.add_argument("--bf-window", type=int, default=10)
-    ap.add_argument("--html", default="out/report.html", help="Output HTML report path")    
+    ap.add_argument("--out", default=None, help="Output alerts.json path (overrides config)")
+    ap.add_argument("--bf-threshold", type=int, default=None, help="Bruteforce threshold (overrides config)")
+    ap.add_argument("--bf-window", type=int, default=None, help="Bruteforce window minutes (overrides config)")
+    ap.add_argument("--config", default="config.yml", help="Path to YAML config (default: config.yml)")
+    ap.add_argument("--html", default=None, help="Output HTML report path (overrides config)")
     args = ap.parse_args()
 
+    cfg = load_config(args.config)
+
+    out_json = args.out or cfg.output.alerts_json
+    out_html = args.html or cfg.output.report_html
+
+    bf_threshold = args.bf_threshold if args.bf_threshold is not None else cfg.bruteforce.threshold
+    bf_window = args.bf_window if args.bf_window is not None else cfg.bruteforce.window_minutes
     input_path = Path(args.input)
     events = list(read_jsonl(input_path))
 
     alerts = []
-    alerts += detect_bruteforce(events, threshold=args.bf_threshold, window_minutes=args.bf_window)
-    alerts += detect_account_lockout(events)
-    alerts += detect_new_admin(events)
+    alerts += detect_bruteforce(events, threshold=bf_threshold, window_minutes=bf_window, severity=cfg.bruteforce.severity, score=cfg.bruteforce.score)
+    alerts += detect_account_lockout(events, severity=cfg.account_lockout.severity, score=cfg.account_lockout.score)
+    alerts += detect_new_admin(events, severity=cfg.new_admin.severity, score=cfg.new_admin.score)
 
     alert_dicts = [asdict(a) for a in alerts]
-    alert_dicts = correlate_alerts(alert_dicts, window_minutes=15)
+    alert_dicts = correlate_alerts(alert_dicts, window_minutes=cfg.correlation.window_minutes)
 
-    out_path = Path(args.out)
+    out_path = Path(out_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with out_path.open("w", encoding="utf-8") as f:
@@ -175,7 +184,7 @@ def main():
         json.dump(alert_dicts, f, indent=2)
     write_alerts(out_path, alerts)
  
-    html_path = Path(args.html)
+    html_path = Path(out_html)
     write_html_report(
         alerts=alert_dicts,
         output_path=html_path,
