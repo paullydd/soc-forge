@@ -7,354 +7,292 @@ from typing import Any, Dict, List
 from jinja2 import Template
 
 HTML_TEMPLATE = Template(
-    r"""
-<!doctype html>
+    r"""<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SOC-Forge Report</title>
   <style>
-    :root {
-      --bg: #0b1020;
-      --card: #111a33;
-      --muted: #93a4c7;
-      --text: #e8eeff;
-      --border: rgba(255,255,255,0.10);
-      --shadow: 0 10px 30px rgba(0,0,0,0.35);
-      --high: #ff5a5f;
-      --medium: #ffbd2e;
-      --low: #2ecc71;
-      --chip: rgba(255,255,255,0.08);
-      --critical: #b56cff;
-      --link: #8ab4ff;
-    }
+    :root{
+      --bg:#0b0f14; --panel:#0f1621; --panel2:#0b121b;
+      --text:#e6edf3; --muted:#98a2b3; --border:rgba(255,255,255,0.10);
 
-    body {
-      margin: 0;
-      background: radial-gradient(1200px 600px at 15% 10%, rgba(72, 125, 255, 0.25), transparent 60%),
-                  radial-gradient(900px 500px at 80% 30%, rgba(255, 90, 95, 0.18), transparent 55%),
-                  var(--bg);
-      color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      line-height: 1.35;
+      --critical:#b56cff;
+      --high:#ff6b6b;
+      --medium:#f7c948;
+      --low:#4dd4ac;
     }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:24px;
+      background:var(--bg);
+      color:var(--text);
+      font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      line-height:1.35;
+    }
+    .container{max-width:1100px;margin:0 auto;}
+    .header{
+      display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
+      padding:18px 18px;
+      border:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border-radius:16px;
+    }
+    .title{font-size:20px;font-weight:800;margin:0;}
+    .meta{color:var(--muted);font-size:12px;margin-top:6px;}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;}
+    .stat{
+      border:1px solid var(--border); background:var(--panel);
+      border-radius:14px; padding:12px;
+    }
+    .stat .k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+    .stat .v{font-size:18px;font-weight:900;margin-top:4px;}
 
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 28px 18px 60px;
+    .filters{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 8px;}
+    .btn{
+      cursor:pointer; user-select:none;
+      background:rgba(255,255,255,0.06);
+      border:1px solid var(--border);
+      padding:8px 12px; border-radius:999px;
+      color:var(--text); font-size:12px; font-weight:800;
     }
+    .btn.active{outline:2px solid rgba(255,255,255,0.18);}
 
-    header {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      align-items: baseline;
-      justify-content: space-between;
-      margin-bottom: 18px;
+    .card{
+      margin-top:12px;
+      border:1px solid var(--border);
+      background:var(--panel);
+      border-radius:16px;
+      overflow:hidden;
     }
+    .card-head{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--panel2);}
+    .card-head .h{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+    .card-head .h .left{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    .card-head .h .right{color:var(--muted);font-size:12px;display:flex;gap:10px;flex-wrap:wrap;}
+    .card-body{padding:14px 16px;}
 
-    h1 {
-      font-size: 28px;
-      margin: 0;
-      letter-spacing: 0.2px;
+    .badge{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
     }
+    .badge.critical{border-color:rgba(181,108,255,0.65);color:#f0ddff;}
+    .badge.high{border-color:rgba(255,107,107,0.65);color:#ffd2d2;}
+    .badge.medium{border-color:rgba(247,201,72,0.65);color:#fff0b8;}
+    .badge.low{border-color:rgba(77,212,172,0.65);color:#c9fff0;}
 
-    .subtitle {
-      color: var(--muted);
-      font-size: 14px;
-      margin-top: 6px;
-    }
-
-    .stats {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .stat {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      padding: 10px 12px;
-      border-radius: 14px;
-      min-width: 150px;
-    }
-
-    .stat .label {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .stat .value {
-      font-size: 20px;
-      font-weight: 700;
-      margin-top: 2px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-      margin-top: 20px;
-    }
-
-    .card {
-      background: rgba(17, 26, 51, 0.75);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .card-head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 16px;
-    }
-
-    .meta {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .badge {
-      font-size: 12px;
-      font-weight: 700;
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.04);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .badge.critical { border-color: rgba(181,108,255,0.70); color: #f0ddff; }
-    .badge.high { border-color: rgba(255,90,95,0.65); color: #ffd0d2; }
-    .badge.medium { border-color: rgba(255,189,46,0.65); color: #ffe8b8; }
-    .badge.low { border-color: rgba(46,204,113,0.65); color: #c9f6dc; }
-
-    .card-body {
-      padding: 14px 16px 16px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 2px;
-    }
-
-    .chip {
-      background: var(--chip);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 6px;
-      font-size: 13px;
-    }
-    th, td {
-      text-align: left;
-      padding: 10px 10px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-    th {
-      color: var(--muted);
-      font-weight: 600;
-      font-size: 12px;
-      letter-spacing: 0.2px;
-      text-transform: uppercase;
-    }
-    .muted { color: var(--muted); }
-
-    a { color: var(--link); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-
-    footer {
-      margin-top: 30px;
-      color: var(--muted);
-      font-size: 12px;
-      text-align: center;
-    }
-
-    .empty {
-      padding: 18px;
-      color: var(--muted);
-    }
+    table{width:100%;border-collapse:collapse;margin-top:8px;}
+    th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px;}
+    th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.03em;}
+    .muted{color:var(--muted);}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;}
+    .hidden{display:none;}
+    details{margin-top:10px;}
+    details summary{cursor:pointer;color:var(--muted);font-weight:800;}
+    .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center;}
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>SOC-Forge Report</h1>
-        <div class="subtitle">
-          Generated: <span class="muted">{{ generated_at }}</span>
-          &nbsp;•&nbsp; Input: <span class="muted">{{ input_name }}</span>
-        </div>
-      </div>
+<div class="container">
 
-      <div class="stats">
-        <div class="stat">
-          <div class="label">Total Alerts</div>
-          <div class="value">{{ stats.total }}</div>
-        </div>
-        <div class="stat">
-          <div class="label">Critical / High / Medium / Low</div>
-          <div class="value">{{ stats.crticial }} / {{ stats.high }} / {{ stats.medium }} / {{ stats.low }}</div>
-        </div>
-        <div class="stat">
-          <div class="label">Rules Triggered</div>
-          <div class="value">{{ stats.rules }}</div>
-        </div>
-      </div>
-    </header>
-
-    {% if alerts|length == 0 %}
-      <div class="card">
-        <div class="empty">No alerts generated for this input.</div>
-      </div>
-    {% else %}
-
-    <div class="card">
-      <div class="card-head">
-        <div class="title">Alerts Summary</div>
-        <div class="meta">Sorted by time (UTC), newest first</div>
-      </div>
-      <div class="card-body">
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Severity</th>
-              <th>Score</th>
-              <th>Rule</th>
-              <th>Title</th>
-              <th>Key Details</th>
-              <th>MITRE</th>
-            </tr>
-          </thead>
-          <tbody>
-          {% for a in alerts %}
-            <tr>
-              <td class="muted">{{ a.timestamp }}</td>
-              <td>
-                <span class="badge {{ a.severity|lower }}">{{ a.severity|upper }}</span>
-              </td>
-              <td class="muted"><strong>{{ a.get("score", 0) }}</strong></td>
-              <td class="muted">{{ a.rule_id }}</td>
-              <td>{{ a.title }}</td>
-              <td class="muted">
-                {% for k, v in a.details.items() %}
-                  <div><strong class="muted">{{ k }}:</strong> {{ v }}</div>
-                {% endfor %}
-              </td>
-              <td class="muted">
-                {% for m in a.mitre %}
-                  <div>{{ m.get("id","") }} — {{ m.get("technique","") }}</div>
-                {% endfor %}
-              </td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
+  <div class="header">
+    <div>
+      <div class="title">SOC-Forge Report</div>
+      <div class="meta">Input: <span class="mono">{{ input_name }}</span> • Generated: {{ generated_at }}</div>
     </div>
+    <div class="meta">
+      Total Alerts: <strong>{{ stats.total }}</strong>
+    </div>
+  </div>
 
-    <div class="grid">
-      {% for a in alerts %}
+  <div class="cards">
+    <div class="stat"><div class="k">Critical</div><div class="v">{{ stats.critical }}</div></div>
+    <div class="stat"><div class="k">High</div><div class="v">{{ stats.high }}</div></div>
+    <div class="stat"><div class="k">Medium</div><div class="v">{{ stats.medium }}</div></div>
+    <div class="stat"><div class="k">Low</div><div class="v">{{ stats.low }}</div></div>
+  </div>
+
+  <div class="filters">
+    <div class="btn active" data-level="all" onclick="setFilter('all')">All</div>
+    <div class="btn" data-level="critical" onclick="setFilter('critical')">Critical</div>
+    <div class="btn" data-level="high" onclick="setFilter('high')">High</div>
+    <div class="btn" data-level="medium" onclick="setFilter('medium')">Medium</div>
+    <div class="btn" data-level="low" onclick="setFilter('low')">Low</div>
+  </div>
+
+  {% if alerts|length == 0 %}
+    <div class="card">
+      <div class="card-head"><div class="h"><div class="left"><strong>No alerts</strong></div></div></div>
+      <div class="card-body muted">No alerts were produced for this input.</div>
+    </div>
+  {% else %}
+
+    {% if cases|length > 0 %}
       <div class="card">
         <div class="card-head">
-          <div class="title">
-            <span class="badge {{ a.severity|lower }}">{{ a.severity|upper }}</span>
-            {{ a.title }}
-          </div>
-          <div class="meta">
-            <span>Rule: <strong class="muted">{{ a.rule_id }}</strong></span>
-            <span>Time: <strong class="muted">{{ a.timestamp }}</strong></span>
+          <div class="h">
+            <div class="left"><strong>Cases</strong></div>
+            <div class="right"><span class="muted">Grouped by correlation_id</span></div>
           </div>
         </div>
         <div class="card-body">
-          <div class="chips">
-            {% for m in a.mitre %}
-              <span class="chip">{{ m.get("id","") }} • {{ m.get("tactic","") }} • {{ m.get("technique","") }}</span>
-            {% endfor %}
-          </div>
+          {% for c in cases %}
+            {% set h = c.header %}
+            <div class="card case-card" style="margin:10px 0;">
+              <div class="card-head">
+                <div class="h">
+                  <div class="left">
+                    <span class="badge {{ h.severity|lower }}">{{ h.severity }}</span>
+                    <strong>{{ h.title }}</strong>
+                  </div>
+                  <div class="right">
+                    <span>Case: <span class="mono">{{ c.correlation_id }}</span></span>
+                    <span>Time: <span class="mono">{{ h.timestamp }}</span></span>
+                    <span>Score: <span class="mono">{{ h.get("score",0) }}</span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body">
 
-          <div>
-            <div class="muted" style="margin-bottom:6px;">Details</div>
-            <table>
-              <tbody>
-                {% for k, v in a.details.items() %}
-                <tr>
-                  <th style="width: 240px;">{{ k }}</th>
-                  <td class="muted">{{ v }}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+                {% if h.details and h.details.evidence %}
+                  <details>
+                    <summary>Evidence (click to expand)</summary>
+                    <table>
+                      <thead><tr><th>Rule</th><th>Timestamp</th></tr></thead>
+                      <tbody>
+                        {% for ev in h.details.evidence %}
+                          <tr>
+                            <td class="mono muted">{{ ev.rule_id }}</td>
+                            <td class="mono muted">{{ ev.timestamp }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </details>
+                {% endif %}
+
+                <div class="muted" style="margin-top:10px;font-weight:900;">Alerts in this case</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for a in c.alerts %}
+                      <tr data-sev="{{ a.severity|lower }}">
+                        <td class="mono muted">{{ a.timestamp }}</td>
+                        <td><span class="badge {{ a.severity|lower }}">{{ a.severity }}</span></td>
+                        <td class="mono muted">{{ a.rule_id }}</td>
+                        <td>{{ a.title }}</td>
+                        <td class="mono muted"><strong>{{ a.get("score",0) }}</strong></td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+
+              </div>
+            </div>
+          {% endfor %}
         </div>
       </div>
-      {% endfor %}
-    </div>
     {% endif %}
 
-    <footer>
-      SOC-Forge • Phase 1 • Local report file (no external resources)
-    </footer>
-  </div>
+    {% if standalone|length > 0 %}
+      <div class="card standalone card">
+        <div class="card-head">
+          <div class="h">
+            <div class="left"><strong>Standalone Alerts</strong></div>
+            <div class="right"><span class="muted">No correlation_id</span></div>
+          </div>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in standalone %}
+                <tr data-sev="{{ a.severity|lower }}">
+                  <td class="mono muted">{{ a.timestamp }}</td>
+                  <td><span class="badge {{ a.severity|lower }}">{{ a.severity }}</span></td>
+                  <td class="mono muted">{{ a.rule_id }}</td>
+                  <td>{{ a.title }}</td>
+                  <td class="mono muted"><strong>{{ a.get("score",0) }}</strong></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+  {% endif %}
+
+  <div class="footer">SOC-Forge • Case-based report view</div>
+
+</div>
+
+<script>
+  function setFilter(level) {
+    document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
+    const btn = document.querySelector(`.btn[data-level="${level}"]`);
+    if (btn) btn.classList.add("active");
+
+    // Filter rows first
+    document.querySelectorAll("tr[data-sev]").forEach(tr => {
+      const sev = (tr.getAttribute("data-sev") || "").toLowerCase();
+      const show = (level === "all" || sev === level);
+      tr.classList.toggle("hidden", !show);
+    });
+
+    // Then show/hide each case card based on whether it has any visible rows
+    document.querySelectorAll(".case-card").forEach(card => {
+      if (level === "all") {
+        card.classList.remove("hidden");
+        return;
+      }
+      const visibleRows = card.querySelectorAll("tr[data-sev]:not(.hidden)");
+      card.classList.toggle("hidden", visibleRows.length === 0);
+    });
+
+    // Same logic for the standalone card
+    document.querySelectorAll(".standalone-card").forEach(card => {
+      if (level === "all") {
+        card.classList.remove("hidden");
+        return;
+      }
+      const visibleRows = card.querySelectorAll("tr[data-sev]:not(.hidden)");
+      card.classList.toggle("hidden", visibleRows.length === 0);
+    });
+  }
+
+  setFilter("all");
+</script>
+
 </body>
-</html>
-"""
+</html>"""
 )
 
 
-def write_html_report(
-    *,
-    alerts: List[Dict[str, Any]],
-    output_path: Path,
-    input_name: str = "unknown",
-) -> None:
-    # sort newest first by timestamp string (ISO-8601 sorts lexicographically)
+def write_html_report(alerts: List[Dict[str, Any]], output_path: Path, input_name: str) -> None:
+    # Sort newest-first
     alerts_sorted = sorted(alerts, key=lambda a: a.get("timestamp", ""), reverse=True)
 
+    # Severity stats
     sev_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
-    rules = set()
-
     for a in alerts_sorted:
         sev = str(a.get("severity", "")).lower()
         if sev in sev_counts:
             sev_counts[sev] += 1
-        rules.add(a.get("rule_id", "unknown"))
 
     stats = {
         "total": len(alerts_sorted),
@@ -362,11 +300,34 @@ def write_html_report(
         "high": sev_counts["high"],
         "medium": sev_counts["medium"],
         "low": sev_counts["low"],
-        "rules": len([r for r in rules if r]),
     }
+
+    # Group into cases + standalone
+    cases_map: Dict[str, List[Dict[str, Any]]] = {}
+    standalone: List[Dict[str, Any]] = []
+
+    for a in alerts_sorted:
+        cid = a.get("correlation_id")
+        if cid:
+            cases_map.setdefault(str(cid), []).append(a)
+        else:
+            standalone.append(a)
+
+    cases = []
+    for cid, items in cases_map.items():
+        items_sorted = sorted(items, key=lambda x: x.get("timestamp", ""), reverse=True)
+        header = next(
+            (x for x in items_sorted if str(x.get("rule_id", "")).startswith("SOCF-CORR")),
+            items_sorted[0],
+        )
+        cases.append({"correlation_id": cid, "header": header, "alerts": items_sorted})
+
+    cases = sorted(cases, key=lambda c: c["header"].get("timestamp", ""), reverse=True)
 
     html = HTML_TEMPLATE.render(
         alerts=alerts_sorted,
+        cases=cases,
+        standalone=standalone,
         stats=stats,
         input_name=input_name,
         generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
