@@ -1,0 +1,4 @@
+Date and Time,Event ID,Computer,User,IP Address,Message
+02/27/2026 10:15:00 PM,4624,WIN10,bob,203.0.113.50,"An account was successfully logged on. Logon Type: 10"
+02/27/2026 10:20:00 PM,4698,WIN10,alice,,"A scheduled task was created. Task Name: \Updater Task Content: powershell.exe -enc AAAA"
+02/27/2026 10:25:00 PM,7045,WIN10,,,"A service was installed in the system. Service Name: UpdaterSvc Service File Name: C:\Users\bob\AppData\Roaming\updater.exe"

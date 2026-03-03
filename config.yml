@@ -1,4 +1,4 @@
-# SOC-Forge configuration (Phase 2)
+# SOC-Forge configuration (Phase 3)
 
 input:
   timezone: "UTC"
@@ -22,10 +22,52 @@ detections:
     severity: "high"
     score: 90
 
+  new_service_installed:
+    severity: "high"
+    score: 80
+    score_boost: 20
+    suspicious_markers:
+      - "\\Users\\"
+      - "\\AppData\\"
+      - "\\Temp\\"
+      - "\\ProgramData\\"
+      - "powershell.exe"
+      - "cmd.exe"
+      - "rundll32.exe"
+      - "mshta.exe"
+      - "wscript.exe"
+
+  scheduled_task_created:
+    severity: "high"
+    score: 75
+    score_boost: 20
+    suspicious_markers:
+      - "powershell"
+      - " -enc "
+      - "cmd.exe"
+      - "rundll32"
+      - "mshta"
+      - "wscript"
+      
+  suspicious_rdp_logon:
+    severity: "medium"
+    score: 55
+    logon_type: 10
+
 correlation:
   window_minutes: 15
   rules:
     bruteforce_lockout:
-      enabled: false
+      enabled: true
       severity: "critical"
       score: 120
+
+    rdp_schtask:
+      enabled: true
+      severity: "high"
+      score: 110
+
+    rdp_new_admin:
+      enabled: true
+      severity: "critical"
+      score: 130

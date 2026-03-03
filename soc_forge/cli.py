@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 from collections import defaultdict, deque
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta, timezone
@@ -43,6 +44,40 @@ def read_jsonl(path: Path):
             if not line:
                 continue
             yield json.loads(line)
+
+def _contains_any(s: str | None, needles: list[str]) -> bool:
+    if not s:
+        return False
+    hay = s.lower()
+    return any(n.lower() in hay for n in needles)
+
+def _bump_severity(base: str) -> str:
+    order = ["low", "medium", "high", "critical"]
+    try:
+        idx = order.index((base or "medium").lower())
+    except ValueError:
+        idx = 1
+    return order[min(idx + 1, len(order) - 1)]
+
+def _contains_any(s: str | None, needles: list[str]) -> bool:
+    if not s:
+        return False
+    hay = s.lower()
+    return any(n.lower() in hay for n in needles)
+
+def _bump_severity(base: str) -> str:
+    order = ["low", "medium", "high", "critical"]
+    try:
+        idx = order.index((base or "medium").lower())
+    except ValueError:
+        idx = 1
+    return order[min(idx + 1, len(order) - 1)]
+
+def _extract_logon_type(msg: str) -> int | None:
+    if not msg:
+        return None
+    m = re.search(r"logon\s*type:\s*(\d+)", msg, flags=re.IGNORECASE)
+    return int(m.group(1)) if m else None
 
 # ---------- Detectors ----------
 def detect_bruteforce(events, threshold=8, window_minutes=10, severity="high", score=60):
@@ -125,6 +160,138 @@ def detect_new_admin(events, severity="high", score=90):
             ))
     return alerts
 
+def detect_new_service_installed(events, severity="high", score=80, suspicious_markers=None, score_boost=20):
+    """
+    Rule: New service installed (System Event ID 7045)
+    """
+    suspicious_path_markers = [
+        r"\users\\", r"\appdata\\", r"\temp\\", r"\programdata\\"
+    ]
+    suspicious_lolbins = [
+        "powershell.exe", "cmd.exe", "rundll32.exe", "mshta.exe", "wscript.exe"
+    ]
+
+    suspicious_markers = suspicious_markers or []
+
+    alerts = []
+    for ev in events:
+        if ev.get("event_id") != 7045:
+            continue
+
+        ts = parse_ts(ev["timestamp"])
+
+        blob = (ev.get("image_path") or "") + " " + (ev.get("message") or "")
+        is_suspicious = _contains_any(blob, suspicious_markers)
+
+        sev = severity
+        sc = score
+        if is_suspicious:
+            # bump severity one level (high->critical, medium->high, etc.)
+            sev = _bump_severity(sev)
+            sc += score_boost
+
+        alerts.append(Alert(
+            rule_id="SOCF-004",
+            severity=sev,
+            title="New service installed",
+            timestamp=ts.isoformat().replace("+00:00", "Z"),
+            details={
+                "host": ev.get("host"),
+                "service_name": ev.get("service_name"),
+                "image_path": ev.get("image_path"),
+                "service_account": ev.get("service_account"),
+                "suspicious": is_suspicious,
+                "message": ev.get("message"),
+            },
+            mitre=[{"tactic": "Persistence", "technique": "Create or Modify System Process", "id": "T1543"}],
+            score=sc,
+        ))
+    return alerts
+
+def detect_scheduled_task_created(events, severity="high", score=75, suspicious_markers=None, score_boost=20):
+    """
+    Rule: Scheduled task created (Security Event ID 4698)
+    """
+    suspicious_keywords = [
+        "powershell", " -enc ", "cmd.exe", "rundll32", "mshta", "wscript"
+    ]
+
+    suspicious_markers = suspicious_markers or []
+
+    alerts = []
+    for ev in events:
+        if ev.get("event_id") != 4698:
+            continue
+
+        ts = parse_ts(ev["timestamp"])
+        
+        blob = (ev.get("task_command") or "") + " " + (ev.get("message") or "")
+        is_suspicious = _contains_any(blob, suspicious_markers)
+
+        sev = severity
+        sc = score
+        if is_suspicious:
+            sev = _bump_severity(sev)
+            sc += score_boost
+
+        alerts.append(Alert(
+            rule_id="SOCF-005",
+            severity=sev,
+            title="Scheduled task created",
+            timestamp=ts.isoformat().replace("+00:00", "Z"),
+            details={
+                "host": ev.get("host"),
+                "actor": ev.get("actor"),
+                "task_name": ev.get("task_name"),
+                "task_command": ev.get("task_command"),
+                "suspicious": is_suspicious,
+                "message": ev.get("message"),
+            },
+            mitre=[{"tactic": "Persistence", "technique": "Scheduled Task/Job", "id": "T1053"}],
+            score=sc,
+        ))
+    return alerts
+
+def detect_suspicious_rdp_logon(events, logon_type=10, severity="medium", score=55):
+    """
+    Rule: Successful RDP logon (4624) with LogonType=10
+    """
+    alerts = []
+    for ev in events:
+        if ev.get("event_id") != 4624:
+            continue
+
+        # Prefer normalized field if present
+        lt = ev.get("logon_type")
+        try:
+            lt = int(lt) if lt is not None else None
+        except (TypeError, ValueError):
+            lt = None
+
+        if lt is None:
+            lt = _extract_logon_type(ev.get("message", ""))
+
+        if lt != logon_type:
+            continue
+
+        ts = parse_ts(ev["timestamp"])
+        alerts.append(Alert(
+            rule_id="SOCF-006",
+            severity=severity,
+            title="RDP logon detected (LogonType 10)",
+            timestamp=ts.isoformat().replace("+00:00", "Z"),
+            details={
+                "username": ev.get("username"),
+                "ip": ev.get("ip"),
+                "host": ev.get("host"),
+                "logon_type": lt,
+                "message": ev.get("message"),
+            },
+            mitre=[{"tactic": "Lateral Movement", "technique": "Remote Services", "id": "T1021"}],
+            score=score,
+        ))
+    return alerts
+
 # ---------- Output ----------
 def write_alerts(path: Path, alerts):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -178,8 +345,6 @@ def main():
         raise ValueError(f"Unsupported format: {args.format}")
 
     if args.write_events:
-        from pathlib import Path
-        import json
         out_events = Path(args.write_events)
         out_events.parent.mkdir(parents=True, exist_ok=True)
         with out_events.open("w", encoding="utf-8") as f:
@@ -190,24 +355,48 @@ def main():
     alerts += detect_bruteforce(events, threshold=bf_threshold, window_minutes=bf_window, severity=cfg.bruteforce.severity, score=cfg.bruteforce.score)
     alerts += detect_account_lockout(events, severity=cfg.account_lockout.severity, score=cfg.account_lockout.score)
     alerts += detect_new_admin(events, severity=cfg.new_admin.severity, score=cfg.new_admin.score)
+    alerts += detect_new_service_installed(
+        events,
+        severity=cfg.new_service_installed.severity,
+        score=cfg.new_service_installed.score,
+        suspicious_markers=cfg.new_service_installed.suspicious_markers,
+        score_boost=cfg.new_service_installed.score_boost,
+    )
+
+    alerts += detect_scheduled_task_created(
+        events,
+        severity=cfg.scheduled_task_created.severity,
+        score=cfg.scheduled_task_created.score,
+        suspicious_markers=cfg.scheduled_task_created.suspicious_markers,
+        score_boost=cfg.scheduled_task_created.score_boost,
+    )
+
+    alerts += detect_suspicious_rdp_logon(events, logon_type=cfg.suspicious_rdp_logon.logon_type, severity=cfg.suspicious_rdp_logon.severity, score=cfg.suspicious_rdp_logon.score,)
 
     alert_dicts = [asdict(a) for a in alerts]
     alert_dicts = correlate_alerts(
         alert_dicts,
         window_minutes=cfg.correlation.window_minutes,
+        
         bruteforce_lockout_enabled=cfg.correlation.bruteforce_lockout_enabled,
         bruteforce_lockout_severity=cfg.correlation.bruteforce_lockout_severity,
         bruteforce_lockout_score=cfg.correlation.bruteforce_lockout_score,
-)
+        
+        rdp_schtask_enabled=cfg.correlation.rdp_schtask_enabled,
+        rdp_schtask_severity=cfg.correlation.rdp_schtask_severity,
+        rdp_schtask_score=cfg.correlation.rdp_schtask_score,
+
+        rdp_new_admin_enabled=cfg.correlation.rdp_new_admin_enabled,
+        rdp_new_admin_severity=cfg.correlation.rdp_new_admin_severity,
+        rdp_new_admin_score=cfg.correlation.rdp_new_admin_score,
+        )
 
     out_path = Path(out_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     with out_path.open("w", encoding="utf-8") as f:
-        import json
         json.dump(alert_dicts, f, indent=2)
-    write_alerts(out_path, alerts)
- 
+
     html_path = Path(out_html)
     write_html_report(
         alerts=alert_dicts,

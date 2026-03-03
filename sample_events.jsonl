@@ -8,3 +8,10 @@
 {"timestamp":"2026-02-27T21:07:00Z","event_id":4625,"username":"bob","ip":"10.0.0.5","host":"WIN10","message":"failed logon"}
 {"timestamp":"2026-02-27T21:08:00Z","event_id":4740,"username":"bob","ip":"10.0.0.5","host":"DC01","message":"account locked"}
 {"timestamp":"2026-02-27T21:09:00Z","event_id":4728,"username":"bob","group":"Administrators","actor":"alice","host":"DC01","message":"added to group"}
+{"timestamp":"2026-02-27T22:15:00Z","event_id":4624,"username":"bob","ip":"203.0.113.50","host":"WIN10","logon_type":10,"message":"successful logon (RDP)"}
+{"timestamp":"2026-02-27T22:20:00Z","event_id":7045,"host":"WIN10","service_name":"UpdaterSvc","image_path":"C:\\Users\\bob\\AppData\\Roaming\\updater.exe","service_account":"LocalSystem","message":"service installed"}
+{"timestamp":"2026-02-27T22:25:00Z","event_id":4698,"host":"WIN10","actor":"alice","task_name":"\\Microsoft\\Windows\\Update\\Updater","task_command":"powershell.exe -enc AAAA...","message":"task created"}
+{"timestamp":"2026-02-27T22:15:00Z","event_id":4624,"username":"bob","ip":"203.0.113.50","host":"WIN10","logon_type":10,"message":"successful logon (RDP)"}
+{"timestamp":"2026-02-27T22:20:00Z","event_id":4698,"host":"WIN10","actor":"alice","task_name":"\\Updater","task_command":"powershell.exe -enc AAAA","message":"task created"}
+{"timestamp":"2026-02-27T22:15:00Z","event_id":4624,"username":"bob","ip":"203.0.113.50","host":"WIN10","logon_type":10,"message":"successful logon (RDP)"}
+{"timestamp":"2026-02-27T22:20:00Z","event_id":4728,"username":"bob","group":"Administrators","actor":"alice","host":"WIN10","message":"added to group"}
