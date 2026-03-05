@@ -1,7 +1,20 @@
-from importlib.metadata import version, PackageNotFoundError
+from __future__ import annotations
+
+__all__ = ["__version__"]
+
+# Default fallback (never breaks imports)
+__version__ = "0.5.0"
 
 try:
-    __version__ = version("soc-forge")
-except PackageNotFoundError:
-    # Fallback for running from source without an installed distribution
-    __version__ = "0.0.0"
+    from importlib.metadata import PackageNotFoundError, version
+
+    # Try common distribution names
+    for dist in ("soc-forge", "soc_forge"):
+        try:
+            __version__ = version(dist)
+            break
+        except PackageNotFoundError:
+            pass
+except Exception:
+    # Keep the fallback string above
+    pass
