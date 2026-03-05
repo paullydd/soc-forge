@@ -1,0 +1,23 @@
+version: 1
+rules:
+  - id: "SOCF-006"
+    enabled: true
+    title: "RDP logon detected (LogonType 10)"
+    severity: "medium"
+    score: 55
+    mitre:
+      - tactic: "Lateral Movement"
+        technique: "Remote Services"
+        id: "T1021"
+    match:
+      all:
+        - field: "event_id"
+          op: "eq"
+          value: 4624
+        - any:
+            - field: "logon_type"
+              op: "eq"
+              value: 10
+            - field: "message"
+              op: "regex"
+              value: '(?i)logon\\s*type:\\s*10'

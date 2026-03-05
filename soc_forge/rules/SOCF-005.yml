@@ -1,0 +1,40 @@
+version: 1
+rules:
+  - id: "SOCF-005"
+    enabled: true
+    title: "Scheduled task created"
+    severity: "high"
+    score: 75
+    mitre:
+      - tactic: "Persistence"
+        technique: "Scheduled Task/Job"
+        id: "T1053"
+    match:
+      all:
+        - field: "event_id"
+          op: "eq"
+          value: 4698
+
+    emit:
+      details:
+        host: "${host}"
+        actor: "${actor}"
+        task_name: "${task_name}"
+        task_command: "${task_command}"
+        message: "${message}"
+        suspicious: false
+
+    score_modifiers:
+      - when:
+          any:
+            - field: "task_command"
+              op: "regex"
+              value: '(?i)powershell|\\s-enc\\b|cmd\.exe|rundll32|mshta|wscript'
+            - field: "message"
+              op: "regex"
+              value: '(?i)powershell|\\s-enc\\b|cmd\.exe|rundll32|mshta|wscript'
+        add: 20
+        bump_severity: true
+        set_details:
+          suspicious: true
+        reason: "Suspicious keyword in task command/message"

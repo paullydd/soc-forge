@@ -15,3 +15,12 @@
 {"timestamp":"2026-02-27T22:20:00Z","event_id":4698,"host":"WIN10","actor":"alice","task_name":"\\Updater","task_command":"powershell.exe -enc AAAA","message":"task created"}
 {"timestamp":"2026-02-27T22:15:00Z","event_id":4624,"username":"bob","ip":"203.0.113.50","host":"WIN10","logon_type":10,"message":"successful logon (RDP)"}
 {"timestamp":"2026-02-27T22:20:00Z","event_id":4728,"username":"bob","group":"Administrators","actor":"alice","host":"WIN10","message":"added to group"}
+{"timestamp":"2026-02-27T21:00:00Z","event_id":4624,"username":"bob","host":"WIN10","message":"Logon Type: 10"}
+{"timestamp":"2026-02-27T21:01:00Z","event_id":4698,"actor":"bob","host":"WIN10","task_name":"Updater","task_command":"powershell.exe -enc AAAA","message":"task created"}
+{"timestamp":"2026-02-27T21:02:00Z","event_id":4740,"username":"bob","host":"WIN10","message":"Account locked out"}
+{"timestamp":"2026-02-27T21:00:00Z","event_id":4625,"username":"bob","host":"WIN10","message":"login failed"}
+{"timestamp":"2026-02-27T21:00:05Z","event_id":4625,"username":"bob","host":"WIN10","message":"login failed"}
+{"timestamp":"2026-02-27T21:00:10Z","event_id":4625,"username":"bob","host":"WIN10","message":"login failed"}
+{"timestamp":"2026-02-27T21:00:15Z","event_id":4625,"username":"bob","host":"WIN10","message":"login failed"}
+{"timestamp":"2026-02-27T21:00:20Z","event_id":4625,"username":"bob","host":"WIN10","message":"login failed"}
+{"timestamp":"2026-02-27T21:01:00Z","event_id":4740,"username":"bob","host":"WIN10","message":"Account locked out"}

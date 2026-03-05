@@ -1,7 +1,7 @@
 import argparse
 import json
 import re
-from collections import defaultdict, deque
+from collections import defaultdict, deque, Counter
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -9,8 +9,13 @@ from pathlib import Path
 from soc_forge.report.html_report import write_html_report
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.config import load_config
+from soc_forge import __version__
 from soc_forge.ingest.windows_security_csv import iter_windows_security_events
-from dataclasses import asdict
+from soc_forge.rules.engine import load_rules, run_rules
+from soc_forge.models import Alert
+from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
+from dataclasses import asdict, is_dataclass
+from typing import Any, Dict, List
 
 from rich.console import Console
 from rich.table import Table
@@ -119,178 +124,6 @@ def detect_bruteforce(events, threshold=8, window_minutes=10, severity="high", s
             ))
     return alerts
 
-def detect_account_lockout(events, severity="medium", score=40):
-    alerts = []
-    for ev in events:
-        if ev.get("event_id") == 4740:
-            ts = parse_ts(ev["timestamp"])
-            alerts.append(Alert(
-                rule_id="SOCF-002",
-                severity="medium",
-                title="Account lockout observed",
-                timestamp=ts.isoformat().replace("+00:00", "Z"),
-                details={"username": ev.get("username"), "host": ev.get("host"), "ip": ev.get("ip")},
-                mitre=[{"tactic":"Credential Access","technique":"Password Guessing","id":"T1110"}]
-            ))
-    return alerts
-
-def detect_new_admin(events, severity="high", score=90):
-    """
-    Basic: group membership changes that might grant admin rights.
-    You can refine later once you normalize exact fields.
-    """
-    admin_event_ids = {4728, 4732}  # added to security-enabled global/local group (common)
-    alerts = []
-    for ev in events:
-        if ev.get("event_id") in admin_event_ids:
-            ts = parse_ts(ev["timestamp"])
-            alerts.append(Alert(
-                rule_id="SOCF-003",
-                severity="high",
-                title="Privileged group membership change (possible new admin)",
-                timestamp=ts.isoformat().replace("+00:00", "Z"),
-                details={
-                    "username": ev.get("username"),
-                    "target_group": ev.get("group", "unknown"),
-                    "host": ev.get("host"),
-                    "actor": ev.get("actor"),
-                },
-                mitre=[{"tactic":"Privilege Escalation","technique":"Valid Accounts","id":"T1078"}],
-                score=90,
-            ))
-    return alerts
-
-def detect_new_service_installed(events, severity="high", score=80, suspicious_markers=None, score_boost=20):
-    """
-    Rule: New service installed (System Event ID 7045)
-    """
-    suspicious_path_markers = [
-        r"\users\\", r"\appdata\\", r"\temp\\", r"\programdata\\"
-    ]
-    suspicious_lolbins = [
-        "powershell.exe", "cmd.exe", "rundll32.exe", "mshta.exe", "wscript.exe"
-    ]
-
-    suspicious_markers = suspicious_markers or []
-
-    alerts = []
-    for ev in events:
-        if ev.get("event_id") != 7045:
-            continue
-
-        ts = parse_ts(ev["timestamp"])
-
-        blob = (ev.get("image_path") or "") + " " + (ev.get("message") or "")
-        is_suspicious = _contains_any(blob, suspicious_markers)
-
-        sev = severity
-        sc = score
-        if is_suspicious:
-            # bump severity one level (high->critical, medium->high, etc.)
-            sev = _bump_severity(sev)
-            sc += score_boost
-
-        alerts.append(Alert(
-            rule_id="SOCF-004",
-            severity=sev,
-            title="New service installed",
-            timestamp=ts.isoformat().replace("+00:00", "Z"),
-            details={
-                "host": ev.get("host"),
-                "service_name": ev.get("service_name"),
-                "image_path": ev.get("image_path"),
-                "service_account": ev.get("service_account"),
-                "suspicious": is_suspicious,
-                "message": ev.get("message"),
-            },
-            mitre=[{"tactic": "Persistence", "technique": "Create or Modify System Process", "id": "T1543"}],
-            score=sc,
-        ))
-    return alerts
-
-def detect_scheduled_task_created(events, severity="high", score=75, suspicious_markers=None, score_boost=20):
-    """
-    Rule: Scheduled task created (Security Event ID 4698)
-    """
-    suspicious_keywords = [
-        "powershell", " -enc ", "cmd.exe", "rundll32", "mshta", "wscript"
-    ]
-
-    suspicious_markers = suspicious_markers or []
-
-    alerts = []
-    for ev in events:
-        if ev.get("event_id") != 4698:
-            continue
-
-        ts = parse_ts(ev["timestamp"])
-        
-        blob = (ev.get("task_command") or "") + " " + (ev.get("message") or "")
-        is_suspicious = _contains_any(blob, suspicious_markers)
-
-        sev = severity
-        sc = score
-        if is_suspicious:
-            sev = _bump_severity(sev)
-            sc += score_boost
-
-        alerts.append(Alert(
-            rule_id="SOCF-005",
-            severity=sev,
-            title="Scheduled task created",
-            timestamp=ts.isoformat().replace("+00:00", "Z"),
-            details={
-                "host": ev.get("host"),
-                "actor": ev.get("actor"),
-                "task_name": ev.get("task_name"),
-                "task_command": ev.get("task_command"),
-                "suspicious": is_suspicious,
-                "message": ev.get("message"),
-            },
-            mitre=[{"tactic": "Persistence", "technique": "Scheduled Task/Job", "id": "T1053"}],
-            score=sc,
-        ))
-    return alerts
-
-def detect_suspicious_rdp_logon(events, logon_type=10, severity="medium", score=55):
-    """
-    Rule: Successful RDP logon (4624) with LogonType=10
-    """
-    alerts = []
-    for ev in events:
-        if ev.get("event_id") != 4624:
-            continue
-
-        # Prefer normalized field if present
-        lt = ev.get("logon_type")
-        try:
-            lt = int(lt) if lt is not None else None
-        except (TypeError, ValueError):
-            lt = None
-
-        if lt is None:
-            lt = _extract_logon_type(ev.get("message", ""))
-
-        if lt != logon_type:
-            continue
-
-        ts = parse_ts(ev["timestamp"])
-        alerts.append(Alert(
-            rule_id="SOCF-006",
-            severity=severity,
-            title="RDP logon detected (LogonType 10)",
-            timestamp=ts.isoformat().replace("+00:00", "Z"),
-            details={
-                "username": ev.get("username"),
-                "ip": ev.get("ip"),
-                "host": ev.get("host"),
-                "logon_type": lt,
-                "message": ev.get("message"),
-            },
-            mitre=[{"tactic": "Lateral Movement", "technique": "Remote Services", "id": "T1021"}],
-            score=score,
-        ))
-    return alerts
 
 # ---------- Output ----------
 def write_alerts(path: Path, alerts):
@@ -298,26 +131,69 @@ def write_alerts(path: Path, alerts):
     with path.open("w", encoding="utf-8") as f:
         json.dump([asdict(a) for a in alerts], f, indent=2)
 
-def print_summary(alerts):
-    table = Table(title="SOC-Forge Alerts")
+def _as_alert_dict(a: Any) -> Dict[str, Any]:
+    """Accept Alert dataclass or dict and return a dict shape."""
+    if isinstance(a, dict):
+        return a
+    if is_dataclass(a):
+        return asdict(a)
+    # last resort: try attribute access
+    return {
+        "severity": getattr(a, "severity", ""),
+        "rule_id": getattr(a, "rule_id", ""),
+        "title": getattr(a, "title", ""),
+        "timestamp": getattr(a, "timestamp", ""),
+        "details": getattr(a, "details", {}) or {},
+    }
+
+
+def print_summary(alerts: List[Any]) -> None:
+    """
+    Print a Rich table summary for alerts.
+    Works for both:
+      - Alert dataclass instances (legacy detectors)
+      - dict alerts (YAML engine + correlation)
+    """
+    console = Console()
+
+    table = Table(title="SOC-Forge Alerts", show_lines=False)
     table.add_column("Severity", style="bold")
-    table.add_column("Rule")
+    table.add_column("Rule", style="cyan")
     table.add_column("Title")
     table.add_column("Time (UTC)")
     table.add_column("Key Detail")
 
-    for a in alerts:
-        key = ""
-        if "ip" in a.details:
-            key = f"ip={a.details.get('ip')}"
-        elif "username" in a.details:
-            key = f"user={a.details.get('username')}"
-        table.add_row(a.severity, a.rule_id, a.title, a.timestamp, key)
+    # Sort: severity then time (optional). Keep simple: by timestamp string.
+    def _sort_key(a: Any):
+        d = _as_alert_dict(a)
+        return (str(d.get("severity", "")), str(d.get("timestamp", "")))
+
+    for a in sorted(alerts, key=_sort_key):
+        d = _as_alert_dict(a)
+        details = d.get("details", {}) or {}
+
+        key_detail = ""
+        if isinstance(details, dict):
+            if details.get("ip"):
+                key_detail = f"ip={details.get('ip')}"
+            elif details.get("host"):
+                key_detail = f"host={details.get('host')}"
+            elif details.get("username"):
+                key_detail = f"username={details.get('username')}"
+
+        table.add_row(
+            str(d.get("severity", "")),
+            str(d.get("rule_id", "")),
+            str(d.get("title", "")),
+            str(d.get("timestamp", "")),
+            key_detail,
+        )
 
     console.print(table)
 
 def main():
     ap = argparse.ArgumentParser(prog="soc-forge", description="Mini SOC detection engine (Phase 1)")
+    ap.add_argument("--version", action="version", version=f"soc-forge {__version__}")
     ap.add_argument("--input", required=True, help="Path to JSONL events file")
     ap.add_argument("--out", default=None, help="Output alerts.json path (overrides config)")
     ap.add_argument("--bf-threshold", type=int, default=None, help="Bruteforce threshold (overrides config)")
@@ -326,6 +202,9 @@ def main():
     ap.add_argument("--html", default=None, help="Output HTML report path (overrides config)")
     ap.add_argument("--format", default="jsonl", choices=["jsonl", "windows-security-csv"], help="Input format")
     ap.add_argument("--write-events", default=None, help="Write normalized events to this JSON path")
+    ap.add_argument("--rules", action="append", help="Rule file or directory (repeatable)")
+    ap.add_argument("--rules-only", action="store_true", help="Run YAML rules only (skip built-in detectors)")
+    ap.add_argument("--coverage", action="store_true", help="Print MITRE coverage for for loaded YAML rules and exit")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -343,37 +222,55 @@ def main():
         events = list(iter_windows_security_events(input_path))
     else:
         raise ValueError(f"Unsupported format: {args.format}")
+    
+        # -----------------------------
+    # Phase 4: YAML rules execution
+    # -----------------------------
+    rule_paths: list[str] = []
 
-    if args.write_events:
-        out_events = Path(args.write_events)
-        out_events.parent.mkdir(parents=True, exist_ok=True)
-        with out_events.open("w", encoding="utf-8") as f:
-            for ev in events:
-                f.write(json.dumps(ev) + "\n")
+    # Load built-in packaged rules (soc_forge/rules/*.yml)
+    rule_paths.append("soc_forge/rules")
 
-    alerts = []
-    alerts += detect_bruteforce(events, threshold=bf_threshold, window_minutes=bf_window, severity=cfg.bruteforce.severity, score=cfg.bruteforce.score)
-    alerts += detect_account_lockout(events, severity=cfg.account_lockout.severity, score=cfg.account_lockout.score)
-    alerts += detect_new_admin(events, severity=cfg.new_admin.severity, score=cfg.new_admin.score)
-    alerts += detect_new_service_installed(
-        events,
-        severity=cfg.new_service_installed.severity,
-        score=cfg.new_service_installed.score,
-        suspicious_markers=cfg.new_service_installed.suspicious_markers,
-        score_boost=cfg.new_service_installed.score_boost,
-    )
+    # Add any user-provided rule files/dirs
+    if args.rules:
+        # args.rules is a list because action="append"
+        rule_paths.extend(args.rules)
 
-    alerts += detect_scheduled_task_created(
-        events,
-        severity=cfg.scheduled_task_created.severity,
-        score=cfg.scheduled_task_created.score,
-        suspicious_markers=cfg.scheduled_task_created.suspicious_markers,
-        score_boost=cfg.scheduled_task_created.score_boost,
-    )
+    seen = set()
+    rule_paths = [p for p in rule_paths if not (p in seen or seen.add(p))]
+    
+    rules = load_rules(rule_paths)
+    yaml_alerts = run_rules(events, rules)  # list[dict] from engine.py
+    coverage_rows = mitre_coverage_by_tactic(rules, enabled_only=True)
 
-    alerts += detect_suspicious_rdp_logon(events, logon_type=cfg.suspicious_rdp_logon.logon_type, severity=cfg.suspicious_rdp_logon.severity, score=cfg.suspicious_rdp_logon.score,)
+    if args.coverage:
+        rows = mitre_coverage_by_tactic(rules, enabled_only=True)
+        print(format_coverage_table(rows))
+        return 0
+    
+    # -----------------------------
+    # Legacy detectors (Phase 3)
+    # -----------------------------
+    alerts: list[Alert] = []
+    if not args.rules_only:
+        # Keep stateful / not-yet-migrated detectors here
+        alerts += detect_bruteforce(
+            events,
+            threshold=bf_threshold,
+            window_minutes=bf_window,
+            severity=cfg.bruteforce.severity,
+            score=cfg.bruteforce.score,
+        )
 
-    alert_dicts = [asdict(a) for a in alerts]
+        # IMPORTANT: These are now migrated to YAML -> do NOT run legacy versions
+        # alerts += detect_new_service_installed(...)
+        # alerts += detect_scheduled_task_created(...)
+        # alerts += detect_suspicious_rdp_logon(...)
+
+    # Convert legacy Alert objects to dicts and merge with YAML alerts
+    alert_dicts = [asdict(a) for a in alerts] + yaml_alerts
+        
+    alert_dicts += yaml_alerts
     alert_dicts = correlate_alerts(
         alert_dicts,
         window_minutes=cfg.correlation.window_minutes,
@@ -390,6 +287,17 @@ def main():
         rdp_new_admin_severity=cfg.correlation.rdp_new_admin_severity,
         rdp_new_admin_score=cfg.correlation.rdp_new_admin_score,
         )
+    
+    corr_alerts = [a for a in alert_dicts if str(a.get("rule_id","")).startswith("SOCF_CORR")]
+    corr_counts = {}
+    for a in corr_alerts:
+        rid = a.get("rule_id", "SOCF_CORR_UNKNOWN")
+        corr_counts[rid] = corr_counts.get(rid, 0) + 1
+
+    corr_summary = {
+        "total": len(corr_alerts),
+        "by_rule": sorted(corr_counts.items(), key=lambda x: (-x[1], x[0])),
+    }
 
     out_path = Path(out_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -398,17 +306,28 @@ def main():
         json.dump(alert_dicts, f, indent=2)
 
     html_path = Path(out_html)
+    coverage_rows = mitre_coverage_by_tactic(rules, enabled_only=True)
+    print("DEBUG: total alert_dicts", len(alert_dicts))
+    print("DEBUG: corr alerts", sum(1 for a in alert_dicts if str(a.get("rule_id","")).startswith("SOCF-CORR")))
+    print("DEBUG: alerts with correlation_id", sum(1 for a in alert_dicts if a.get("correlation_id")))
+    corr_alerts = [a for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF-CORR")]
+    corr_summary = {
+        "total": len(corr_alerts),
+        "by_rule": sorted(Counter(a["rule_id"] for a in corr_alerts).items()),
+    }
     write_html_report(
         alerts=alert_dicts,
         output_path=html_path,
         input_name=str(input_path.name),
+        mitre_coverage=coverage_rows,
+        corr_summary=corr_summary,
     )
 
-    print_summary(alerts)
+    print_summary(alert_dicts)
 
     console.print(f"\nSaved alerts to: [bold]{out_path}[/bold]")
     console.print(f"Saved HTML report to: [bold]{html_path}[/bold]")
-    corr_count = sum(1 for a in alert_dicts if a.get("rule_id", "").startswith("SOCF_CORR"))
+    corr_count = sum(1 for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF_CORR"))
     console.print(f"[bold]Correlated alerts:[/bold] {corr_count}")
 if __name__ == "__main__":
     main()

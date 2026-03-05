@@ -1,0 +1,40 @@
+version: 1
+rules:
+  - id: "SOCF-004"
+    enabled: true
+    title: "New service installed"
+    severity: "high"
+    score: 80
+    mitre:
+      - tactic: "Persistence"
+        technique: "Create or Modify System Process"
+        id: "T1543"
+    match:
+      all:
+        - field: "event_id"
+          op: "eq"
+          value: 7045
+
+    emit:
+      details:
+        host: "${host}"
+        service_name: "${service_name}"
+        image_path: "${image_path}"
+        service_account: "${service_account}"
+        message: "${message}"
+        suspicious: false
+
+    score_modifiers:
+      - when:
+          any:
+            - field: "image_path"
+              op: "regex"
+              value: '(?i)\\Users\\|\\AppData\\|\\Temp\\|\\ProgramData'
+            - field: "message"
+              op: "regex"
+              value: '(?i)\\Users\\|\\AppData\\|\\Temp\\|\\ProgramData\\|powershell\.exe|cmd\.exe|rundll32\.exe|mshta\.exe|wscript\.exe'
+        add: 20
+        bump_severity: true
+        set_details:
+          suspicious: true
+        reason: "Suspicious marker in service path or message"

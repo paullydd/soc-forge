@@ -1,4 +1,4 @@
-# SOC-Forge configuration (Phase 3)
+# SOC-Forge configuration (Phase 4)
 
 input:
   timezone: "UTC"
@@ -71,3 +71,13 @@ correlation:
       enabled: true
       severity: "critical"
       score: 130
+
+score_modifiers:
+  - when: <match-tree>          
+    add: 20                     
+    bump_severity: true         
+    set_details:               
+      suspicious: true
+    reason: "string"    
+
+       

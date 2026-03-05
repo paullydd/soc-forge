@@ -1,0 +1,23 @@
+version: 1
+rules:
+  - id: "SOCF-002"
+    enabled: true
+    title: "Account lockout observed"
+    severity: "medium"
+    score: 40
+    mitre:
+      - tactic: "Credential Access"
+        technique: "Brute Force"
+        id: "T1110"
+    match:
+      all:
+        - field: "event_id"
+          op: "eq"
+          value: 4740
+
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        message: "${message}"

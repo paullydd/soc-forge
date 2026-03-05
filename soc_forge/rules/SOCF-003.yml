@@ -1,0 +1,34 @@
+version: 1
+rules:
+  - id: "SOCF-003"
+    enabled: true
+    title: "Privileged group membership change (new admin)"
+    severity: "high"
+    score: 90
+    mitre:
+      - tactic: "Persistence"
+        technique: "Account Manipulation"
+        id: "T1098"
+    match:
+      all:
+        - field: "event_id"
+          op: "eq"
+          value: 4728
+        - any:
+            - field: "group"
+              op: "eq"
+              value: "Administrators"
+            - field: "group"
+              op: "eq"
+              value: "Domain Admins"
+            - field: "group"
+              op: "eq"
+              value: "Enterprise Admins"
+
+    emit:
+      details:
+        host: "${host}"
+        actor: "${actor}"
+        username: "${username}"
+        group: "${group}"
+        message: "${message}"
