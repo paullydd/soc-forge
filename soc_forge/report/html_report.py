@@ -2,10 +2,137 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from jinja2 import Template
 
+from soc_forge import __version__
+from soc_forge.scoring.risk import score_case
+
+
+# -------------------------
+# Phase 5 helpers
+# -------------------------
+def _safe_str(x: Any) -> str:
+    if x is None:
+        return ""
+    return str(x).strip()
+
+
+def _get_details(a: Dict[str, Any]) -> Dict[str, Any]:
+    d = a.get("details")
+    return d if isinstance(d, dict) else {}
+
+
+def build_case_timeline(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Timeline is oldest -> newest.
+    """
+    rows: List[Dict[str, Any]] = []
+    for a in items:
+        rows.append(
+            {
+                "timestamp": _safe_str(a.get("timestamp")),
+                "rule_id": _safe_str(a.get("rule_id")),
+                "title": _safe_str(a.get("title")),
+                "severity": _safe_str(a.get("severity")).lower(),
+                "score": a.get("score", 0),
+            }
+        )
+
+    # Sort by timestamp asc; blanks go last
+    rows.sort(key=lambda r: (r.get("timestamp") == "", r.get("timestamp", "")))
+    return rows
+
+
+def extract_case_iocs(items: List[Dict[str, Any]]) -> Dict[str, List[str]]:
+    ips, users, hosts = set(), set(), set()
+
+    for a in items:
+        d = _get_details(a)
+        ip = _safe_str(d.get("ip"))
+        user = _safe_str(d.get("username"))
+        host = _safe_str(d.get("host"))
+
+        if ip:
+            ips.add(ip)
+        if user:
+            users.add(user)
+        if host:
+            hosts.add(host)
+
+    return {"ips": sorted(ips), "hosts": sorted(hosts), "users": sorted(users)}
+
+
+def build_analyst_summary(items: List[Dict[str, Any]]) -> str:
+    """
+    Deterministic SOC-style narrative based on what is present in the case.
+    """
+    rule_ids = {_safe_str(a.get("rule_id")) for a in items if _safe_str(a.get("rule_id"))}
+    titles = " ".join(_safe_str(a.get("title")).lower() for a in items)
+
+    has_rdp = "SOCF-006" in rule_ids or ("rdp" in titles and "logon" in titles)
+    has_schtask = "SOCF-005" in rule_ids or ("scheduled task" in titles)
+    has_new_admin = "SOCF-003" in rule_ids or ("new admin" in titles) or ("administrators" in titles and "added" in titles)
+    has_lockout = "SOCF-002" in rule_ids or ("lockout" in titles)
+    has_bruteforce = "SOCF-001" in rule_ids or ("brute" in titles and "force" in titles)
+    has_corr = any(rid.startswith("SOCF-CORR") for rid in rule_ids)
+
+    iocs = extract_case_iocs(items)
+    ctx_bits = []
+    if iocs["users"]:
+        ctx_bits.append(f"user {iocs['users'][0]}")
+    if iocs["hosts"]:
+        ctx_bits.append(f"host {iocs['hosts'][0]}")
+    if iocs["ips"]:
+        ctx_bits.append(f"ip {iocs['ips'][0]}")
+
+    ctx = f" (e.g., {', '.join(ctx_bits[:3])})" if ctx_bits else ""
+    corr_note = " A correlation rule fired, increasing confidence that these events are related." if has_corr else ""
+
+    if has_rdp and has_schtask:
+        base = (
+            "This case shows RDP interactive access followed by scheduled task activity, "
+            "which is consistent with post-compromise persistence and operator automation."
+        )
+        next_steps = (
+            "Validate whether the task is authorized, confirm the source of the RDP session, "
+            "and review endpoint telemetry around the first RDP logon time."
+        )
+    elif has_rdp and has_new_admin:
+        base = (
+            "This case shows RDP access combined with administrative account or group changes, "
+            "which suggests potential privilege escalation or account takeover."
+        )
+        next_steps = (
+            "Confirm who initiated the admin change, review authentication context for the RDP logon, "
+            "and hunt for additional persistence mechanisms."
+        )
+    elif has_bruteforce and has_lockout:
+        base = (
+            "This case indicates repeated authentication failures followed by account lockout, "
+            "consistent with an active credential attack."
+        )
+        next_steps = (
+            "Identify targeted accounts, block or rate-limit offending sources, "
+            "and review password reset and MFA coverage for impacted users."
+        )
+    elif has_schtask:
+        base = "This case includes scheduled task creation, which can indicate persistence or automation."
+        next_steps = "Confirm task legitimacy, inspect task command/arguments on the endpoint, and correlate with prior logons."
+    elif has_rdp:
+        base = "This case includes RDP logon activity that may indicate lateral movement or remote access."
+        next_steps = "Validate source IP and user, confirm business justification, and correlate with endpoint process execution."
+    else:
+        base = "This case contains multiple related alerts that warrant review and correlation."
+        next_steps = "Review the timeline progression, validate user/host context, and pivot to endpoint telemetry for confirmation."
+
+    return f"{base}{corr_note}{ctx} {next_steps}"
+
+
+# -------------------------
+# HTML Template
+# -------------------------
 HTML_TEMPLATE = Template(
     r"""<!doctype html>
 <html lang="en">
@@ -100,11 +227,14 @@ HTML_TEMPLATE = Template(
 </head>
 <body>
 <div class="container">
+{% set h = {} %}
 
   <div class="header">
     <div>
       <div class="title">SOC-Forge Report</div>
-      <div class="meta">Input: <span class="mono">{{ input_name }}</span> • Generated: {{ generated_at }}</div>
+      <div class="meta">
+        Input: <span class="mono">{{ input_name }}</span> • Generated: {{ generated_at }} • Version: {{ version }}
+      </div>
     </div>
     <div class="meta">
       Total Alerts: <strong>{{ stats.total }}</strong>
@@ -126,14 +256,65 @@ HTML_TEMPLATE = Template(
     <div class="btn" data-level="low" onclick="setFilter('low')">Low</div>
   </div>
 
-  {% if alerts|length == 0 %}
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>MITRE Coverage</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if mitre_coverage and mitre_coverage|length > 0 %}
+        <table>
+          <thead>
+            <tr><th>Tactic</th><th>Rule Count</th></tr>
+          </thead>
+          <tbody>
+            {% for tactic, count in mitre_coverage %}
+              <tr><td>{{ tactic }}</td><td>{{ count }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">No MITRE tactics found in loaded rules.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>Correlation Summary</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if corr_summary.total > 0 %}
+        <p><strong>Correlated alerts:</strong> {{ corr_summary.total }}</p>
+        <table>
+          <thead>
+            <tr><th>Correlation Rule</th><th>Count</th></tr>
+          </thead>
+          <tbody>
+            {% for rid, count in corr_summary.by_rule %}
+              <tr><td class="mono muted">{{ rid }}</td><td>{{ count }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">No correlated alerts in this run.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if stats.total == 0 %}
     <div class="card">
-      <div class="card-head"><div class="h"><div class="left"><strong>No alerts</strong></div></div></div>
+      <div class="card-head">
+        <div class="h"><div class="left"><strong>No alerts</strong></div></div>
+      </div>
       <div class="card-body muted">No alerts were produced for this input.</div>
     </div>
   {% else %}
 
-    {% if cases|length > 0 %}
+    {% if cases and cases|length > 0 %}
       <div class="card">
         <div class="card-head">
           <div class="h">
@@ -142,34 +323,85 @@ HTML_TEMPLATE = Template(
           </div>
         </div>
         <div class="card-body">
+
           {% for c in cases %}
             {% set h = c.header %}
+            {% set cr = (h.get('details', {}) or {}).get('case_risk', {}) %}
+
             <div class="card case-card" style="margin:10px 0;">
               <div class="card-head">
                 <div class="h">
                   <div class="left">
-                    <span class="badge {{ h.severity|lower }}">{{ h.severity }}</span>
-                    <strong>{{ h.title }}</strong>
+                    <span class="badge {{ h.get('severity','')|lower }}">{{ h.get('severity','') }}</span>
+                    <strong>{{ h.get('title','') }}</strong>
                   </div>
                   <div class="right">
                     <span>Case: <span class="mono">{{ c.correlation_id }}</span></span>
-                    <span>Time: <span class="mono">{{ h.timestamp }}</span></span>
-                    <span>Score: <span class="mono">{{ h.get("score",0) }}</span></span>
+                    <span>Time: <span class="mono">{{ h.get('timestamp','') }}</span></span>
+                    <span>Score: <span class="mono">{{ h.get('score',0) }}</span></span>
+                    <span>Case Score: <span class="mono">{{ cr.get('case_score', 0) }}</span></span>
+                    <span>Threat: <span class="badge {{ cr.get('case_threat_level','low') }}">{{ cr.get('case_threat_level','low') }}</span></span>
                   </div>
                 </div>
               </div>
+
               <div class="card-body">
 
-                {% if h.details and h.details.evidence %}
+                {# Phase 5: Analyst Summary #}
+                {% set analyst_summary = (h.get('details', {}) or {}).get('analyst_summary', '') %}
+                {% if analyst_summary %}
+                  <div style="margin-bottom:10px;">
+                    <div class="muted" style="font-weight:900;">Analyst Summary</div>
+                    <div style="margin-top:6px;">{{ analyst_summary }}</div>
+                  </div>
+                {% endif %}
+
+                {# Phase 5: IOCs #}
+                {% set iocs = (h.get('details', {}) or {}).get('iocs', {}) %}
+                <div style="margin-top:10px;">
+                  <div class="muted" style="font-weight:900;">Indicators (IOCs)</div>
+                  <table>
+                    <thead><tr><th>Type</th><th>Values</th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td class="muted">IPs</td>
+                        <td class="mono muted">
+                          {% set ips = iocs.get('ips', []) %}
+                          {% if ips and ips|length > 0 %}{{ ips|join(', ') }}{% else %}None observed{% endif %}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Hosts</td>
+                        <td class="mono muted">
+                          {% set hosts = iocs.get('hosts', []) %}
+                          {% if hosts and hosts|length > 0 %}{{ hosts|join(', ') }}{% else %}None observed{% endif %}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Users</td>
+                        <td class="mono muted">
+                          {% set users = iocs.get('users', []) %}
+                          {% if users and users|length > 0 %}{{ users|join(', ') }}{% else %}None observed{% endif %}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {# Phase 5: Timeline #}
+                {% set timeline = (h.get('details', {}) or {}).get('timeline', []) %}
+                {% if timeline and timeline|length > 0 %}
                   <details>
-                    <summary>Evidence (click to expand)</summary>
+                    <summary>Timeline ({{ timeline|length }} events)</summary>
                     <table>
-                      <thead><tr><th>Rule</th><th>Timestamp</th></tr></thead>
+                      <thead><tr><th>Timestamp</th><th>Rule</th><th>Title</th><th>Severity</th></tr></thead>
                       <tbody>
-                        {% for ev in h.details.evidence %}
+                        {% for t in timeline %}
                           <tr>
-                            <td class="mono muted">{{ ev.rule_id }}</td>
-                            <td class="mono muted">{{ ev.timestamp }}</td>
+                            <td class="mono muted">{{ t.get('timestamp','') }}</td>
+                            <td class="mono muted">{{ t.get('rule_id','') }}</td>
+                            <td>{{ t.get('title','') }}</td>
+                            <td><span class="badge {{ t.get('severity','')|lower }}">{{ t.get('severity','') }}</span></td>
                           </tr>
                         {% endfor %}
                       </tbody>
@@ -177,21 +409,50 @@ HTML_TEMPLATE = Template(
                   </details>
                 {% endif %}
 
+                {# Existing: Evidence #}
+                {% set evidence = (h.get('details', {}) or {}).get('evidence', []) %}
+                {% if evidence and evidence|length > 0 %}
+                  <details>
+                    <summary>Evidence (click to expand)</summary>
+                    <table>
+                      <thead><tr><th>Rule</th><th>Timestamp</th></tr></thead>
+                      <tbody>
+                        {% for ev in evidence %}
+                          <tr>
+                            <td class="mono muted">{{ ev.get('rule_id','') }}</td>
+                            <td class="mono muted">{{ ev.get('timestamp','') }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </details>
+                {% endif %}
+
+                {# Per-case scoring reasons (moved INSIDE loop so no undefined vars) #}
+                {% if cr and cr.get('reasons') %}
+                  <details>
+                    <summary>Case scoring reasons</summary>
+                    <ul>
+                      {% for r in cr.get('reasons') %}
+                        <li class="muted">{{ r }}</li>
+                      {% endfor %}
+                    </ul>
+                  </details>
+                {% endif %}
+
                 <div class="muted" style="margin-top:10px;font-weight:900;">Alerts in this case</div>
                 <table>
                   <thead>
-                    <tr>
-                      <th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th>
-                    </tr>
+                    <tr><th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th></tr>
                   </thead>
                   <tbody>
                     {% for a in c.alerts %}
-                      <tr data-sev="{{ a.severity|lower }}">
-                        <td class="mono muted">{{ a.timestamp }}</td>
-                        <td><span class="badge {{ a.severity|lower }}">{{ a.severity }}</span></td>
-                        <td class="mono muted">{{ a.rule_id }}</td>
-                        <td>{{ a.title }}</td>
-                        <td class="mono muted"><strong>{{ a.get("score",0) }}</strong></td>
+                      <tr data-sev="{{ a.get('severity','')|lower }}">
+                        <td class="mono muted">{{ a.get('timestamp','') }}</td>
+                        <td><span class="badge {{ a.get('severity','')|lower }}">{{ a.get('severity','') }}</span></td>
+                        <td class="mono muted">{{ a.get('rule_id','') }}</td>
+                        <td>{{ a.get('title','') }}</td>
+                        <td class="mono muted"><strong>{{ a.get('score',0) }}</strong></td>
                       </tr>
                     {% endfor %}
                   </tbody>
@@ -200,12 +461,13 @@ HTML_TEMPLATE = Template(
               </div>
             </div>
           {% endfor %}
+
         </div>
       </div>
     {% endif %}
 
-    {% if standalone|length > 0 %}
-      <div class="card standalone card">
+    {% if standalone and standalone|length > 0 %}
+      <div class="card standalone-card">
         <div class="card-head">
           <div class="h">
             <div class="left"><strong>Standalone Alerts</strong></div>
@@ -215,18 +477,16 @@ HTML_TEMPLATE = Template(
         <div class="card-body">
           <table>
             <thead>
-              <tr>
-                <th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th>
-              </tr>
+              <tr><th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th></tr>
             </thead>
             <tbody>
               {% for a in standalone %}
-                <tr data-sev="{{ a.severity|lower }}">
-                  <td class="mono muted">{{ a.timestamp }}</td>
-                  <td><span class="badge {{ a.severity|lower }}">{{ a.severity }}</span></td>
-                  <td class="mono muted">{{ a.rule_id }}</td>
-                  <td>{{ a.title }}</td>
-                  <td class="mono muted"><strong>{{ a.get("score",0) }}</strong></td>
+                <tr data-sev="{{ a.get('severity','')|lower }}">
+                  <td class="mono muted">{{ a.get('timestamp','') }}</td>
+                  <td><span class="badge {{ a.get('severity','')|lower }}">{{ a.get('severity','') }}</span></td>
+                  <td class="mono muted">{{ a.get('rule_id','') }}</td>
+                  <td>{{ a.get('title','') }}</td>
+                  <td class="mono muted"><strong>{{ a.get('score',0) }}</strong></td>
                 </tr>
               {% endfor %}
             </tbody>
@@ -247,14 +507,14 @@ HTML_TEMPLATE = Template(
     const btn = document.querySelector(`.btn[data-level="${level}"]`);
     if (btn) btn.classList.add("active");
 
-    // Filter rows first
+    // Filter rows
     document.querySelectorAll("tr[data-sev]").forEach(tr => {
       const sev = (tr.getAttribute("data-sev") || "").toLowerCase();
       const show = (level === "all" || sev === level);
       tr.classList.toggle("hidden", !show);
     });
 
-    // Then show/hide each case card based on whether it has any visible rows
+    // Show/hide case cards based on visible rows
     document.querySelectorAll(".case-card").forEach(card => {
       if (level === "all") {
         card.classList.remove("hidden");
@@ -264,7 +524,7 @@ HTML_TEMPLATE = Template(
       card.classList.toggle("hidden", visibleRows.length === 0);
     });
 
-    // Same logic for the standalone card
+    // Same for standalone card
     document.querySelectorAll(".standalone-card").forEach(card => {
       if (level === "all") {
         card.classList.remove("hidden");
@@ -283,7 +543,14 @@ HTML_TEMPLATE = Template(
 )
 
 
-def write_html_report(alerts: List[Dict[str, Any]], output_path: Path, input_name: str) -> None:
+def write_html_report(
+    alerts: List[Dict[str, Any]],
+    output_path: Path,
+    input_name: str,
+    mitre_coverage: List[Tuple[str, int]] | None = None,
+    corr_summary: Dict[str, Any] | None = None,
+) -> None:
+
     # Sort newest-first
     alerts_sorted = sorted(alerts, key=lambda a: a.get("timestamp", ""), reverse=True)
 
@@ -302,7 +569,9 @@ def write_html_report(alerts: List[Dict[str, Any]], output_path: Path, input_nam
         "low": sev_counts["low"],
     }
 
+    # -------------------------
     # Group into cases + standalone
+    # -------------------------
     cases_map: Dict[str, List[Dict[str, Any]]] = {}
     standalone: List[Dict[str, Any]] = []
 
@@ -313,23 +582,54 @@ def write_html_report(alerts: List[Dict[str, Any]], output_path: Path, input_nam
         else:
             standalone.append(a)
 
-    cases = []
+    # -------------------------
+    # Build cases (dedup + risk scoring + Phase 5 enrich)
+    # -------------------------
+    cases: List[Dict[str, Any]] = []
+
     for cid, items in cases_map.items():
-        items_sorted = sorted(items, key=lambda x: x.get("timestamp", ""), reverse=True)
+        seen = set()
+        dedup: List[Dict[str, Any]] = []
+        for a in items:
+            key = (a.get("rule_id"), a.get("timestamp"))
+            if key in seen:
+                continue
+            seen.add(key)
+            dedup.append(a)
+
+        # Keep case alerts newest-first for the alerts table
+        items_sorted = sorted(dedup, key=lambda x: x.get("timestamp", ""), reverse=True)
+
         header = next(
             (x for x in items_sorted if str(x.get("rule_id", "")).startswith("SOCF-CORR")),
             items_sorted[0],
         )
+
+        case_risk = score_case(items_sorted)
+
+        header = dict(header)
+        header.setdefault("details", {})
+        header["details"]["case_risk"] = case_risk
+
+        # -------------------------
+        # Phase 5 additions
+        # -------------------------
+        header["details"]["timeline"] = build_case_timeline(items_sorted)
+        header["details"]["iocs"] = extract_case_iocs(items_sorted)
+        header["details"]["analyst_summary"] = build_analyst_summary(items_sorted)
+
         cases.append({"correlation_id": cid, "header": header, "alerts": items_sorted})
 
     cases = sorted(cases, key=lambda c: c["header"].get("timestamp", ""), reverse=True)
 
     html = HTML_TEMPLATE.render(
-        alerts=alerts_sorted,
         cases=cases,
         standalone=standalone,
         stats=stats,
         input_name=input_name,
+        mitre_coverage=mitre_coverage or [],
+        corr_summary=corr_summary or {"total": 0, "by_rule": []},
+        version=__version__,
         generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
     )
 
