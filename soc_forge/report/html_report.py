@@ -129,6 +129,133 @@ def build_analyst_summary(items: List[Dict[str, Any]]) -> str:
 
     return f"{base}{corr_note}{ctx} {next_steps}"
 
+# -------------------------
+# Phase 6: Attack Chain helpers
+# -------------------------
+
+TACTIC_ORDER = [
+    "Reconnaissance",
+    "Resource Development",
+    "Initial Access",
+    "Execution",
+    "Persistence",
+    "Privilege Escalation",
+    "Defense Evasion",
+    "Credential Access",
+    "Discovery",
+    "Lateral Movement",
+    "Collection",
+    "Command and Control",
+    "Exfiltration",
+    "Impact",
+]
+
+# Keywords -> tactic (fallback if alerts don't carry MITRE tags)
+TACTIC_KEYWORDS = [
+    ("rdp", "Lateral Movement"),
+    ("remote desktop", "Lateral Movement"),
+    ("logon type 10", "Lateral Movement"),
+    ("scheduled task", "Persistence"),
+    ("new service", "Persistence"),
+    ("service installed", "Persistence"),
+    ("new admin", "Privilege Escalation"),
+    ("administrators", "Privilege Escalation"),
+    ("brute", "Credential Access"),
+    ("password spray", "Credential Access"),
+    ("lockout", "Credential Access"),
+]
+
+def _extract_tactics_from_alert(a: Dict[str, Any]) -> List[str]:
+    """
+    Try to extract MITRE tactics from alert fields.
+    Supports a few shapes, then falls back to keyword inference from title.
+    """
+    tactics: List[str] = []
+
+    # 1) If you have `a["mitre"]` as list of strings (tactics or techniques)
+    m = a.get("mitre")
+    if isinstance(m, list):
+        for x in m:
+            s = _safe_str(x)
+            # If it's already one of our tactic names, use it
+            if s in TACTIC_ORDER:
+                tactics.append(s)
+
+    # 2) Some rules store mitre metadata in details (optional)
+    d = _get_details(a)
+    dm = d.get("mitre")
+    if isinstance(dm, list):
+        for x in dm:
+            s = _safe_str(x)
+            if s in TACTIC_ORDER:
+                tactics.append(s)
+
+    # 3) Fallback: infer from title text
+    if not tactics:
+        title = _safe_str(a.get("title")).lower()
+        for kw, tact in TACTIC_KEYWORDS:
+            if kw in title:
+                tactics.append(tact)
+
+    # Dedup while preserving order
+    out: List[str] = []
+    seen = set()
+    for t in tactics:
+        if t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
+
+
+def build_attack_chain(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Build an ordered list of tactics (attack chain) + per-tactic contributing rules.
+    Ordering logic:
+      - determine first-seen timestamp for each tactic in the case
+      - sort by first-seen time, then by MITRE tactic order
+    """
+    first_seen: Dict[str, str] = {}
+    contrib: Dict[str, List[Dict[str, str]]] = {}  # tactic -> [{"rule_id":..., "title":..., "timestamp":...}]
+
+    for a in items:
+        ts = _safe_str(a.get("timestamp"))
+        rid = _safe_str(a.get("rule_id"))
+        title = _safe_str(a.get("title"))
+        for tact in _extract_tactics_from_alert(a):
+            if tact not in first_seen or (ts and ts < first_seen[tact]):
+                first_seen[tact] = ts or first_seen.get(tact, "")
+            contrib.setdefault(tact, []).append({"rule_id": rid, "title": title, "timestamp": ts})
+
+    # Nothing found
+    if not first_seen:
+        return {"tactics": [], "by_tactic": {}}
+
+    def tactic_rank(t: str) -> int:
+        try:
+            return TACTIC_ORDER.index(t)
+        except ValueError:
+            return 999
+
+    # Sort tactics by first-seen timestamp, then by MITRE order for stability
+    tactics_sorted = sorted(first_seen.keys(), key=lambda t: (first_seen.get(t, "") == "", first_seen.get(t, ""), tactic_rank(t)))
+
+    # Dedup contrib rows per tactic (rule_id, timestamp)
+    by_tactic: Dict[str, Any] = {}
+    for t in tactics_sorted:
+        seen = set()
+        rows = []
+        for r in contrib.get(t, []):
+            key = (r.get("rule_id", ""), r.get("timestamp", ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(r)
+        # sort rows oldest->newest
+        rows.sort(key=lambda x: (x.get("timestamp", "") == "", x.get("timestamp", "")))
+        by_tactic[t] = {"first_seen": first_seen.get(t, ""), "events": rows}
+
+    return {"tactics": tactics_sorted, "by_tactic": by_tactic}
+
 
 # -------------------------
 # HTML Template
@@ -185,6 +312,18 @@ HTML_TEMPLATE = Template(
       color:var(--text); font-size:12px; font-weight:800;
     }
     .btn.active{outline:2px solid rgba(255,255,255,0.18);}
+
+    .chain { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; align-items:center; }
+    .chain .node {
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.04);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:900;
+      color:var(--text);
+    }
+    .chain .arrow { color:var(--muted); font-weight:900; }
 
     .card{
       margin-top:12px;
@@ -346,6 +485,53 @@ HTML_TEMPLATE = Template(
               </div>
 
               <div class="card-body">
+                {# --- Phase 6: Attack Chain --- #}
+                {% set chain = (h.get('details', {}) or {}).get('attack_chain', {}) %}
+                {% set tactics = chain.get('tactics', []) %}
+                {% if tactics and tactics|length > 0 %}
+                  <div style="margin-top:10px;">
+                    <div class="muted" style="font-weight:900;">Attack Chain</div>
+
+                    <div class="chain">
+                      {% for t in tactics %}
+                        <span class="node">{{ t }}</span>
+                      {% if not loop.last %}<span class="arrow">→</span>{% endif %}
+                      {% endfor %}
+                    </div>
+
+                    <details>
+                      <summary>Why these stages?</summary>
+                      <table>
+                        <thead><tr><th>Tactic</th><th>First Seen</th><th>Evidence</th></tr></thead>
+                        <tbody>
+                          {% for t in tactics %}
+                            {% set bt = (chain.get('by_tactic', {}) or {}).get(t, {}) %}
+                            <tr>
+                              <td class="muted"><strong>{{ t }}</strong></td>
+                              <td class="mono muted">{{ bt.get('first_seen','') }}</td>
+                              <td>
+                                {% set events = bt.get('events', []) %}
+                                {% if events and events|length > 0 %}
+                                  <ul style="margin:0; padding-left:18px;">
+                                    {% for e in events %}
+                                      <li class="muted">
+                                        <span class="mono">{{ e.get('timestamp','') }}</span> —
+                                        <span class="mono">{{ e.get('rule_id','') }}</span> —
+                                        {{ e.get('title','') }}
+                                      </li>
+                                     {% endfor %}
+                                    </ul>
+                                  {% else %}
+                                    <span class="muted">No evidence rows</span>
+                                  {% endif %}
+                                </td>
+                              </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </details>
+                    </div>
+                {% endif %}
 
                 {# Phase 5: Analyst Summary #}
                 {% set analyst_summary = (h.get('details', {}) or {}).get('analyst_summary', '') %}
@@ -617,6 +803,7 @@ def write_html_report(
         header["details"]["timeline"] = build_case_timeline(items_sorted)
         header["details"]["iocs"] = extract_case_iocs(items_sorted)
         header["details"]["analyst_summary"] = build_analyst_summary(items_sorted)
+        header["details"]["attack_chain"] = build_attack_chain(items_sorted)
 
         cases.append({"correlation_id": cid, "header": header, "alerts": items_sorted})
 

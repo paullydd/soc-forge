@@ -1,57 +1,261 @@
 # SOC-Forge
 
-Mini SOC detection engine (Phase 1).
+SOC-Forge is a lightweight **Security Operations Center (SOC) detection engine** written in Python.  
+It processes security events, applies detection rules, correlates related alerts into investigation cases, and generates an interactive HTML report that helps analysts understand potential attack activity.
 
-## Run (dev)
-python3 soc_forge/cli.py --input sample_events.jsonl
+The goal of this project is to demonstrate how a **modern detection pipeline** works in real SOC environments.
 
-## Install editable + run as CLI
-pip install -e .
-soc-forge --input sample_events.jsonl
+---
+
+# Features
+
+SOC-Forge currently includes:
+
+## Event Processing
+- Ingests structured security events
+- Normalizes event data for analysis
+
+## Detection Engine
+- YAML-based detection rules
+- MITRE ATT&CK tactic mapping
+- Modular rule engine
+
+## Correlation
+- Groups related alerts into investigation **cases**
+- Detects multi-step attack behavior
+
+## Case Analysis
+- Timeline reconstruction
+- Indicator extraction (IPs, hosts, users)
+- Risk scoring per case
+- Analyst-style investigation summary
+
+## Attack Chain Visualization
+- Reconstructs attacker activity stages
+- Maps events to MITRE ATT&CK tactics
+- Displays attack progression inside the report
+
+## Reporting
+
+SOC-Forge generates a detailed **HTML investigation report** including:
+
+- Severity statistics
+- MITRE coverage
+- Correlation summary
+- Investigation cases
+- Indicators of compromise (IOCs)
+- Attack timeline
+- Attack chain reconstruction
+
+## Testing & CI
+
+- Automated tests with **pytest**
+- GitHub Actions CI pipeline
+- Multi-version testing (Python 3.10, 3.11, 3.12)
+
+---
+
+# Project Architecture
+
+SOC-Forge follows a simplified SOC detection pipeline:
+
+Below is the same README formatted exactly for a README.md file so you can copy-paste it directly into your repo.
 
 # SOC-Forge
 
-SOC-Forge is a lightweight detection and correlation engine for Windows Security logs.
+SOC-Forge is a lightweight **Security Operations Center (SOC) detection engine** written in Python.  
+It processes security events, applies detection rules, correlates related alerts into investigation cases, and generates an interactive HTML report that helps analysts understand potential attack activity.
 
-It simulates core SOC detection logic including:
-- Signature-based detections
-- Heuristic scoring
-- Multi-stage attack correlation
-- MITRE ATT&CK mapping
-- Case-based HTML reporting
+The goal of this project is to demonstrate how a **modern detection pipeline** works in real SOC environments.
 
 ---
 
-## 🚀 Current Version
+# Features
 
-**v0.3.0 – Phase 3: Detection Depth Complete**
+SOC-Forge currently includes:
 
-### Detection Coverage
-- SOCF-001: Brute Force (4625)
-- SOCF-002: Account Lockout (4740)
-- SOCF-003: Privileged Group Change (4728/4732)
-- SOCF-004: New Service Installed (7045)
-- SOCF-005: Scheduled Task Created (4698)
-- SOCF-006: Suspicious RDP Logon (4624 LogonType 10)
+## Event Processing
+- Ingests structured security events
+- Normalizes event data for analysis
 
-### Correlation Engine
-- SOCF-CORR-001: Brute Force → Lockout
-- SOCF-CORR-002: RDP → Scheduled Task
-- SOCF-CORR-003: RDP → Privileged Group Change
+## Detection Engine
+- YAML-based detection rules
+- MITRE ATT&CK tactic mapping
+- Modular rule engine
 
-### Features
-- Config-driven detection logic (YAML)
-- Heuristic scoring with severity escalation
-- Windows Security CSV ingestion
-- JSONL ingestion
-- Deterministic correlation IDs
-- HTML case-based reporting
-- Pytest test suite
-- GitHub Actions CI
+## Correlation
+- Groups related alerts into investigation **cases**
+- Detects multi-step attack behavior
+
+## Case Analysis
+- Timeline reconstruction
+- Indicator extraction (IPs, hosts, users)
+- Risk scoring per case
+- Analyst-style investigation summary
+
+## Attack Chain Visualization
+- Reconstructs attacker activity stages
+- Maps events to MITRE ATT&CK tactics
+- Displays attack progression inside the report
+
+## Reporting
+
+SOC-Forge generates a detailed **HTML investigation report** including:
+
+- Severity statistics
+- MITRE coverage
+- Correlation summary
+- Investigation cases
+- Indicators of compromise (IOCs)
+- Attack timeline
+- Attack chain reconstruction
+
+## Testing & CI
+
+- Automated tests with **pytest**
+- GitHub Actions CI pipeline
+- Multi-version testing (Python 3.10, 3.11, 3.12)
 
 ---
 
-## 📦 Example Usage
+# Project Architecture
+
+SOC-Forge follows a simplified SOC detection pipeline:
+
+
+Security Events
+↓
+Event Normalization
+↓
+Detection Rules (YAML)
+↓
+Alert Generation
+↓
+Correlation Engine
+↓
+Case Grouping
+↓
+Risk Scoring
+↓
+IOC Extraction
+↓
+Attack Chain Reconstruction
+↓
+HTML Investigation Report
+---
+
+# Example Attack Chain
+
+SOC-Forge can reconstruct multi-stage attack behavior.
+
+Example investigation:
+Credential Access → Lateral Movement → Persistence
+
+
+Detected events may include:
+
+
+Account Lockout
+RDP Logon
+Scheduled Task Created
+
+These events are grouped into a single investigation case with a timeline and evidence.
+
+---
+
+# Installation
+
+Clone the repository:
 
 ```bash
-soc-forge --input sample_events.jsonl --format jsonl
+git clone https://github.com/YOUR_USERNAME/soc-forge.git
+cd soc-forge
+
+Install the project:
+
+pip install -e .
+
+Usage
+
+Run SOC-Forge against a sample event file:
+
+soc-forge --input sample_events.jsonl
+
+Output files will be generated in the out/ directory:
+
+out/
+ ├── alerts.json
+ ├── normalized_events.jsonl
+ └── report.html
+
+Open the HTML report in a browser to view the investigation results.
+
+Running Tests
+
+SOC-Forge includes a full test suite.
+
+Run all tests with:
+
+pytest -q
+
+Tests cover:
+
+Detection rules
+
+Correlation logic
+
+Risk scoring
+
+MITRE mapping
+
+Case enrichment
+
+Attack chain reconstruction
+
+Example Repository Structure
+soc-forge
+│
+├── soc_forge
+│   ├── cli.py
+│   ├── config.py
+│   ├── models.py
+│   ├── ingest
+│   ├── rules
+│   ├── correlate
+│   ├── scoring
+│   └── report
+│
+├── tests
+├── sample_events.jsonl
+├── config.yml
+├── pyproject.toml
+└── README.md
+MITRE ATT&CK Alignment
+
+SOC-Forge detection rules can map alerts to MITRE ATT&CK tactics, enabling investigation views such as:
+
+Initial Access
+
+Credential Access
+
+Lateral Movement
+
+Persistence
+
+Privilege Escalation
+
+The engine reconstructs attack progression across these tactics.
+
+Project Goals
+
+This project was built to explore and demonstrate:
+
+SOC detection engineering
+
+SIEM-style correlation pipelines
+
+MITRE ATT&CK mapping
+
+Incident investigation workflows
+
+Python-based security tooling
