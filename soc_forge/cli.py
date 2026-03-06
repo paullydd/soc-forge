@@ -14,6 +14,8 @@ from soc_forge.ingest.windows_security_csv import iter_windows_security_events
 from soc_forge.rules.engine import load_rules, run_rules
 from soc_forge.models import Alert
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
+from soc_forge.report.html_report import write_html_report, build_cases
+from soc_forge.export.cases_export import export_cases_json
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict, List
 
@@ -145,7 +147,6 @@ def _as_alert_dict(a: Any) -> Dict[str, Any]:
         "timestamp": getattr(a, "timestamp", ""),
         "details": getattr(a, "details", {}) or {},
     }
-
 
 def print_summary(alerts: List[Any]) -> None:
     """
@@ -315,6 +316,10 @@ def main():
         "total": len(corr_alerts),
         "by_rule": sorted(Counter(a["rule_id"] for a in corr_alerts).items()),
     }
+
+    cases = build_cases(alert_dicts, str(input_path))
+    export_cases_json(cases, Path(html_path).parent)
+
     write_html_report(
         alerts=alert_dicts,
         output_path=html_path,

@@ -3,11 +3,51 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+from collections import defaultdict
 
 from jinja2 import Template
 
 from soc_forge import __version__
 from soc_forge.scoring.risk import score_case
+from soc_forge.cases.recommended_actions import build_recommended_actions
+
+# -------------------------
+# Phase 7 Helpers
+# -------------------------
+def build_evidence_fields(alert: dict) -> list[tuple[str, str]]:
+    """
+    Return a compact list of high-value fields for display in the Evidence section.
+    """
+    details = alert.get("details", {}) or {}
+    event = alert.get("event", {}) or {}
+
+    def pick(*keys):
+        for k in keys:
+            if k in alert and alert.get(k) not in (None, "", []):
+                return str(alert.get(k))
+            if k in details and details.get(k) not in (None, "", []):
+                return str(details.get(k))
+            if k in event and event.get(k) not in (None, "", []):
+                return str(event.get(k))
+        return None
+
+    fields = []
+
+    candidates = [
+        ("event_id", pick("event_id")),
+        ("host", pick("host", "computer", "computer_name")),
+        ("username", pick("username", "user", "target_user", "account_name")),
+        ("ip", pick("src_ip", "ip", "source_ip")),
+        ("task_name", pick("task_name")),
+        ("service_name", pick("service_name")),
+        ("command", pick("command", "image_path", "process_command_line")),
+    ]
+
+    for label, value in candidates:
+        if value:
+            fields.append((label, value))
+
+    return fields[:6]
 
 
 # -------------------------
@@ -325,6 +365,66 @@ HTML_TEMPLATE = Template(
     }
     .chain .arrow { color:var(--muted); font-weight:900; }
 
+    .evidence-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .evidence-item {
+      border: 1px solid #2a2f3a;
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .evidence-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .evidence-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .kv {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid #2a2f3a;
+      font-size: 0.9rem;
+    }
+
+    .k {
+      font-weight: 600;
+      opacity: 0.85;
+    }
+
+    .v {
+      opacity: 0.95;
+    }
+
+    .checklist {
+      list-style: none;
+      padding-left: 0;
+      margin: 0.25rem 0 0;
+    }
+    .checklist li {
+      margin: 0.35rem 0;
+    }
+    .checklist input[type="checkbox"] {
+      margin-right: 0.5rem;
+      transform: translateY(1px);
+    }
+
     .card{
       margin-top:12px;
       border:1px solid var(--border);
@@ -467,6 +567,23 @@ HTML_TEMPLATE = Template(
             {% set h = c.header %}
             {% set cr = (h.get('details', {}) or {}).get('case_risk', {}) %}
 
+            {% set actions = (h.get('details', {}) or {}).get('recommended_actions', []) %}
+            {% if actions %}
+              <div class="case-section">
+                <h3>Recommended Actions</h3>
+                <ul class="checklist">
+                  {% for a in actions %}
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>{{ a }}</span>
+                      </label>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
+
             <div class="card case-card" style="margin:10px 0;">
               <div class="card-head">
                 <div class="h">
@@ -596,22 +713,33 @@ HTML_TEMPLATE = Template(
                 {% endif %}
 
                 {# Existing: Evidence #}
-                {% set evidence = (h.get('details', {}) or {}).get('evidence', []) %}
-                {% if evidence and evidence|length > 0 %}
-                  <details>
-                    <summary>Evidence (click to expand)</summary>
-                    <table>
-                      <thead><tr><th>Rule</th><th>Timestamp</th></tr></thead>
-                      <tbody>
-                        {% for ev in evidence %}
-                          <tr>
-                            <td class="mono muted">{{ ev.get('rule_id','') }}</td>
-                            <td class="mono muted">{{ ev.get('timestamp','') }}</td>
-                          </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                  </details>
+                {% if c.evidence %}
+                  <div class="case-section">
+                    <h3>Evidence</h3>
+                    <div class="evidence-list">
+                      {% for ev in c.evidence %}
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">{{ ev.timestamp }}</span>
+                            <span class="badge {{ ev.severity|lower }}">{{ ev.severity }}</span>
+                            <strong>{{ ev.rule_id }}</strong>
+                            <span>{{ ev.title }}</span>
+                          </div>
+
+                          {% if ev.fields %}
+                            <div class="evidence-fields">
+                              {% for label, value in ev.fields %}
+                                <span class="kv">
+                                  <span class="k">{{ label }}</span>
+                                  <span class="v mono">{{ value }}</span>
+                                </span>
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
                 {% endif %}
 
                 {# Per-case scoring reasons (moved INSIDE loop so no undefined vars) #}
@@ -728,6 +856,68 @@ HTML_TEMPLATE = Template(
 </html>"""
 )
 
+def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str, Any]]:
+    """
+    Build case objects that can be used by:
+      - HTML report rendering
+      - JSON export (Phase 7B)
+    """
+    # Group by correlation_id; if none, treat as uncorrelated bucket
+    grouped = defaultdict(list)
+    for a in alerts:
+        cid = a.get("correlation_id") or "UNCORRELATED"
+        grouped[cid].append(a)
+
+    cases: List[Dict[str, Any]] = []
+
+    for correlation_id, items in grouped.items():
+        items_sorted = sorted(items, key=lambda x: str(x.get("timestamp", "")))
+
+        # Minimal header (use whatever you already show in the report)
+        header = {
+            "correlation_id": correlation_id,
+            "input_name": input_name,
+            "details": {},
+        }
+
+        header["details"]["recommended_actions"] = build_recommended_actions(items_sorted)
+
+        # Minimal timeline (again: keep simple now)
+        timeline = [
+            {
+                "timestamp": it.get("timestamp"),
+                "rule_id": it.get("rule_id"),
+                "title": it.get("title"),
+                "severity": it.get("severity"),
+            }
+            for it in items_sorted
+        ]
+
+        evidence = []
+        for it in items_sorted:
+            evidence.append(
+                {
+                    "timestamp": it.get("timestamp", ""),
+                    "rule_id": it.get("rule_id", ""),
+                    "title": it.get("title"< ""),
+                    "severity": it.get("severity", ""),
+                    "fields": build_evidence_fields(it),
+                }
+            )
+
+        cases.append(
+            {
+                "correlation_id": correlation_id,
+                "header": header,
+                "timeline": timeline,
+                "evidence": evidence,
+                "alerts": items_sorted,  
+            }
+        )
+
+    # Keep deterministic order
+    cases.sort(key=lambda c: c["correlation_id"])
+    return cases
 
 def write_html_report(
     alerts: List[Dict[str, Any]],
@@ -739,6 +929,8 @@ def write_html_report(
 
     # Sort newest-first
     alerts_sorted = sorted(alerts, key=lambda a: a.get("timestamp", ""), reverse=True)
+
+    cases = build_cases(alerts, input_name)
 
     # Severity stats
     sev_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
@@ -804,6 +996,7 @@ def write_html_report(
         header["details"]["iocs"] = extract_case_iocs(items_sorted)
         header["details"]["analyst_summary"] = build_analyst_summary(items_sorted)
         header["details"]["attack_chain"] = build_attack_chain(items_sorted)
+        header["details"]["recommended_actions"] = build_recommended_actions(items_sorted)
 
         cases.append({"correlation_id": cid, "header": header, "alerts": items_sorted})
 
