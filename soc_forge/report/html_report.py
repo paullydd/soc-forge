@@ -12,6 +12,92 @@ from soc_forge.scoring.risk import score_case
 from soc_forge.cases.recommended_actions import build_recommended_actions
 
 # -------------------------
+# Phase 8 helpers
+# -------------------------
+
+def extract_mitre_ids(alert: dict) -> list[str]:
+    """
+    Extract MITRE technique/sub-technique IDs from an alert.
+    Supports common formats like:
+      [{"tactic": "...", "technique": "T1110"}]
+      [{"technique_id": "T1110"}]
+      ["T1110"]
+    """
+    mitre = alert.get("mitre", []) or []
+    ids: list[str] = []
+
+    for m in mitre:
+        if isinstance(m, str):
+            if m.startswith("T"):
+                ids.append(m)
+        elif isinstance(m, dict):
+            tech = m.get("technique") or m.get("technique_id") or m.get("id")
+            if tech:
+                ids.append(str(tech))
+
+    # de-dupe, preserve order
+    seen = set()
+    out = []
+    for x in ids:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
+
+def normalize_attack_step(alert: dict) -> str:
+    rule_id = str(alert.get("rule_id", ""))
+    title = str(alert.get("title", "")).lower()
+
+    if rule_id in {"SOCF-001", "SOCF-002"} or "bruteforce" in title or "brute force" in title:
+        return "Brute Force"
+
+    if rule_id in {"SOCF-006", "SOCF-007"} or "rdp" in title:
+        return "Remote Access"
+
+    if rule_id in {"SOCF-010", "SOCF-011"} or "scheduled task" in title:
+        return "Persistence"
+
+    if rule_id in {"SOCF-020", "SOCF-021"} or "service" in title:
+        return "Service Execution"
+
+    if "admin" in title or "privilege" in title:
+        return "Privilege Escalation"
+
+    return str(alert.get("title", "")).strip() or rule_id or "Unknown Activity"
+
+def build_attack_flow(items_sorted: list[dict]) -> list[dict]:
+    steps = []
+
+    for it in items_sorted:
+        step_label = normalize_attack_step(it)
+        ts = str(it.get("timestamp", ""))
+        severity = str(it.get("severity", "")).lower()
+        rule_id = str(it.get("rule_id", ""))
+        mitre_ids = extract_mitre_ids(it)
+
+        # collapse adjacent duplicate labels
+        if steps and steps[-1]["label"] == step_label:
+            # merge MITRE IDs into the previous step if needed
+            prev_ids = steps[-1].get("mitre_ids", [])
+            for mid in mitre_ids:
+                if mid not in prev_ids:
+                    prev_ids.append(mid)
+            steps[-1]["mitre_ids"] = prev_ids
+            continue
+
+        steps.append(
+            {
+                "rule_id": rule_id,
+                "label": step_label,
+                "timestamp": ts,
+                "severity": severity,
+                "mitre_ids": mitre_ids,
+            }
+        )
+
+    return steps
+
+# -------------------------
 # Phase 7 Helpers
 # -------------------------
 def build_evidence_fields(alert: dict) -> list[tuple[str, str]]:
@@ -205,45 +291,56 @@ TACTIC_KEYWORDS = [
     ("lockout", "Credential Access"),
 ]
 
-def _extract_tactics_from_alert(a: Dict[str, Any]) -> List[str]:
+def _extract_tactic_labels_from_alert(a: Dict[str, Any]) -> List[str]:
     """
-    Try to extract MITRE tactics from alert fields.
-    Supports a few shapes, then falls back to keyword inference from title.
+    Extract MITRE tactic labels for display in the attack chain.
+    Preferred output:
+      Persistence (T1053)
+      Lateral Movement (T1021)
+
+    Falls back to tactic-only labels if technique IDs are not present.
     """
-    tactics: List[str] = []
+    labels: List[str] = []
 
-    # 1) If you have `a["mitre"]` as list of strings (tactics or techniques)
-    m = a.get("mitre")
-    if isinstance(m, list):
-        for x in m:
-            s = _safe_str(x)
-            # If it's already one of our tactic names, use it
-            if s in TACTIC_ORDER:
-                tactics.append(s)
+    def add_label(tactic: str, technique_id: str | None = None) -> None:
+        if not tactic:
+            return
+        if technique_id:
+            labels.append(f"{tactic} ({technique_id})")
+        else:
+            labels.append(tactic)
 
-    # 2) Some rules store mitre metadata in details (optional)
+    def handle_mitre_list(mitre_list: Any) -> None:
+        if not isinstance(mitre_list, list):
+            return
+        for x in mitre_list:
+            if isinstance(x, dict):
+                tactic = _safe_str(x.get("tactic"))
+                technique_id = _safe_str(x.get("id") or x.get("technique_id") or x.get("technique"))
+                if tactic in TACTIC_ORDER:
+                    add_label(tactic, technique_id or None)
+            else:
+                s = _safe_str(x)
+                if s in TACTIC_ORDER:
+                    add_label(s)
+
+    handle_mitre_list(a.get("mitre"))
+
     d = _get_details(a)
-    dm = d.get("mitre")
-    if isinstance(dm, list):
-        for x in dm:
-            s = _safe_str(x)
-            if s in TACTIC_ORDER:
-                tactics.append(s)
+    handle_mitre_list(d.get("mitre"))
 
-    # 3) Fallback: infer from title text
-    if not tactics:
+    if not labels:
         title = _safe_str(a.get("title")).lower()
         for kw, tact in TACTIC_KEYWORDS:
             if kw in title:
-                tactics.append(tact)
+                add_label(tact)
 
-    # Dedup while preserving order
     out: List[str] = []
     seen = set()
-    for t in tactics:
-        if t not in seen:
-            seen.add(t)
-            out.append(t)
+    for label in labels:
+        if label not in seen:
+            seen.add(label)
+            out.append(label)
     return out
 
 
@@ -261,7 +358,7 @@ def build_attack_chain(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         ts = _safe_str(a.get("timestamp"))
         rid = _safe_str(a.get("rule_id"))
         title = _safe_str(a.get("title"))
-        for tact in _extract_tactics_from_alert(a):
+        for tact in _extract_tactic_labels_from_alert(a):
             if tact not in first_seen or (ts and ts < first_seen[tact]):
                 first_seen[tact] = ts or first_seen.get(tact, "")
             contrib.setdefault(tact, []).append({"rule_id": rid, "title": title, "timestamp": ts})
@@ -271,10 +368,11 @@ def build_attack_chain(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         return {"tactics": [], "by_tactic": {}}
 
     def tactic_rank(t: str) -> int:
-        try:
-            return TACTIC_ORDER.index(t)
-        except ValueError:
-            return 999
+      base = t.split(" (", 1)[0]
+      try:
+        return TACTIC_ORDER.index(base)
+      except ValueError:
+        return 999
 
     # Sort tactics by first-seen timestamp, then by MITRE order for stability
     tactics_sorted = sorted(first_seen.keys(), key=lambda t: (first_seen.get(t, "") == "", first_seen.get(t, ""), tactic_rank(t)))
@@ -371,6 +469,41 @@ HTML_TEMPLATE = Template(
       gap: 10px;
     }
 
+    .attack-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .flow-step {
+      min-width: 180px;
+      max-width: 240px;
+      padding: 10px 12px;
+      border: 1px solid #2a2f3a;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .flow-label {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .flow-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.9rem;
+    }
+
+    .flow-arrow {
+      font-size: 1.4rem;
+      font-weight: 700;
+      opacity: 0.7;
+    }
+
     .evidence-item {
       border: 1px solid #2a2f3a;
       border-radius: 10px;
@@ -423,6 +556,22 @@ HTML_TEMPLATE = Template(
     .checklist input[type="checkbox"] {
       margin-right: 0.5rem;
       transform: translateY(1px);
+    }
+
+    .flow-mitre {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .mitre-tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #355c7d;
+      background: rgba(53, 92, 125, 0.18);
+      font-size: 0.82rem;
     }
 
     .card{
@@ -650,6 +799,36 @@ HTML_TEMPLATE = Template(
                     </div>
                 {% endif %}
 
+                {% if c.attack_flow %}
+                  <div class="case-section">
+                    <h3>Attack Flow</h3>
+                    <div class="attack-flow">
+                      {% for step in c.attack_flow %}
+                        <div class="flow-step">
+                          <div class="flow-label">{{ step.label }}</div>
+
+                          {% if step.mitre_ids %}
+                            <div class="flow-mitre">
+                              {% for mid in step.mitre_ids %}
+                                <span class="mitre-tag mono">{{ mid }}</span>
+                              {% endfor %}
+                            </div>
+                          {% endif %}
+
+                          <div class="flow-meta">
+                            <span class="badge {{ step.severity }}">{{ step.severity }}</span>
+                            <span class="mono">{{ step.timestamp }}</span>
+                          </div>
+                        </div>
+
+                        {% if not loop.last %}
+                          <div class="flow-arrow">→</div>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endif %}
+
                 {# Phase 5: Analyst Summary #}
                 {% set analyst_summary = (h.get('details', {}) or {}).get('analyst_summary', '') %}
                 {% if analyst_summary %}
@@ -872,6 +1051,7 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
 
     for correlation_id, items in grouped.items():
         items_sorted = sorted(items, key=lambda x: str(x.get("timestamp", "")))
+        attack_flow = build_attack_flow(items_sorted)
 
         # Minimal header (use whatever you already show in the report)
         header = {
@@ -910,6 +1090,7 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
                 "correlation_id": correlation_id,
                 "header": header,
                 "timeline": timeline,
+                "attack_flow": attack_flow,
                 "evidence": evidence,
                 "alerts": items_sorted,  
             }
