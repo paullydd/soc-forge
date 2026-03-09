@@ -12,6 +12,166 @@ from soc_forge.scoring.risk import score_case
 from soc_forge.cases.recommended_actions import build_recommended_actions
 
 # -------------------------
+# Phase 9 Helpers
+# -------------------------
+def build_case_risk_fallback(items_sorted: List[Dict[str, Any]]) -> Dict[str, Any]:
+    sev_order = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+
+    case_score = 0
+    max_sev = "low"
+    reasons = []
+
+    for it in items_sorted:
+        case_score += int(it.get("score", 0) or 0)
+        sev = str(it.get("severity", "low")).lower()
+        if sev_order.get(sev, 0) > sev_order.get(max_sev, 0):
+            max_sev = sev
+
+    if any("CORR" in str(it.get("rule_id", "")) for it in items_sorted):
+        reasons.append("Correlation present")
+
+    tactic_labels = []
+    for it in items_sorted:
+        for t in _extract_tactic_labels_from_alert(it):
+            base = t.split(" (", 1)[0]
+            if base not in tactic_labels:
+                tactic_labels.append(base)
+
+    if len(tactic_labels) >= 2:
+        reasons.append(f"Multi-tactic activity: {', '.join(tactic_labels)}")
+
+    return {
+        "case_score": case_score,
+        "case_threat_level": max_sev,
+        "reasons": reasons,
+    }
+
+def describe_tactic_label(label: str) -> str:
+    base = label.split(" (", 1)[0]
+
+    descriptions = {
+        "Initial Access": "The activity suggests an initial foothold or attempted entry into the environment.",
+        "Execution": "The activity indicates code or commands were run on a target system.",
+        "Persistence": "The activity suggests a mechanism intended to survive reboots or maintain access.",
+        "Privilege Escalation": "The activity may indicate an attempt to gain elevated rights or broader permissions.",
+        "Defense Evasion": "The activity may reflect attempts to avoid detection or bypass protections.",
+        "Credential Access": "The activity suggests password guessing, credential theft, or account abuse.",
+        "Discovery": "The activity indicates reconnaissance or environment awareness gathering.",
+        "Lateral Movement": "The activity suggests movement from one host or account context to another.",
+        "Collection": "The activity may indicate gathering data of interest from systems or users.",
+        "Exfiltration": "The activity suggests data may be leaving the environment.",
+        "Impact": "The activity may indicate disruption, destruction, or operational impairment.",
+        "Command and Control": "The activity may reflect remote control or external operator communication.",
+    }
+
+    return descriptions.get(base, "This stage reflects attacker behavior associated with this case activity.")
+
+def build_attack_graph(items_sorted: list[dict]) -> dict:
+    nodes = []
+    edges = []
+    seen_nodes = set()
+    seen_edges = set()
+
+    def add_node(node_id: str, label: str, node_type: str) -> None:
+        key = (node_id, node_type)
+        if key in seen_nodes:
+            return
+        seen_nodes.add(key)
+        nodes.append({"id": node_id, "label": label, "type": node_type})
+
+    def add_edge(source: str, target: str) -> None:
+        key = (source, target)
+        if key in seen_edges:
+            return
+        seen_edges.add(key)
+        edges.append({"source": source, "target": target})
+
+    for it in items_sorted:
+        details = it.get("details", {}) or {}
+        event = it.get("event", {}) or {}
+
+        ip = (
+            it.get("src_ip")
+            or it.get("ip")
+            or details.get("src_ip")
+            or details.get("ip")
+            or event.get("src_ip")
+            or event.get("ip")
+        )
+        user = (
+            it.get("username")
+            or details.get("username")
+            or event.get("username")
+            or event.get("target_user")
+            or event.get("account_name")
+        )
+        host = (
+            it.get("host")
+            or details.get("host")
+            or event.get("host")
+            or event.get("computer")
+            or event.get("computer_name")
+        )
+
+        action = normalize_attack_step(it)
+        if not action:
+            action = str(it.get("title", "")).strip() or str(it.get("rule_id", "")).strip() or "Unknown Activity"
+
+        action_id = f"action:{action}"
+        add_node(action_id, action, "action")
+
+        ip_id = None
+        user_id = None
+        host_id = None
+
+        if ip:
+            ip_id = f"ip:{ip}"
+            add_node(ip_id, str(ip), "ip")
+
+        if user:
+            user_id = f"user:{user}"
+            add_node(user_id, str(user), "user")
+
+        if host:
+            host_id = f"host:{host}"
+            add_node(host_id, str(host), "host")
+
+        if ip_id and user_id:
+            add_edge(ip_id, user_id)
+
+        if user_id and host_id:
+            add_edge(user_id, host_id)
+
+        if host_id:
+            add_edge(host_id, action_id)
+        elif user_id:
+            add_edge(user_id, action_id)
+        elif ip_id:
+            add_edge(ip_id, action_id)
+
+    return {"nodes": nodes, "edges": edges}
+
+def choose_case_header_alert(items_sorted: list[dict]) -> dict:
+    """
+    Pick the best alert to represent the case header.
+    Prefer:
+    1. correlation alerts
+    2. highest score
+    3. earliest alert with a timestamp
+    """
+    if not items_sorted:
+        return {}
+
+    def sort_key(a: dict):
+        rule_id = str(a.get("rule_id", ""))
+        is_corr = 1 if "CORR" in rule_id else 0
+        score = int(a.get("score", 0) or 0)
+        ts = str(a.get("timestamp", "") or "")
+        return (-is_corr, -score, ts == "", ts)
+
+    return sorted(items_sorted, key=sort_key)[0]
+
+# -------------------------
 # Phase 8 helpers
 # -------------------------
 
@@ -390,7 +550,11 @@ def build_attack_chain(items: List[Dict[str, Any]]) -> Dict[str, Any]:
             rows.append(r)
         # sort rows oldest->newest
         rows.sort(key=lambda x: (x.get("timestamp", "") == "", x.get("timestamp", "")))
-        by_tactic[t] = {"first_seen": first_seen.get(t, ""), "events": rows}
+        by_tactic[t] = {
+            "first_seen": first_seen.get(t, ""),
+            "events": rows,
+            "description": describe_tactic_label(t),
+        }
 
     return {"tactics": tactics_sorted, "by_tactic": by_tactic}
 
@@ -574,6 +738,57 @@ HTML_TEMPLATE = Template(
       font-size: 0.82rem;
     }
 
+    .attack-graph {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .graph-node {
+      min-width: 140px;
+      max-width: 220px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #2a2f3a;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .graph-node-type {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      opacity: 0.75;
+      margin-bottom: 6px;
+    }
+
+    .graph-node-label {
+      font-size: 0.95rem;
+    }
+
+    .graph-ip {
+      border-color: #355c7d;
+    }
+
+    .graph-user {
+      border-color: #6c5b7b;
+    }
+
+    .graph-host {
+      border-color: #2a9d8f;
+    }
+
+    .graph-action {
+      border-color: #e9c46a;
+    }
+
+    .graph-arrow {
+      font-size: 1.3rem;
+      font-weight: 700;
+      opacity: 0.7;
+    }
+
     .card{
       margin-top:12px;
       border:1px solid var(--border);
@@ -751,8 +966,8 @@ HTML_TEMPLATE = Template(
               </div>
 
               <div class="card-body">
-                {# --- Phase 6: Attack Chain --- #}
-                {% set chain = (h.get('details', {}) or {}).get('attack_chain', {}) %}
+                {# --- Attack Chain --- #}
+                {% set chain = c.get('attack_chain', {}) %}
                 {% set tactics = chain.get('tactics', []) %}
                 {% if tactics and tactics|length > 0 %}
                   <div style="margin-top:10px;">
@@ -761,44 +976,51 @@ HTML_TEMPLATE = Template(
                     <div class="chain">
                       {% for t in tactics %}
                         <span class="node">{{ t }}</span>
-                      {% if not loop.last %}<span class="arrow">→</span>{% endif %}
+                        {% if not loop.last %}<span class="arrow">→</span>{% endif %}
                       {% endfor %}
                     </div>
 
                     <details>
                       <summary>Why these stages?</summary>
                       <table>
-                        <thead><tr><th>Tactic</th><th>First Seen</th><th>Evidence</th></tr></thead>
+                        <thead>
+                          <tr>
+                            <th>Tactic</th>
+                            <th>First Seen</th>
+                            <th>Description</th>
+                            <th>Evidence</th>
+                          </tr>
+                        </thead>
                         <tbody>
                           {% for t in tactics %}
                             {% set bt = (chain.get('by_tactic', {}) or {}).get(t, {}) %}
                             <tr>
                               <td class="muted"><strong>{{ t }}</strong></td>
-                              <td class="mono muted">{{ bt.get('first_seen','') }}</td>
+                              <td class="mono muted">{{ bt.get('first_seen', '') }}</td>
+                              <td class="muted">{{ bt.get('description', '') }}</td>
                               <td>
                                 {% set events = bt.get('events', []) %}
                                 {% if events and events|length > 0 %}
                                   <ul style="margin:0; padding-left:18px;">
                                     {% for e in events %}
                                       <li class="muted">
-                                        <span class="mono">{{ e.get('timestamp','') }}</span> —
-                                        <span class="mono">{{ e.get('rule_id','') }}</span> —
-                                        {{ e.get('title','') }}
+                                        <span class="mono">{{ e.get('timestamp', '') }}</span> —
+                                        <span class="mono">{{ e.get('rule_id', '') }}</span> —
+                                        {{ e.get('title', '') }}
                                       </li>
-                                     {% endfor %}
-                                    </ul>
-                                  {% else %}
-                                    <span class="muted">No evidence rows</span>
-                                  {% endif %}
-                                </td>
-                              </tr>
-                            {% endfor %}
-                          </tbody>
-                        </table>
-                      </details>
-                    </div>
+                                    {% endfor %}
+                                  </ul>
+                                {% else %}
+                                  <span class="muted">No evidence rows</span>
+                                {% endif %}
+                              </td>
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </details>
+                  </div>
                 {% endif %}
-
                 {% if c.attack_flow %}
                   <div class="case-section">
                     <h3>Attack Flow</h3>
@@ -823,6 +1045,31 @@ HTML_TEMPLATE = Template(
 
                         {% if not loop.last %}
                           <div class="flow-arrow">→</div>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endif %}
+
+                {% if c.get('attack_graph') and c.get('attack_graph', {}).get('nodes') %}
+                  <div class="case-section">
+                    <h3>Attack Graph</h3>
+
+                    {% set ip_nodes = c.get('attack_graph', {}).get('nodes', []) | selectattr('type', 'equalto', 'ip') | list %}
+                    {% set user_nodes = c.get('attack_graph', {}).get('nodes', []) | selectattr('type', 'equalto', 'user') | list %}
+                    {% set host_nodes = c.get('attack_graph', {}).get('nodes', []) | selectattr('type', 'equalto', 'host') | list %}
+                    {% set action_nodes = c.get('attack_graph', {}).get('nodes', []) | selectattr('type', 'equalto', 'action') | list %}
+
+                    {% set ordered_nodes = ip_nodes + user_nodes + host_nodes + action_nodes %}
+
+                    <div class="attack-graph">
+                      {% for node in ordered_nodes %}
+                        <div class="graph-node graph-{{ node.type }}">
+                          <div class="graph-node-type">{{ node.type|upper }}</div>
+                          <div class="graph-node-label mono">{{ node.label }}</div>
+                        </div>
+                        {% if not loop.last %}
+                          <div class="graph-arrow">→</div>
                         {% endif %}
                       {% endfor %}
                     </div>
@@ -1035,13 +1282,100 @@ HTML_TEMPLATE = Template(
 </html>"""
 )
 
+def choose_case_header_alert(items_sorted: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Pick the best alert to represent the case header.
+    Prefer:
+      1. correlation alerts
+      2. highest score
+      3. earliest timestamp
+    """
+    if not items_sorted:
+        return {}
+
+    def sort_key(a: Dict[str, Any]):
+        rule_id = str(a.get("rule_id", ""))
+        is_corr = 1 if "CORR" in rule_id else 0
+        score = int(a.get("score", 0) or 0)
+        ts = str(a.get("timestamp", "") or "")
+        return (-is_corr, -score, ts == "", ts)
+
+    return sorted(items_sorted, key=sort_key)[0]
+
+
+def build_case_iocs(items_sorted: List[Dict[str, Any]]) -> Dict[str, List[str]]:
+    ips: List[str] = []
+    hosts: List[str] = []
+    users: List[str] = []
+
+    def add_unique(bucket: List[str], value: Any) -> None:
+        if value is None:
+            return
+        s = str(value).strip()
+        if not s:
+            return
+        if s not in bucket:
+            bucket.append(s)
+
+    for it in items_sorted:
+        details = it.get("details", {}) or {}
+        event = it.get("event", {}) or {}
+
+        add_unique(ips, it.get("src_ip"))
+        add_unique(ips, it.get("ip"))
+        add_unique(ips, details.get("src_ip"))
+        add_unique(ips, details.get("ip"))
+        add_unique(ips, event.get("src_ip"))
+        add_unique(ips, event.get("ip"))
+
+        add_unique(hosts, it.get("host"))
+        add_unique(hosts, details.get("host"))
+        add_unique(hosts, event.get("host"))
+        add_unique(hosts, event.get("computer"))
+        add_unique(hosts, event.get("computer_name"))
+
+        add_unique(users, it.get("username"))
+        add_unique(users, details.get("username"))
+        add_unique(users, event.get("username"))
+        add_unique(users, event.get("target_user"))
+        add_unique(users, event.get("account_name"))
+
+    return {
+        "ips": ips,
+        "hosts": hosts,
+        "users": users,
+    }
+
+
+def build_case_risk_fallback(items_sorted: List[Dict[str, Any]]) -> Dict[str, Any]:
+    sev_order = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+
+    case_score = 0
+    max_sev = "low"
+
+    for it in items_sorted:
+        case_score += int(it.get("score", 0) or 0)
+        sev = str(it.get("severity", "low")).lower()
+        if sev_order.get(sev, 0) > sev_order.get(max_sev, 0):
+            max_sev = sev
+
+    reasons = []
+    if any("CORR" in str(it.get("rule_id", "")) for it in items_sorted):
+        reasons.append("Correlation present")
+
+    return {
+        "case_score": case_score,
+        "case_threat_level": max_sev,
+        "reasons": reasons,
+    }
+
+
 def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str, Any]]:
     """
     Build case objects that can be used by:
       - HTML report rendering
-      - JSON export (Phase 7B)
+      - JSON export
     """
-    # Group by correlation_id; if none, treat as uncorrelated bucket
     grouped = defaultdict(list)
     for a in alerts:
         cid = a.get("correlation_id") or "UNCORRELATED"
@@ -1051,24 +1385,33 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
 
     for correlation_id, items in grouped.items():
         items_sorted = sorted(items, key=lambda x: str(x.get("timestamp", "")))
-        attack_flow = build_attack_flow(items_sorted)
+        header_alert = choose_case_header_alert(items_sorted)
 
-        # Minimal header (use whatever you already show in the report)
+        attack_flow = build_attack_flow(items_sorted)
+        attack_graph = build_attack_graph(items_sorted)
+        attack_chain = build_attack_chain(items_sorted)
+        iocs = build_case_iocs(items_sorted)
+        case_risk = build_case_risk_fallback(items_sorted)
+
         header = {
             "correlation_id": correlation_id,
             "input_name": input_name,
-            "details": {},
+            "title": header_alert.get("title", "Untitled Case"),
+            "severity": header_alert.get("severity", "low"),
+            "timestamp": header_alert.get("timestamp", ""),
+            "score": int(header_alert.get("score", 0) or 0),
+            "details": {
+                "recommended_actions": build_recommended_actions(items_sorted),
+                "case_risk": case_risk,
+            },
         }
 
-        header["details"]["recommended_actions"] = build_recommended_actions(items_sorted)
-
-        # Minimal timeline (again: keep simple now)
         timeline = [
             {
-                "timestamp": it.get("timestamp"),
-                "rule_id": it.get("rule_id"),
-                "title": it.get("title"),
-                "severity": it.get("severity"),
+                "timestamp": it.get("timestamp", ""),
+                "rule_id": it.get("rule_id", ""),
+                "title": it.get("title", ""),
+                "severity": it.get("severity", ""),
             }
             for it in items_sorted
         ]
@@ -1079,7 +1422,7 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
                 {
                     "timestamp": it.get("timestamp", ""),
                     "rule_id": it.get("rule_id", ""),
-                    "title": it.get("title"< ""),
+                    "title": it.get("title", ""),
                     "severity": it.get("severity", ""),
                     "fields": build_evidence_fields(it),
                 }
@@ -1091,12 +1434,14 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
                 "header": header,
                 "timeline": timeline,
                 "attack_flow": attack_flow,
+                "attack_graph": attack_graph,
+                "attack_chain": attack_chain,
+                "iocs": iocs,
                 "evidence": evidence,
-                "alerts": items_sorted,  
+                "alerts": items_sorted,
             }
         )
 
-    # Keep deterministic order
     cases.sort(key=lambda c: c["correlation_id"])
     return cases
 
@@ -1181,7 +1526,10 @@ def write_html_report(
 
         cases.append({"correlation_id": cid, "header": header, "alerts": items_sorted})
 
-    cases = sorted(cases, key=lambda c: c["header"].get("timestamp", ""), reverse=True)
+    cases = build_cases(alerts, input_name)
+
+    print("DEBUG first case keys:", cases[0].keys() if cases else "no cases")
+    print("DEBUG first case attack_graph:", cases[0].get("attack_graph") if cases else "no cases")
 
     html = HTML_TEMPLATE.render(
         cases=cases,
