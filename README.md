@@ -259,3 +259,25 @@ MITRE ATT&CK mapping
 Incident investigation workflows
 
 Python-based security tooling
+```
+
+## Phase 11 – Detection Depth
+
+Phase 11 expands SOC-Forge detection coverage with additional Windows security detections and multi-stage correlations.
+
+### New detections
+
+- SOCF-007 – New user account created
+- SOCF-008 – Privileged group membership change
+- SOCF-009 – Windows Security log cleared
+
+### New correlations
+
+- SOCF-CORR-004 – New account followed by privileged group assignment
+- SOCF-CORR-005 – New privileged account followed by audit log clearing
+
+### Example attack chain
+
+Create Account → Privilege Escalation → Defense Evasion
+
+SOC-Forge automatically detects this pattern and produces a high-confidence case investigation report.

@@ -131,13 +131,14 @@ def correlate_alerts(
                         "correlation_id": corr_id,
                     })
                     break
-
+    
         # -------------------------
-    # SOCF-CORR-003 (Phase 3): RDP -> New Admin (Privileged group change)
+    # SOCF-CORR-003: RDP -> Privileged group change
     # -------------------------
     if rdp_new_admin_enabled:
         rdps = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-006"]
-        admins = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-003"]
+        admins = [a for a in alerts_sorted if a.get("rule_id") in {"SOCF-003", "SOCF-008"}]
+        seen_corr_003 = set()
 
         for rdp in rdps:
             rdp_ts = _parse_ts(rdp["timestamp"])
@@ -154,34 +155,173 @@ def correlate_alerts(
                 if adm_host != rdp_host:
                     continue
 
-                # Require admin change after (or same time) as RDP within window
-                if timedelta(0) <= (adm_ts - rdp_ts) <= window:
-                    corr_id = _cid("SOCF-CORR-003", str(rdp_host), str(rdp_user), str(rdp_ip))
+                if not (timedelta(0) <= (adm_ts - rdp_ts) <= window):
+                    continue
 
-                    correlated.append({
-                        "rule_id": "SOCF-CORR-003",
-                        "severity": rdp_new_admin_severity,
-                        "title": "RDP logon followed by privileged group change (possible takeover)",
-                        "timestamp": adm["timestamp"],
-                        "details": {
-                            "host": rdp_host,
-                            "username": rdp_user,
-                            "ip": rdp_ip,
-                            "window_minutes": window_minutes,
-                            "evidence": [
-                                {"rule_id": rdp["rule_id"], "timestamp": rdp["timestamp"]},
-                                {"rule_id": adm["rule_id"], "timestamp": adm["timestamp"]},
-                            ],
-                        },
-                        "mitre": [
-                            {"tactic": "Lateral Movement", "technique": "Remote Services", "id": "T1021"},
-                            {"tactic": "Privilege Escalation", "technique": "Valid Accounts", "id": "T1078"},
+                corr_id = _cid("SOCF-CORR-003", str(rdp_host), str(rdp_user), str(rdp_ip))
+                if corr_id in seen_corr_003:
+                    continue
+                seen_corr_003.add(corr_id)
+
+                correlated.append({
+                    "rule_id": "SOCF-CORR-003",
+                    "severity": rdp_new_admin_severity,
+                    "title": "RDP logon followed by privileged group change (possible takeover)",
+                    "timestamp": adm["timestamp"],
+                    "details": {
+                        "host": rdp_host,
+                        "username": rdp_user,
+                        "ip": rdp_ip,
+                        "window_minutes": window_minutes,
+                        "evidence": [
+                            {"rule_id": rdp["rule_id"], "timestamp": rdp["timestamp"]},
+                            {"rule_id": adm["rule_id"], "timestamp": adm["timestamp"]},
                         ],
-                        "score": rdp_new_admin_score,
-                        "status": "new",
-                        "correlation_id": corr_id,
-                    })
-                    break
+                    },
+                    "mitre": [
+                        {"tactic": "Lateral Movement", "technique": "Remote Services", "id": "T1021"},
+                        {"tactic": "Privilege Escalation", "technique": "Account Manipulation", "id": "T1098"},
+                    ],
+                    "score": rdp_new_admin_score,
+                    "status": "new",
+                    "correlation_id": corr_id,
+                })
+
+
+    # -------------------------
+    # SOCF-CORR-004 (Phase 11): New user -> Privileged group assignment
+    # -------------------------
+    new_users = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-007"]
+    priv_changes = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-008"]
+    seen_corr_004 = set()
+
+    for u in new_users:
+        du = u.get("details", {}) or {}
+        u_host = du.get("host") or "unknown"
+        u_target = du.get("target_user") or "unknown"
+        u_ts = _parse_ts(u["timestamp"])
+
+        for p in priv_changes:
+            dp = p.get("details", {}) or {}
+            p_host = dp.get("host") or "unknown"
+            p_target = dp.get("target_user") or "unknown"
+            p_ts = _parse_ts(p["timestamp"])
+
+            if u_host != p_host:
+                continue
+
+            if u_target != p_target:
+                continue
+
+            # Require privileged group change after account creation within window
+            if not (timedelta(0) <= (p_ts - u_ts) <= window):
+                continue
+
+            corr_id = _cid("SOCF-CORR-004", str(u_host), str(u_target))
+            if corr_id in seen_corr_004:
+                continue
+            seen_corr_004.add(corr_id)
+
+            correlated.append({
+                "rule_id": "SOCF-CORR-004",
+                "severity": "critical",
+                "title": "New account followed by privileged group assignment",
+                "timestamp": p["timestamp"],
+                "details": {
+                    "host": u_host,
+                    "target_user": u_target,
+                    "window_minutes": window_minutes,
+                    "evidence": [
+                        {"rule_id": u["rule_id"], "timestamp": u["timestamp"]},
+                        {"rule_id": p["rule_id"], "timestamp": p["timestamp"]},
+                    ],
+                    "source_rule_ids": ["SOCF-007", "SOCF-008"],
+                },
+                "mitre": [
+                    {"tactic": "Persistence", "technique": "Create Account", "id": "T1136"},
+                    {"tactic": "Privilege Escalation", "technique": "Account Manipulation", "id": "T1098"},
+                ],
+                "score": 130,
+                "status": "new",
+                "correlation_id": corr_id,
+            })
+
+        # -------------------------
+    # SOCF-CORR-005 (Phase 11): New account -> Privileged group -> Log clearing
+    # -------------------------
+    new_users = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-007"]
+    priv_changes = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-008"]
+    log_clears = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-009"]
+    seen_corr_005 = set()
+
+    for u in new_users:
+        du = u.get("details", {}) or {}
+        u_host = du.get("host") or "unknown"
+        u_target = du.get("target_user") or "unknown"
+        u_ts = _parse_ts(u["timestamp"])
+
+        for p in priv_changes:
+            dp = p.get("details", {}) or {}
+            p_host = dp.get("host") or "unknown"
+            p_target = dp.get("target_user") or "unknown"
+            p_ts = _parse_ts(p["timestamp"])
+
+            if u_host != p_host:
+                continue
+            if u_target != p_target:
+                continue
+            if not (timedelta(0) <= (p_ts - u_ts) <= window):
+                continue
+
+            for lc in log_clears:
+                ld = lc.get("details", {}) or {}
+                lc_host = ld.get("host") or "unknown"
+                lc_actor = ld.get("actor") or ld.get("username") or "unknown"
+                lc_ts = _parse_ts(lc["timestamp"])
+
+                if lc_host != u_host:
+                    continue
+
+                # Require log clearing after privileged group change within window
+                if not (timedelta(0) <= (lc_ts - p_ts) <= window):
+                    continue
+
+                # Prefer the actor clearing logs to be the new account if present
+                if lc_actor not in {"unknown", u_target}:
+                    continue
+
+                corr_id = _cid("SOCF-CORR-005", str(u_host), str(u_target))
+                if corr_id in seen_corr_005:
+                    continue
+                seen_corr_005.add(corr_id)
+
+                correlated.append({
+                    "rule_id": "SOCF-CORR-005",
+                    "severity": "critical",
+                    "title": "New privileged account followed by log clearing (possible account abuse)",
+                    "timestamp": lc["timestamp"],
+                    "details": {
+                        "host": u_host,
+                        "target_user": u_target,
+                        "actor": lc_actor,
+                        "window_minutes": window_minutes,
+                        "evidence": [
+                            {"rule_id": u["rule_id"], "timestamp": u["timestamp"]},
+                            {"rule_id": p["rule_id"], "timestamp": p["timestamp"]},
+                            {"rule_id": lc["rule_id"], "timestamp": lc["timestamp"]},
+                        ],
+                        "source_rule_ids": ["SOCF-007", "SOCF-008", "SOCF-009"],
+                    },
+                    "mitre": [
+                        {"tactic": "Persistence", "technique": "Create Account", "id": "T1136"},
+                        {"tactic": "Privilege Escalation", "technique": "Account Manipulation", "id": "T1098"},
+                        {"tactic": "Defense Evasion", "technique": "Indicator Removal on Host", "id": "T1070"},
+                    ],
+                    "score": 150,
+                    "status": "new",
+                    "correlation_id": corr_id,
+                })
+
                 
     # De-duplicate correlated alerts by correlation_id
     seen = set()
@@ -251,5 +391,42 @@ def correlate_alerts(
                 if rid == "SOCF-003":
                     if d.get("host") == host:
                         a["correlation_id"] = cid
+
+        if rule_id == "SOCF-CORR-004":
+            host = c["details"].get("host")
+            target_user = c["details"].get("target_user")
+
+            for a in alerts_sorted:
+                rid = a.get("rule_id")
+                d = a.get("details", {}) or {}
+
+                if rid == "SOCF-007":
+                    if d.get("host") == host and d.get("target_user") == target_user:
+                        a["correlation_id"] = cid
+
+                if rid == "SOCF-008":
+                    if d.get("host") == host and d.get("target_user") == target_user:
+                        a["correlation_id"] = cid
+
+                if rule_id == "SOCF-CORR-005":
+                    host = c["details"].get("host")
+                    target_user = c["details"].get("target_user")
+
+                    for a in alerts_sorted:
+                        rid = a.get("rule_id")
+                        d = a.get("details", {}) or {}
+
+                        if rid == "SOCF-007":
+                            if d.get("host") == host and d.get("target_user") == target_user:
+                                a["correlation_id"] = cid
+
+                        if rid == "SOCF-008":
+                            if d.get("host") == host and d.get("target_user") == target_user:
+                                a["correlation_id"] = cid
+
+                        if rid == "SOCF-009":
+                            if d.get("host") == host:
+                                a["correlation_id"] = cid
+
 
     return alerts_sorted + uniq_corr

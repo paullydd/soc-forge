@@ -1,0 +1,5 @@
+{"timestamp":"2026-03-11T10:00:00Z","event_id":4624,"host":"WIN10","username":"bob","ip":"203.0.113.50","message":"An account was successfully logged on. Logon Type: 10"}
+{"timestamp":"2026-03-11T10:01:30Z","event_id":4698,"host":"WIN10","actor":"bob","task_name":"Updater","task_command":"powershell -enc AAAA","message":"A scheduled task was created"}
+{"timestamp":"2026-03-11T10:03:00Z","event_id":4720,"host":"WIN10","actor":"bob","target_user":"evilsvc","message":"A user account was created"}
+{"timestamp":"2026-03-11T10:04:00Z","event_id":4732,"host":"WIN10","actor":"bob","target_user":"evilsvc","group_name":"Administrators","message":"A member was added to a security-enabled local group"}
+{"timestamp":"2026-03-11T10:05:30Z","event_id":1102,"host":"WIN10","actor":"evilsvc","message":"The audit log was cleared"}

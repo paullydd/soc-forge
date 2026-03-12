@@ -1,0 +1,43 @@
+version: 1
+rules:
+  - id: "SOCF-007"
+    enabled: true
+    title: "New user account created"
+    severity: "medium"
+    score: 55
+    mitre:
+      - tactic: "Persistence"
+        technique: "Create Account"
+        id: "T1136"
+      - tactic: "Privilege Escalation"
+        technique: "Create Account"
+        id: "T1136"
+
+    match:
+      all:
+        - field: "event_id"
+          op: "eq"
+          value: 4720
+
+    emit:
+      details:
+        host: "${host}"
+        actor: "${actor}"
+        target_user: "${target_user}"
+        message: "${message}"
+        suspicious: false
+
+    score_modifiers:
+      - when:
+          any:
+            - field: "target_user"
+              op: "regex"
+              value: '(?i)admin|svc|backup|test'
+            - field: "message"
+              op: "regex"
+              value: '(?i)admin|svc|backup|test'
+        add: 15
+        bump_severity: true
+        set_details:
+          suspicious: true
+        reason: "Suspicious account naming pattern"

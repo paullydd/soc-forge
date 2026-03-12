@@ -1,71 +1,66 @@
 from __future__ import annotations
 
 import csv
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterator
+from typing import Any, Dict, List
 
 
-def _to_iso_utc(dt_str: str) -> str:
-    s = (dt_str or "").strip()
-    if not s:
-        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-    patterns = [
-        "%m/%d/%Y %I:%M:%S %p",
-        "%m/%d/%Y %H:%M:%S",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S.%f",
-    ]
-
-    for p in patterns:
-        try:
-            dt = datetime.strptime(s, p).replace(tzinfo=timezone.utc)
-            return dt.isoformat().replace("+00:00", "Z")
-        except ValueError:
-            pass
-
-    if s.endswith("Z") and "T" in s:
-        return s
-
-    return s
+def _extract_value(message: str, label: str) -> str | None:
+    if not message or label not in message:
+        return None
+    try:
+        tail = message.split(label, 1)[1]
+        value = tail.splitlines()[0].strip()
+        return value or None
+    except Exception:
+        return None
 
 
-def _pick(row: Dict[str, str], *keys: str) -> str:
-    for k in keys:
-        if k in row and row[k] is not None and str(row[k]).strip() != "":
-            return str(row[k]).strip()
-    return ""
+def _normalize_row(row: Dict[str, Any], default_host: str = "WINDOWS-PC") -> Dict[str, Any]:
+    message = row.get("Message", "") or ""
+    event_id_raw = row.get("Id", 0)
+
+    try:
+        event_id = int(event_id_raw)
+    except Exception:
+        event_id = 0
+
+    event: Dict[str, Any] = {
+        "timestamp": row.get("TimeCreated", "") or "",
+        "event_id": event_id,
+        "message": message,
+        "host": default_host,
+    }
+
+    # common Windows Security fields pulled from message text
+    username = _extract_value(message, "Account Name:")
+    target_user = _extract_value(message, "Target Account Name:")
+    group_name = _extract_value(message, "Group Name:")
+    ip = _extract_value(message, "Source Network Address:")
+
+    if username and username not in {"-", "SYSTEM"}:
+        event["username"] = username
+        event["actor"] = username
+
+    if target_user:
+        event["target_user"] = target_user
+
+    if group_name:
+        event["group_name"] = group_name
+
+    if ip and ip != "-":
+        event["ip"] = ip
+
+    return event
 
 
-def iter_windows_security_events(csv_path: Path) -> Iterator[dict]:
-    """
-    Normalize Event Viewer Security CSV into SOC-Forge JSONL events:
-      {"timestamp","event_id","username","ip","host","message",...}
-    """
-    with csv_path.open("r", encoding="utf-8-sig", newline="") as f:
+def load_windows_security_csv(path: str | Path, default_host: str = "WINDOWS-PC") -> List[Dict[str, Any]]:
+    path = Path(path)
+    events: List[Dict[str, Any]] = []
+
+    with path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            dt = _pick(row, "Date and Time", "Date/Time", "TimeCreated", "Time Created", "Timestamp")
-            event_id = _pick(row, "Event ID", "EventID", "Id", "Event Id")
-            host = _pick(row, "Computer", "MachineName", "Host", "Hostname")
-            user = _pick(row, "User", "Account Name", "SubjectUserName", "TargetUserName")
-            msg = _pick(row, "Message", "Description", "Details", "General")
-            ip = _pick(row, "IpAddress", "IP Address", "Source Network Address", "SourceAddress")
+            events.append(_normalize_row(row, default_host=default_host))
 
-            try:
-                eid = int(event_id)
-            except Exception:
-                continue
-
-            yield {
-                "timestamp": _to_iso_utc(dt),
-                "event_id": eid,
-                "username": user or None,
-                "ip": ip or None,
-                "host": host or None,
-                "message": msg or "",
-                "source": "windows-security-csv",
-                "raw": row,
-            }
+    return events

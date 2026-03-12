@@ -10,7 +10,7 @@ from soc_forge.report.html_report import write_html_report
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.config import load_config
 from soc_forge import __version__
-from soc_forge.ingest.windows_security_csv import iter_windows_security_events
+from soc_forge.ingest.windows_security_csv import load_windows_security_csv
 from soc_forge.rules.engine import load_rules, run_rules
 from soc_forge.models import Alert
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
@@ -215,14 +215,21 @@ def main():
 
     bf_threshold = args.bf_threshold if args.bf_threshold is not None else cfg.bruteforce.threshold
     bf_window = args.bf_window if args.bf_window is not None else cfg.bruteforce.window_minutes
+    
     input_path = Path(args.input)
 
-    if args.format == "jsonl":
-        events = list(read_jsonl(input_path))
-    elif args.format == "windows-security-csv":
-        events = list(iter_windows_security_events(input_path))
+    if input_path.suffix.lower() == ".csv":
+        events = load_windows_security_csv(input_path)
+    elif input_path.suffix.lower() == ".jsonl":
+        events = []
+        with input_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                events.append(json.loads(line))
     else:
-        raise ValueError(f"Unsupported format: {args.format}")
+        raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl or .csv")
     
         # -----------------------------
     # Phase 4: YAML rules execution
@@ -308,9 +315,7 @@ def main():
 
     html_path = Path(out_html)
     coverage_rows = mitre_coverage_by_tactic(rules, enabled_only=True)
-    print("DEBUG: total alert_dicts", len(alert_dicts))
-    print("DEBUG: corr alerts", sum(1 for a in alert_dicts if str(a.get("rule_id","")).startswith("SOCF-CORR")))
-    print("DEBUG: alerts with correlation_id", sum(1 for a in alert_dicts if a.get("correlation_id")))
+   
     corr_alerts = [a for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF-CORR")]
     corr_summary = {
         "total": len(corr_alerts),
@@ -319,6 +324,7 @@ def main():
 
     cases = build_cases(alert_dicts, str(input_path))
     export_cases_json(cases, Path(html_path).parent)
+
 
     write_html_report(
         alerts=alert_dicts,

@@ -24,3 +24,19 @@
 {"timestamp":"2026-02-27T21:00:15Z","event_id":4625,"username":"bob","host":"WIN10","message":"login failed"}
 {"timestamp":"2026-02-27T21:00:20Z","event_id":4625,"username":"bob","host":"WIN10","message":"login failed"}
 {"timestamp":"2026-02-27T21:01:00Z","event_id":4740,"username":"bob","host":"WIN10","message":"Account locked out"}
+{"timestamp":"2026-03-11T09:10:00Z","event_id":4720,"host":"WIN10","actor":"admin1","target_user":"backupsvc","message":"A user account was created. Target Account Name: backupsvc"}
+{"timestamp":"2026-03-11T09:12:00Z","event_id":4720,"host":"DC01","actor":"administrator","target_user":"tempadmin","message":"A user account was created. Target Account Name: tempadmin"}
+{"timestamp":"2026-03-11T09:15:00Z","event_id":4732,"host":"WIN10","actor":"admin1","target_user":"backupsvc","group_name":"Administrators","message":"A member was added to a security-enabled local group. Group: Administrators Member: backupsvc"}
+{"timestamp":"2026-03-11T09:18:00Z","event_id":4728,"host":"DC01","actor":"administrator","target_user":"tempadmin","group_name":"Domain Admins","message":"A member was added to a security-enabled global group. Group: Domain Admins Member: tempadmin"}
+{"timestamp":"2026-03-11T09:25:00Z","event_id":1102,"host":"WIN10","actor":"backupsvc","message":"The audit log was cleared."}
+{"timestamp":"2026-03-11T09:27:00Z","event_id":1102,"host":"DC01","actor":"tempadmin","message":"The audit log was cleared."}
+{"timestamp":"2026-03-11T10:00:00Z","event_id":4720,"host":"WIN10","actor":"admin1","target_user":"evilsvc","message":"A user account was created. Target Account Name: evilsvc"}
+{"timestamp":"2026-03-11T10:02:00Z","event_id":4732,"host":"WIN10","actor":"admin1","target_user":"evilsvc","group_name":"Administrators","message":"A member was added to a security-enabled local group. Group: Administrators Member: evilsvc"}
+{"timestamp":"2026-03-11T10:05:00Z","event_id":1102,"host":"WIN10","actor":"evilsvc","message":"The audit log was cleared."}
+{"timestamp":"2026-03-11T11:10:00Z","event_id":4624,"host":"WIN10","actor":"alice","ip":"192.168.1.50","message":"An account was successfully logged on. Logon Type: 2"}
+{"timestamp":"2026-03-11T10:00:00Z","event_id":4720,"host":"WIN10","actor":"admin1","target_user":"evilsvc","message":"A user account was created. Target Account Name: evilsvc"}
+{"timestamp":"2026-03-11T10:02:00Z","event_id":4732,"host":"WIN10","actor":"admin1","target_user":"evilsvc","group_name":"Administrators","message":"A member was added to a security-enabled local group. Group: Administrators Member: evilsvc"}
+{"timestamp":"2026-03-11T10:05:00Z","event_id":1102,"host":"WIN10","actor":"evilsvc","message":"The audit log was cleared."}
+{"timestamp":"2026-03-11T10:00:00Z","event_id":4720,"host":"WIN10","actor":"admin1","target_user":"evilsvc","message":"A user account was created"}
+{"timestamp":"2026-03-11T10:02:00Z","event_id":4732,"host":"WIN10","actor":"admin1","target_user":"evilsvc","group_name":"Administrators","message":"User added to Administrators"}
+{"timestamp":"2026-03-11T10:05:00Z","event_id":1102,"host":"WIN10","actor":"evilsvc","message":"The audit log was cleared"}

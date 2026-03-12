@@ -1,0 +1,29 @@
+version: 1
+rules:
+  - id: "SOCF-008"
+    enabled: true
+    title: "User added to privileged group"
+    severity: "high"
+    score: 75
+    mitre:
+      - tactic: "Persistence"
+        technique: "Account Manipulation"
+        id: "T1098"
+      - tactic: "Privilege Escalation"
+        technique: "Account Manipulation"
+        id: "T1098"
+
+    match:
+      all:
+        - field: "message"
+          op: "regex"
+          value: '(?i)(member was added to a security-enabled (global|local|universal) group|administrators|domain admins|enterprise admins|remote desktop users|backup operators)'
+
+    emit:
+      details:
+        host: "${host}"
+        actor: "${actor}"
+        target_user: "${target_user}"
+        group_name: "${group_name}"
+        message: "${message}"
+        suspicious: true

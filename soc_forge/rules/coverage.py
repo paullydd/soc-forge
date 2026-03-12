@@ -28,7 +28,7 @@ def mitre_coverage_by_tactic(rules: Iterable[Rule], *, enabled_only: bool = True
                 seen_in_rule.add(tactic)
 
     # sort by count desc, then name asc
-    return sorted(c.items(), key=lambda x: (-x[1], x[0].lower()))
+    return sorted(c.items(), key=lambda x: (-x[1], x[0]))
 
 
 def format_coverage_table(rows: List[Tuple[str, int]]) -> str:

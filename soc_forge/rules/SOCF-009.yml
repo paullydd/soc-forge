@@ -1,0 +1,24 @@
+version: 1
+rules:
+  - id: "SOCF-009"
+    enabled: true
+    title: "Audit logs cleared"
+    severity: "high"
+    score: 80
+    mitre:
+      - tactic: "Defense Evasion"
+        technique: "Indicator Removal on Host"
+        id: "T1070"
+
+    match:
+      all:
+        - field: "event_id"
+          op: "eq"
+          value: 1102
+
+    emit:
+      details:
+        host: "${host}"
+        actor: "${actor}"
+        message: "${message}"
+        suspicious: true

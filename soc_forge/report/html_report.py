@@ -17,18 +17,21 @@ from soc_forge.cases.recommended_actions import build_recommended_actions
 def build_case_risk_fallback(items_sorted: List[Dict[str, Any]]) -> Dict[str, Any]:
     sev_order = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 
-    case_score = 0
+    raw_score = 0
     max_sev = "low"
     reasons = []
 
     for it in items_sorted:
-        case_score += int(it.get("score", 0) or 0)
+        raw_score += int(it.get("score", 0) or 0)
         sev = str(it.get("severity", "low")).lower()
         if sev_order.get(sev, 0) > sev_order.get(max_sev, 0):
             max_sev = sev
 
+    boost = 0
+
     if any("CORR" in str(it.get("rule_id", "")) for it in items_sorted):
-        reasons.append("Correlation present")
+        boost += 30
+        reasons.append("Correlation present (+30)")
 
     tactic_labels = []
     for it in items_sorted:
@@ -38,13 +41,23 @@ def build_case_risk_fallback(items_sorted: List[Dict[str, Any]]) -> Dict[str, An
                 tactic_labels.append(base)
 
     if len(tactic_labels) >= 2:
-        reasons.append(f"Multi-tactic activity: {', '.join(tactic_labels)}")
+        tactic_boost = 10 * min(len(tactic_labels) - 1, 4)
+        boost += tactic_boost
+        reasons.append(f"Multi-tactic activity (+{tactic_boost}): {', '.join(tactic_labels)}")
+
+    case_score = min(raw_score + boost, 400)
 
     return {
+        "base_score": raw_score,
+        "boost": boost,
         "case_score": case_score,
+        "case_severity": max_sev,
         "case_threat_level": max_sev,
         "reasons": reasons,
+        "tactics": tactic_labels,
+        "alert_count": len(items_sorted),
     }
+
 
 def describe_tactic_label(label: str) -> str:
     base = label.split(" (", 1)[0]
@@ -150,6 +163,70 @@ def build_attack_graph(items_sorted: list[dict]) -> dict:
             add_edge(ip_id, action_id)
 
     return {"nodes": nodes, "edges": edges}
+
+def build_attack_path(graph: dict) -> list[dict]:
+    """
+    Converts the attack graph {nodes, edges} into one ordered path of nodes
+    for simple vertical rendering in the HTML report.
+    """
+    nodes = graph.get("nodes", []) or []
+    edges = graph.get("edges", []) or []
+
+    if not nodes:
+        return []
+
+    node_map = {n["id"]: n for n in nodes}
+
+    outgoing = {}
+    indegree = {}
+
+    for n in nodes:
+        outgoing[n["id"]] = []
+        indegree[n["id"]] = 0
+
+    for e in edges:
+        src = e.get("source")
+        tgt = e.get("target")
+        if src in outgoing and tgt in node_map:
+            outgoing[src].append(tgt)
+            indegree[tgt] = indegree.get(tgt, 0) + 1
+
+    # find likely starting node: prefer IP, otherwise any node with indegree 0
+    start_id = None
+
+    zero_in = [nid for nid, deg in indegree.items() if deg == 0]
+    ip_zero_in = [nid for nid in zero_in if node_map[nid].get("type") == "ip"]
+
+    if ip_zero_in:
+        start_id = ip_zero_in[0]
+    elif zero_in:
+        start_id = zero_in[0]
+    else:
+        start_id = nodes[0]["id"]
+
+    ordered = []
+    seen = set()
+    current = start_id
+
+    while current and current not in seen:
+        seen.add(current)
+        ordered.append(node_map[current])
+
+        next_nodes = outgoing.get(current, [])
+        if not next_nodes:
+            break
+
+        # prefer host/user/action ordering for cleaner path display
+        def rank(node_id: str) -> int:
+            t = node_map[node_id].get("type", "")
+            order = {"ip": 0, "user": 1, "host": 2, "action": 3}
+            return order.get(t, 99)
+
+        next_nodes = sorted(next_nodes, key=rank)
+        current = next_nodes[0]
+
+    return ordered
+
 
 def choose_case_header_alert(items_sorted: list[dict]) -> dict:
     """
@@ -633,6 +710,51 @@ HTML_TEMPLATE = Template(
       gap: 10px;
     }
 
+    .mitre-panel {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid #2a2f3a;
+      border-radius: 10px;
+      background: #11151c;
+    }
+
+    .mitre-row {
+      display: grid;
+      grid-template-columns: 180px 1fr 50px;
+      gap: 10px;
+      align-items: center;
+      margin: 8px 0;
+    }
+
+    .mitre-label {
+      font-weight: 700;
+      color: #d7dde8;
+    }
+
+    .mitre-bar-wrap {
+      width: 100%;
+      background: #1c2330;
+      border-radius: 999px;
+      height: 14px;
+      overflow: hidden;
+    }
+
+    .mitre-bar {
+      height: 14px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #4da3ff, #7cc4ff);
+    }
+
+    .mitre-count {
+      text-align: right;
+      color: #9fb3c8;
+      font-weight: 700;
+    }
+
+    .muted {
+      color: #93a1b2;
+    }
+
     .attack-flow {
       display: flex;
       flex-wrap: wrap;
@@ -789,6 +911,111 @@ HTML_TEMPLATE = Template(
       opacity: 0.7;
     }
 
+    .graph-node.ip {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .graph-node.user {
+      border-color: #a855f7;
+      box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .graph-node.host {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .graph-node.action {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .case-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      border: 1px solid #2b3545;
+      background: #18202b;
+      color: #dbe7f3;
+    }
+
+    .badge-low {
+      border-color: #22c55e;
+      color: #86efac;
+    }
+
+    .badge-medium {
+      border-color: #f59e0b;
+      color: #fcd34d;
+    }
+
+    .badge-high {
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+
+    .badge-critical {
+      border-color: #ff4d6d;
+      color: #ff9fb3;
+    }
+
+    .investigation-graph {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .graph-node {
+      min-width: 240px;
+      max-width: 420px;
+      text-align: center;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #18202b 0%, #141b24 100%);
+      border: 1px solid #2b3545;
+      color: #e6edf7;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    }
+
+    .graph-node-kind {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8fa7c0;
+      margin-bottom: 5px;
+      font-weight: 800;
+    }
+
+    .graph-node-value {
+      font-size: 15px;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+
+    .graph-arrow {
+      color: #7cc4ff;
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+      opacity: 0.9;
+    }
+
+
     .card{
       margin-top:12px;
       border:1px solid var(--border);
@@ -931,6 +1158,15 @@ HTML_TEMPLATE = Template(
             {% set h = c.header %}
             {% set cr = (h.get('details', {}) or {}).get('case_risk', {}) %}
 
+            <div class="case-meta">
+            <span class="badge badge-{{ cr.get('case_severity', h.severity)|lower }}">
+              {{ cr.get('case_severity', h.severity)|upper }}
+            </span>
+            <span class="badge">Score: {{ cr.get('case_score', 0) }}</span>
+            <span class="badge">Case: {{ h.correlation_id }}</span>
+            <span class="badge">Alerts: {{ cr.get('alert_count', 0) }}</span>
+          </div>
+
             {% set actions = (h.get('details', {}) or {}).get('recommended_actions', []) %}
             {% if actions %}
               <div class="case-section">
@@ -958,8 +1194,7 @@ HTML_TEMPLATE = Template(
                   <div class="right">
                     <span>Case: <span class="mono">{{ c.correlation_id }}</span></span>
                     <span>Time: <span class="mono">{{ h.get('timestamp','') }}</span></span>
-                    <span>Score: <span class="mono">{{ h.get('score',0) }}</span></span>
-                    <span>Case Score: <span class="mono">{{ cr.get('case_score', 0) }}</span></span>
+                    <span>Score: <span class="mono">{{ cr.get('case_score', 0) }}</span></span>
                     <span>Threat: <span class="badge {{ cr.get('case_threat_level','low') }}">{{ cr.get('case_threat_level','low') }}</span></span>
                   </div>
                 </div>
@@ -1051,30 +1286,53 @@ HTML_TEMPLATE = Template(
                   </div>
                 {% endif %}
 
-                {% if c.get('attack_graph') and c.get('attack_graph', {}).get('nodes') %}
-                  <div class="case-section">
-                    <h3>Attack Graph</h3>
+                {% if mitre_coverage and mitre_coverage|length > 0 %}
+                  <div class="mitre-panel">
+                    <div style="font-weight:900; font-size:18px;">MITRE Coverage</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Tactic distribution across matched detections in this investigation.
+                    </div>
 
-                    {% set ip_nodes = c.get('attack_graph', {}).get('nodes', []) | selectattr('type', 'equalto', 'ip') | list %}
-                    {% set user_nodes = c.get('attack_graph', {}).get('nodes', []) | selectattr('type', 'equalto', 'user') | list %}
-                    {% set host_nodes = c.get('attack_graph', {}).get('nodes', []) | selectattr('type', 'equalto', 'host') | list %}
-                    {% set action_nodes = c.get('attack_graph', {}).get('nodes', []) | selectattr('type', 'equalto', 'action') | list %}
+                    {% set max_count = mitre_coverage[0][1] %}
 
-                    {% set ordered_nodes = ip_nodes + user_nodes + host_nodes + action_nodes %}
+                    {% for tactic, count in mitre_coverage %}
+                      {% set width_pct = (count * 100 / max_count)|int %}
+                      <div class="mitre-row">
+                        <div class="mitre-label">{{ tactic }}</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: {{ width_pct }}%;"></div>
+                        </div>
+                        <div class="mitre-count">{{ count }}</div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% endif %}
 
-                    <div class="attack-graph">
-                      {% for node in ordered_nodes %}
-                        <div class="graph-node graph-{{ node.type }}">
-                          <div class="graph-node-type">{{ node.type|upper }}</div>
-                          <div class="graph-node-label mono">{{ node.label }}</div>
+
+                {% set path = (h.get('details', {}) or {}).get('attack_path', []) %}
+
+                {% if path and path|length > 0 %}
+                  <div class="panel">
+                    <div style="font-weight:900; font-size:18px;">Attack Graph</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Relationship path between source, identity, host, and attacker actions.
+                    </div>
+
+                    <div class="investigation-graph">
+                      {% for node in path %}
+                        <div class="graph-node {{ node['type'] }}">
+                          <div class="graph-node-kind">{{ node.type|upper }}</div>
+                          <div class="graph-node-value">{{ node.label }}</div>
                         </div>
                         {% if not loop.last %}
-                          <div class="graph-arrow">→</div>
+                          <div class="graph-arrow">↓</div>
                         {% endif %}
                       {% endfor %}
                     </div>
                   </div>
                 {% endif %}
+
+
 
                 {# Phase 5: Analyst Summary #}
                 {% set analyst_summary = (h.get('details', {}) or {}).get('analyst_summary', '') %}
@@ -1346,30 +1604,6 @@ def build_case_iocs(items_sorted: List[Dict[str, Any]]) -> Dict[str, List[str]]:
         "users": users,
     }
 
-
-def build_case_risk_fallback(items_sorted: List[Dict[str, Any]]) -> Dict[str, Any]:
-    sev_order = {"low": 1, "medium": 2, "high": 3, "critical": 4}
-
-    case_score = 0
-    max_sev = "low"
-
-    for it in items_sorted:
-        case_score += int(it.get("score", 0) or 0)
-        sev = str(it.get("severity", "low")).lower()
-        if sev_order.get(sev, 0) > sev_order.get(max_sev, 0):
-            max_sev = sev
-
-    reasons = []
-    if any("CORR" in str(it.get("rule_id", "")) for it in items_sorted):
-        reasons.append("Correlation present")
-
-    return {
-        "case_score": case_score,
-        "case_threat_level": max_sev,
-        "reasons": reasons,
-    }
-
-
 def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str, Any]]:
     """
     Build case objects that can be used by:
@@ -1389,22 +1623,14 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
 
         attack_flow = build_attack_flow(items_sorted)
         attack_graph = build_attack_graph(items_sorted)
+        attack_path = build_attack_path(attack_graph)
+
         attack_chain = build_attack_chain(items_sorted)
         iocs = build_case_iocs(items_sorted)
         case_risk = build_case_risk_fallback(items_sorted)
+       
 
-        header = {
-            "correlation_id": correlation_id,
-            "input_name": input_name,
-            "title": header_alert.get("title", "Untitled Case"),
-            "severity": header_alert.get("severity", "low"),
-            "timestamp": header_alert.get("timestamp", ""),
-            "score": int(header_alert.get("score", 0) or 0),
-            "details": {
-                "recommended_actions": build_recommended_actions(items_sorted),
-                "case_risk": case_risk,
-            },
-        }
+        analyst_summary = build_analyst_summary(items_sorted)
 
         timeline = [
             {
@@ -1415,6 +1641,29 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
             }
             for it in items_sorted
         ]
+        
+        header = {
+            "correlation_id": correlation_id,
+            "input_name": input_name,
+            "title": header_alert.get("title", "Untitled Case"),
+            "severity": header_alert.get("severity", "low"),
+            "timestamp": header_alert.get("timestamp", ""),
+            "score": int(header_alert.get("score", 0) or 0),
+            "details": {
+                "recommended_actions": build_recommended_actions(items_sorted),
+                "case_risk": case_risk,
+                "attack_flow": attack_flow,
+                "attack_graph": attack_graph,
+                "attack_path": attack_path,
+                "attack_chain": attack_chain,
+                "iocs": iocs,
+                "timeline": timeline,
+                "analyst_summary": analyst_summary,
+            },
+        }
+
+
+        
 
         evidence = []
         for it in items_sorted:
@@ -1435,12 +1684,14 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
                 "timeline": timeline,
                 "attack_flow": attack_flow,
                 "attack_graph": attack_graph,
+                "attack_path": attack_path,
                 "attack_chain": attack_chain,
                 "iocs": iocs,
                 "evidence": evidence,
                 "alerts": items_sorted,
             }
         )
+
 
     cases.sort(key=lambda c: c["correlation_id"])
     return cases
@@ -1527,9 +1778,6 @@ def write_html_report(
         cases.append({"correlation_id": cid, "header": header, "alerts": items_sorted})
 
     cases = build_cases(alerts, input_name)
-
-    print("DEBUG first case keys:", cases[0].keys() if cases else "no cases")
-    print("DEBUG first case attack_graph:", cases[0].get("attack_graph") if cases else "no cases")
 
     html = HTML_TEMPLATE.render(
         cases=cases,
