@@ -1,3 +1,5 @@
+from soc_forge.correlate.rules import correlate_alerts
+
 def test_corr_account_priv_log_clear():
     alerts = [
         {

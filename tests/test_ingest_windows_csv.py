@@ -1,5 +1,5 @@
 from pathlib import Path
-from soc_forge.ingest.windows_security_csv import iter_windows_security_events
+from soc_forge.ingest.windows_security_csv import load_windows_security_csv
 
 
 def test_windows_security_csv_ingest(tmp_path: Path):
@@ -11,7 +11,7 @@ def test_windows_security_csv_ingest(tmp_path: Path):
         encoding="utf-8",
     )
 
-    events = list(iter_windows_security_events(p))
+    events = list(load_windows_security_csv(p))
     assert len(events) == 2
     assert events[0]["event_id"] == 4625
     assert events[0]["username"] == "bob"

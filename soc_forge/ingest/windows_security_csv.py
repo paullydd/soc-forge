@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 
 def _extract_value(message: str, label: str) -> str | None:
@@ -18,7 +18,30 @@ def _extract_value(message: str, label: str) -> str | None:
 
 def _normalize_row(row: Dict[str, Any], default_host: str = "WINDOWS-PC") -> Dict[str, Any]:
     message = row.get("Message", "") or ""
-    event_id_raw = row.get("Id", 0)
+
+    timestamp = (
+        row.get("TimeCreated")
+        or row.get("Date and Time")
+        or ""
+    )
+
+    event_id_raw = (
+        row.get("Id")
+        or row.get("Event ID")
+        or 0
+    )
+
+    host = (
+        row.get("Computer")
+        or row.get("Host")
+        or default_host
+    )
+
+    username = (
+        row.get("User")
+        or row.get("Username")
+        or None
+    )
 
     try:
         event_id = int(event_id_raw)
@@ -26,21 +49,25 @@ def _normalize_row(row: Dict[str, Any], default_host: str = "WINDOWS-PC") -> Dic
         event_id = 0
 
     event: Dict[str, Any] = {
-        "timestamp": row.get("TimeCreated", "") or "",
+        "timestamp": timestamp,
         "event_id": event_id,
         "message": message,
-        "host": default_host,
+        "host": host,
     }
 
-    # common Windows Security fields pulled from message text
-    username = _extract_value(message, "Account Name:")
+    if username:
+        event["username"] = username
+        event["actor"] = username
+
+    # Parse common Windows Security fields from message text
+    account_name = _extract_value(message, "Account Name:")
     target_user = _extract_value(message, "Target Account Name:")
     group_name = _extract_value(message, "Group Name:")
     ip = _extract_value(message, "Source Network Address:")
 
-    if username and username not in {"-", "SYSTEM"}:
-        event["username"] = username
-        event["actor"] = username
+    if account_name and account_name not in {"-", "SYSTEM"}:
+        event.setdefault("username", account_name)
+        event.setdefault("actor", account_name)
 
     if target_user:
         event["target_user"] = target_user
@@ -64,3 +91,8 @@ def load_windows_security_csv(path: str | Path, default_host: str = "WINDOWS-PC"
             events.append(_normalize_row(row, default_host=default_host))
 
     return events
+
+
+def iter_windows_security_events(path: str | Path, default_host: str = "WINDOWS-PC") -> Iterator[Dict[str, Any]]:
+    for event in load_windows_security_csv(path, default_host=default_host):
+        yield event

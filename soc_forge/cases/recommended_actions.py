@@ -75,7 +75,7 @@ def build_recommended_actions(items_sorted: List[Dict[str, Any]]) -> List[str]:
     src_ips = sorted(_collect_src_ips(items_sorted))
 
     if users:
-        actions.append(f"Validate affected user/account context: {', '.join(users)}")
+        actions.append(f"Validate user access with HR/IT: {', '.join(users)}")
     if hosts:
         actions.append(f"Identify impacted endpoint(s): {', '.join(hosts)}")
     if src_ips:
@@ -108,7 +108,7 @@ def build_recommended_actions(items_sorted: List[Dict[str, Any]]) -> List[str]:
 
     # SOCF-CORR-001: Brute force + lockout
     if _has_rule(items_sorted, "SOCF-CORR-001"):
-        actions.append("Review authentication activity for password spray or brute-force scope across accounts, hosts, and time windows.")
+        actions.append("Review authentication logs for password spray / brute-force scope (users targeted, hosts, time window)")
         if src_ips:
             actions.append(f"Consider blocking or rate-limiting source IP(s) if unauthorized: {', '.join(src_ips)}")
 
@@ -132,6 +132,20 @@ def build_recommended_actions(items_sorted: List[Dict[str, Any]]) -> List[str]:
         actions.append("Treat this sequence as a high-confidence malicious chain involving account creation, privilege escalation, and defense evasion.")
         actions.append("Disable the account, revoke privileged access, and isolate the host if activity is unauthorized.")
         actions.append("Preserve forensic evidence before additional logs or artifacts are destroyed and hunt for persistence such as tasks, services, or remote access.")
+
+    if _has_rule(items_sorted, "SOCF-006") and _has_rule(items_sorted, "SOCF-005", "SOCF-010", "SOCF-011"):
+        actions.append("Pull EDR triage: process tree around first RDP logon (parent/child, network, command line)")
+        actions.append("Check scheduled task details (name, triggers, command, author) and capture the full XML if available")
+
+    if _has_rule(items_sorted, "SOCF-CORR-001") or (_has_rule(items_sorted, "SOCF-001") and _has_rule(items_sorted, "SOCF-002")):
+        actions.append("Review authentication logs for password spray / brute-force scope (users targeted, hosts, time window).")
+        if src_ips:
+            actions.append(f"Consider blocking or rate-limiting source IP(s) if unauthorized: {', '.join(src_ips)}")
+
+    if _has_rule(items_sorted, "SOCF-CORR-001") or (_has_rule(items_sorted, "SOCF-001") and _has_rule(items_sorted, "SOCF-002")):
+        actions.append("Review authentication logs for password spray / brute-force scope (users targeted, hosts, time window).")
+        if src_ips:
+            actions.append(f"Consider blocking source IP(s) if unauthorized: {', '.join(src_ips)}")
 
     threat = _first(items_sorted, "threat_level") or _first(items_sorted, "severity")
     if hosts and threat and str(threat).lower() in {"high", "critical"}:
