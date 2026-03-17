@@ -1,0 +1,4 @@
+{"timestamp":"2026-03-12T08:00:00","host":"WIN10","username":"bob","src_ip":"10.0.0.5","event_id":4624}
+{"timestamp":"2026-03-12T08:05:00","host":"DC01","username":"bob","src_ip":"203.0.113.50","event_id":4624}
+{"timestamp":"2026-03-12T08:10:00","host":"WIN10","username":"bob","command_line":"powershell -enc aGVsbG8=","event_id":4688}
+{"timestamp":"2026-03-12T08:15:00","host":"FILE01","username":"bob","src_ip":"203.0.113.50","event_id":4624}

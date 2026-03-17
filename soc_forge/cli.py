@@ -13,6 +13,7 @@ from soc_forge import __version__
 from soc_forge.ingest.windows_security_csv import load_windows_security_csv
 from soc_forge.rules.engine import load_rules, run_rules
 from soc_forge.models import Alert
+from soc_forge.hunts import findings_to_dicts, run_hunts
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
 from soc_forge.report.html_report import write_html_report, build_cases
 from soc_forge.export.cases_export import export_cases_json
@@ -218,6 +219,8 @@ def main():
     
     input_path = Path(args.input)
 
+    
+
     if input_path.suffix.lower() == ".csv":
         events = load_windows_security_csv(input_path)
     elif input_path.suffix.lower() == ".jsonl":
@@ -231,6 +234,20 @@ def main():
     else:
         raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl or .csv")
     
+    hunt_findings = run_hunts(events)
+    hunt_findings_json = findings_to_dicts(hunt_findings)
+    
+    if hunt_findings:
+        print("\nHUNT RESULTS")
+        print("------------")
+        for h in hunt_findings:
+            print(f"{h.title} [{h.severity}]")
+            print(f" {h.summary}")
+    else:
+        print("\nHUNT RESULTS")
+        print("-------------")
+        print("No hunt findings.")
+
         # -----------------------------
     # Phase 4: YAML rules execution
     # -----------------------------
@@ -312,6 +329,10 @@ def main():
 
     with out_path.open("w", encoding="utf-8") as f:
         json.dump(alert_dicts, f, indent=2)
+
+    Path("out").mkdir(exist_ok=True)
+    with open("out/hunts.json", "w", encoding="utf-8") as f:
+        json.dump(hunt_findings_json, f, indent=2)
 
     html_path = Path(out_html)
     coverage_rows = mitre_coverage_by_tactic(rules, enabled_only=True)
