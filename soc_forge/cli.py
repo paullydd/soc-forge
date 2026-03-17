@@ -353,6 +353,7 @@ def main():
         input_name=str(input_path.name),
         mitre_coverage=coverage_rows,
         corr_summary=corr_summary,
+        hunt_findings=hunt_findings_json,
     )
 
     print_summary(alert_dicts)

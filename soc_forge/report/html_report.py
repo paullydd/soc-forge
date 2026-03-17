@@ -1015,7 +1015,17 @@ HTML_TEMPLATE = Template(
       opacity: 0.9;
     }
 
-
+    .hunt-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      background: #4c1d95;
+      color: #ffffff;
+      border: 1px solid #8b5cf6;
+    }
+    
     .card{
       margin-top:12px;
       border:1px solid var(--border);
@@ -1056,6 +1066,7 @@ HTML_TEMPLATE = Template(
   </style>
 </head>
 <body>
+
 <div class="container">
 {% set h = {} %}
 
@@ -1135,6 +1146,62 @@ HTML_TEMPLATE = Template(
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>Threat Hunting Findings</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="muted" style="margin-bottom:10px;">
+        Hunt count: {{ hunt_findings|length }}
+      </div>
+
+      {% if hunt_findings and hunt_findings|length > 0 %}
+        {% for h in hunt_findings %}
+          <div class="card" style="margin-top:12px; border-left: 6px solid #7c3aed; padding:12px;">
+            <div style="font-weight:900; font-size:1.05rem;">{{ h.title }}</div>
+            <div class="muted" style="margin-top:4px;">{{ h.summary }}</div>
+
+            <div style="margin-top:8px;">
+              <span class="hunt-badge">{{ h.hunt_id }}</span>
+              <span class="hunt-badge">{{ h.severity|upper }}</span>
+              <span class="hunt-badge">{{ h.category }}</span>
+              <span class="hunt-badge">confidence: {{ h.confidence }}</span>
+            </div>
+
+            {% if h.entities %}
+              <table style="margin-top:10px;">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for key, value in h.entities.items() %}
+                    <tr>
+                      <td>{{ key }}</td>
+                      <td>
+                        {% if value is iterable and value is not string and value is not mapping %}
+                          {{ value|join(', ') }}
+                        {% else %}
+                          {{ value }}
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="muted">No threat hunting findings.</p>
+      {% endif %}
+    </div>
+  </div>
+
   {% if stats.total == 0 %}
     <div class="card">
       <div class="card-head">
@@ -1153,6 +1220,7 @@ HTML_TEMPLATE = Template(
           </div>
         </div>
         <div class="card-body">
+
 
           {% for c in cases %}
             {% set h = c.header %}
@@ -1702,6 +1770,7 @@ def write_html_report(
     input_name: str,
     mitre_coverage: List[Tuple[str, int]] | None = None,
     corr_summary: Dict[str, Any] | None = None,
+    hunt_findings=None,
 ) -> None:
 
     # Sort newest-first
@@ -1786,6 +1855,7 @@ def write_html_report(
         input_name=input_name,
         mitre_coverage=mitre_coverage or [],
         corr_summary=corr_summary or {"total": 0, "by_rule": []},
+        hunt_findings=hunt_findings or [],
         version=__version__,
         generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
     )

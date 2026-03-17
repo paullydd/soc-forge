@@ -281,3 +281,22 @@ Phase 11 expands SOC-Forge detection coverage with additional Windows security d
 Create Account → Privilege Escalation → Defense Evasion
 
 SOC-Forge automatically detects this pattern and produces a high-confidence case investigation report.
+
+## 🔎 Threat Hunting (Phase 12)
+
+SOC-Forge now includes a threat hunting engine to identify suspicious behavior even when no detection rules fire.
+
+### Hunt Capabilities
+- Suspicious command execution (e.g., PowerShell encoded)
+- Rare source IP detection per user
+- Multi-host lateral movement detection
+- Failed login burst detection
+
+### Output
+- CLI hunt summary
+- JSON export (`out/hunts.json`)
+- Integrated HTML report section with:
+  - Findings
+  - Entities
+  - Evidence
+  - MITRE mapping
