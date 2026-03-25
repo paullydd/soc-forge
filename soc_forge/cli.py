@@ -18,6 +18,7 @@ from soc_forge.intelligence.aggregator import build_risk_summary
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
 from soc_forge.report.html_report import write_html_report, build_cases
 from soc_forge.export.cases_export import export_cases_json
+from soc_forge.intelligence import attach_case_stories, build_risk_summary
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict, List
 
@@ -350,6 +351,7 @@ def main():
     }
 
     cases = build_cases(alert_dicts, str(input_path))
+    cases = attach_case_stories(cases, hunt_findings_json)
     export_cases_json(cases, Path(html_path).parent)
 
 
@@ -361,6 +363,7 @@ def main():
         corr_summary=corr_summary,
         hunt_findings=hunt_findings_json,
         risk_summary=risk_summary,
+        cases=cases,
     )
 
     print_summary(alert_dicts)

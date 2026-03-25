@@ -1270,6 +1270,31 @@ HTML_TEMPLATE = Template(
               </div>
             {% endif %}
 
+            {% set related_hunts = c.get('related_hunts', []) %}
+            {% if related_hunts and related_hunts|length > 0 %}
+              <div class="card" style="margin-top:10px; border-left: 6px solid #7c3aed;">
+                <div style="font-weight:900; margin-bottom:6px;">Related Hunt Findings</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Hunt</th>
+                      <th>Summary</th>
+                      <th>Severity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for h in related_hunts %}
+                      <tr>
+                        <td>{{ h.get('title', '') }}</td>
+                        <td>{{ h.get('summary', '') }}</td>
+                        <td>{{ h.get('severity', '')|upper }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% endif %}
+
             <div class="card case-card" style="margin:10px 0;">
               <div class="card-head">
                 <div class="h">
@@ -1285,6 +1310,38 @@ HTML_TEMPLATE = Template(
                   </div>
                 </div>
               </div>
+
+              {% if c.get('story') %}
+                {% set risk_level = ((c.get('header', {}).get('details', {}).get('case_risk', {}) or {}).get('level', 'low'))|lower %}
+
+                {% if risk_level == 'critical' %}
+                  {% set border_color = '#dc2626' %}
+                {% elif risk_level == 'high' %}
+                  {% set border_color = '#ea580c' %}
+                {% elif risk_level == 'medium' %}
+                  {% set border_color = '#ca8a04' %}
+                {% else %}
+                  {% set border_color = '#2563eb' %}
+                {% endif %}
+
+                <div class="card" style="
+                  margin-top:12px;
+                  padding:14px;
+                  border-left: 6px solid {{ border_color }};
+                  background: rgba(255,255,255,0.02);
+                ">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:900; font-size:1.05rem;">
+                      🧠 Investigation Story
+                    </div>
+                    <div class="badge">{{ risk_level|upper }}</div>
+                  </div>
+
+                  <div class="muted" style="margin-top:10px; line-height:1.7; font-size:0.95rem;">
+                    {{ c.get('story') }}
+                  </div>
+                </div>
+              {% endif %}
 
               <div class="card-body">
                 {# --- Attack Chain --- #}
@@ -1790,12 +1847,11 @@ def write_html_report(
     corr_summary: Dict[str, Any] | None = None,
     hunt_findings=None,
     risk_summary=None,
+    cases=None,
 ) -> None:
 
     # Sort newest-first
     alerts_sorted = sorted(alerts, key=lambda a: a.get("timestamp", ""), reverse=True)
-
-    cases = build_cases(alerts, input_name)
 
     # Severity stats
     sev_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
@@ -1813,59 +1869,60 @@ def write_html_report(
     }
 
     # -------------------------
-    # Group into cases + standalone
+    # Group standalone alerts
     # -------------------------
-    cases_map: Dict[str, List[Dict[str, Any]]] = {}
     standalone: List[Dict[str, Any]] = []
-
     for a in alerts_sorted:
         cid = a.get("correlation_id")
-        if cid:
-            cases_map.setdefault(str(cid), []).append(a)
-        else:
+        if not cid:
             standalone.append(a)
 
     # -------------------------
-    # Build cases (dedup + risk scoring + Phase 5 enrich)
+    # Use passed-in cases if available, otherwise build fallback cases
     # -------------------------
-    cases: List[Dict[str, Any]] = []
+    if cases is None:
+        cases_map: Dict[str, List[Dict[str, Any]]] = {}
 
-    for cid, items in cases_map.items():
-        seen = set()
-        dedup: List[Dict[str, Any]] = []
-        for a in items:
-            key = (a.get("rule_id"), a.get("timestamp"))
-            if key in seen:
-                continue
-            seen.add(key)
-            dedup.append(a)
+        for a in alerts_sorted:
+            cid = a.get("correlation_id")
+            if cid:
+                cases_map.setdefault(str(cid), []).append(a)
 
-        # Keep case alerts newest-first for the alerts table
-        items_sorted = sorted(dedup, key=lambda x: x.get("timestamp", ""), reverse=True)
+        built_cases: List[Dict[str, Any]] = []
 
-        header = next(
-            (x for x in items_sorted if str(x.get("rule_id", "")).startswith("SOCF-CORR")),
-            items_sorted[0],
-        )
+        for cid, items in cases_map.items():
+            seen = set()
+            dedup: List[Dict[str, Any]] = []
+            for a in items:
+                key = (a.get("rule_id"), a.get("timestamp"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                dedup.append(a)
 
-        case_risk = score_case(items_sorted)
+            items_sorted = sorted(dedup, key=lambda x: x.get("timestamp", ""), reverse=True)
 
-        header = dict(header)
-        header.setdefault("details", {})
-        header["details"]["case_risk"] = case_risk
+            header = next(
+                (x for x in items_sorted if str(x.get("rule_id", "")).startswith("SOCF-CORR")),
+                items_sorted[0],
+            )
 
-        # -------------------------
-        # Phase 5 additions
-        # -------------------------
-        header["details"]["timeline"] = build_case_timeline(items_sorted)
-        header["details"]["iocs"] = extract_case_iocs(items_sorted)
-        header["details"]["analyst_summary"] = build_analyst_summary(items_sorted)
-        header["details"]["attack_chain"] = build_attack_chain(items_sorted)
-        header["details"]["recommended_actions"] = build_recommended_actions(items_sorted)
+            case_risk = score_case(items_sorted)
 
-        cases.append({"correlation_id": cid, "header": header, "alerts": items_sorted})
+            header = dict(header)
+            header.setdefault("details", {})
+            header["details"]["case_risk"] = case_risk
+            header["details"]["timeline"] = build_case_timeline(items_sorted)
+            header["details"]["iocs"] = extract_case_iocs(items_sorted)
+            header["details"]["analyst_summary"] = build_analyst_summary(items_sorted)
+            header["details"]["attack_chain"] = build_attack_chain(items_sorted)
+            header["details"]["recommended_actions"] = build_recommended_actions(items_sorted)
 
-    cases = build_cases(alerts, input_name)
+            built_cases.append(
+                {"correlation_id": cid, "header": header, "alerts": items_sorted}
+            )
+
+        cases = built_cases
 
     html = HTML_TEMPLATE.render(
         cases=cases,
