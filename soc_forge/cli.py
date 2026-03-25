@@ -14,6 +14,7 @@ from soc_forge.ingest.windows_security_csv import load_windows_security_csv
 from soc_forge.rules.engine import load_rules, run_rules
 from soc_forge.models import Alert
 from soc_forge.hunts import findings_to_dicts, run_hunts
+from soc_forge.intelligence.aggregator import build_risk_summary
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
 from soc_forge.report.html_report import write_html_report, build_cases
 from soc_forge.export.cases_export import export_cases_json
@@ -219,8 +220,6 @@ def main():
     
     input_path = Path(args.input)
 
-    
-
     if input_path.suffix.lower() == ".csv":
         events = load_windows_security_csv(input_path)
     elif input_path.suffix.lower() == ".jsonl":
@@ -233,52 +232,34 @@ def main():
                 events.append(json.loads(line))
     else:
         raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl or .csv")
-    
-    hunt_findings = run_hunts(events)
-    hunt_findings_json = findings_to_dicts(hunt_findings)
-    
-    if hunt_findings:
-        print("\nHUNT RESULTS")
-        print("------------")
-        for h in hunt_findings:
-            print(f"{h.title} [{h.severity}]")
-            print(f" {h.summary}")
-    else:
-        print("\nHUNT RESULTS")
-        print("-------------")
-        print("No hunt findings.")
 
-        # -----------------------------
+    # -----------------------------
     # Phase 4: YAML rules execution
     # -----------------------------
     rule_paths: list[str] = []
 
-    # Load built-in packaged rules (soc_forge/rules/*.yml)
     rule_paths.append("soc_forge/rules")
 
-    # Add any user-provided rule files/dirs
     if args.rules:
-        # args.rules is a list because action="append"
         rule_paths.extend(args.rules)
 
     seen = set()
     rule_paths = [p for p in rule_paths if not (p in seen or seen.add(p))]
-    
+
     rules = load_rules(rule_paths)
-    yaml_alerts = run_rules(events, rules)  # list[dict] from engine.py
+    yaml_alerts = run_rules(events, rules)
     coverage_rows = mitre_coverage_by_tactic(rules, enabled_only=True)
 
     if args.coverage:
         rows = mitre_coverage_by_tactic(rules, enabled_only=True)
         print(format_coverage_table(rows))
         return 0
-    
+
     # -----------------------------
-    # Legacy detectors (Phase 3)
+    # Legacy detectors
     # -----------------------------
     alerts: list[Alert] = []
     if not args.rules_only:
-        # Keep stateful / not-yet-migrated detectors here
         alerts += detect_bruteforce(
             events,
             threshold=bf_threshold,
@@ -287,23 +268,18 @@ def main():
             score=cfg.bruteforce.score,
         )
 
-        # IMPORTANT: These are now migrated to YAML -> do NOT run legacy versions
-        # alerts += detect_new_service_installed(...)
-        # alerts += detect_scheduled_task_created(...)
-        # alerts += detect_suspicious_rdp_logon(...)
-
-    # Convert legacy Alert objects to dicts and merge with YAML alerts
+    # Merge legacy + YAML once
     alert_dicts = [asdict(a) for a in alerts] + yaml_alerts
-        
-    alert_dicts += yaml_alerts
+
+    # Correlation
     alert_dicts = correlate_alerts(
         alert_dicts,
         window_minutes=cfg.correlation.window_minutes,
-        
+
         bruteforce_lockout_enabled=cfg.correlation.bruteforce_lockout_enabled,
         bruteforce_lockout_severity=cfg.correlation.bruteforce_lockout_severity,
         bruteforce_lockout_score=cfg.correlation.bruteforce_lockout_score,
-        
+
         rdp_schtask_enabled=cfg.correlation.rdp_schtask_enabled,
         rdp_schtask_severity=cfg.correlation.rdp_schtask_severity,
         rdp_schtask_score=cfg.correlation.rdp_schtask_score,
@@ -311,9 +287,9 @@ def main():
         rdp_new_admin_enabled=cfg.correlation.rdp_new_admin_enabled,
         rdp_new_admin_severity=cfg.correlation.rdp_new_admin_severity,
         rdp_new_admin_score=cfg.correlation.rdp_new_admin_score,
-        )
-    
-    corr_alerts = [a for a in alert_dicts if str(a.get("rule_id","")).startswith("SOCF_CORR")]
+    )
+
+    corr_alerts = [a for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF_CORR")]
     corr_counts = {}
     for a in corr_alerts:
         rid = a.get("rule_id", "SOCF_CORR_UNKNOWN")
@@ -323,6 +299,36 @@ def main():
         "total": len(corr_alerts),
         "by_rule": sorted(corr_counts.items(), key=lambda x: (-x[1], x[0])),
     }
+
+    # Hunts
+    hunt_findings = run_hunts(events)
+    hunt_findings_json = findings_to_dicts(hunt_findings)
+
+    if hunt_findings:
+        print("\nHUNT RESULTS")
+        print("------------")
+        for h in hunt_findings:
+            print(f"{h.title} [{h.severity}]")
+            print(f"  {h.summary}")
+    else:
+        print("\nHUNT RESULTS")
+        print("------------")
+        print("No hunt findings.")
+
+    # Risk summary
+    risk_summary = build_risk_summary(
+        alerts=alert_dicts,
+        hunts=hunt_findings_json,
+        correlations=corr_summary,
+    )
+
+    print("\nRISK SUMMARY")
+    print("------------")
+    print(f"Overall Risk: {risk_summary['level'].upper()} ({risk_summary['overall_score']})")
+    print(f"Alerts: {risk_summary['alerts']}")
+    print(f"Hunts: {risk_summary['hunts']}")
+    print(f"Correlations: {risk_summary['correlations']}")    
+
 
     out_path = Path(out_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -354,6 +360,7 @@ def main():
         mitre_coverage=coverage_rows,
         corr_summary=corr_summary,
         hunt_findings=hunt_findings_json,
+        risk_summary=risk_summary,
     )
 
     print_summary(alert_dicts)

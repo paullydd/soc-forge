@@ -300,3 +300,19 @@ SOC-Forge now includes a threat hunting engine to identify suspicious behavior e
   - Entities
   - Evidence
   - MITRE mapping
+
+
+## v1.0.0
+
+SOC-Forge v1.0.0 is the first major release of a mini SOC detection, investigation, and threat hunting platform.
+
+### Core capabilities
+- Event ingestion from JSONL and Windows Security CSV
+- YAML-based detection rules
+- Alert correlation
+- Case building and evidence expansion
+- MITRE ATT&CK mapping
+- IOC extraction and recommended actions
+- Threat hunting analytics
+- Risk overview scoring
+- HTML investigation reporting

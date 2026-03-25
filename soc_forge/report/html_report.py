@@ -1124,6 +1124,24 @@ HTML_TEMPLATE = Template(
   <div class="card">
     <div class="card-head">
       <div class="h">
+        <div class="left"><strong>Risk Overview</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div style="font-size:1.25rem; font-weight:900;">
+        {{ risk_summary.level|upper }} ({{ risk_summary.overall_score }})
+      </div>
+      <div class="muted" style="margin-top:6px;">
+        Alerts: {{ risk_summary.alerts }} |
+        Hunts: {{ risk_summary.hunts }} |
+        Correlations: {{ risk_summary.correlations }}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
         <div class="left"><strong>Correlation Summary</strong></div>
       </div>
     </div>
@@ -1771,6 +1789,7 @@ def write_html_report(
     mitre_coverage: List[Tuple[str, int]] | None = None,
     corr_summary: Dict[str, Any] | None = None,
     hunt_findings=None,
+    risk_summary=None,
 ) -> None:
 
     # Sort newest-first
@@ -1856,6 +1875,13 @@ def write_html_report(
         mitre_coverage=mitre_coverage or [],
         corr_summary=corr_summary or {"total": 0, "by_rule": []},
         hunt_findings=hunt_findings or [],
+        risk_summary=risk_summary or{
+            "overall_score": 0,
+            "level": "low",
+            "alerts": 0,
+            "hunts": 0,
+            "correlations": 0,
+        },
         version=__version__,
         generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
     )
