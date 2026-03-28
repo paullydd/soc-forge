@@ -1,0 +1,25 @@
+version: 1
+rules:
+  - id: "SOCF-010"
+    enabled: true
+    title: "Password spray suspected"
+    severity: "high"
+    score: 70
+    mitre:
+      - tactic: "Credential Access"
+        technique: "Brute Force: Password Spraying"
+        technique_id: "T1110.003"
+    match:
+      all:
+        - field: "event_id"
+          op: "eq"
+          value: 4625
+    aggregate:
+      group_by:
+        - "src_ip"
+      window_minutes: 10
+      distinct_count:
+        field: "username"
+        gte: 5
+    emit:
+      summary: "Source IP sprayed multiple usernames within the detection window."

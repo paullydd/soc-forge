@@ -18,6 +18,8 @@ from soc_forge.intelligence.aggregator import build_risk_summary
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
 from soc_forge.report.html_report import write_html_report, build_cases
 from soc_forge.export.cases_export import export_cases_json
+from soc_forge.reconstruct.engine import reconstruct_case
+from soc_forge.simulator import generate_scenario, write_events_jsonl
 from soc_forge.intelligence import attach_case_stories, build_risk_summary
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict, List
@@ -195,10 +197,17 @@ def print_summary(alerts: List[Any]) -> None:
 
     console.print(table)
 
+def run_simulator(args) -> int:
+    events = generate_scenario(args.simulate)
+    output_path = write_events_jsonl(events, args.sim_output)
+    print(f"[+] Generated {len(events)} events for scenario: {args.simulate}")
+    print(f"[+] Wrote simulated events to: {output_path}")
+    return 0
+
 def main():
-    ap = argparse.ArgumentParser(prog="soc-forge", description="Mini SOC detection engine (Phase 1)")
+    ap = argparse.ArgumentParser(prog="soc-forge", description="SOC-Forge detection engine with attack simulation")
     ap.add_argument("--version", action="version", version=f"soc-forge {__version__}")
-    ap.add_argument("--input", required=True, help="Path to JSONL events file")
+    ap.add_argument("--input", required=False, help="Path to JSONL events file")
     ap.add_argument("--out", default=None, help="Output alerts.json path (overrides config)")
     ap.add_argument("--bf-threshold", type=int, default=None, help="Bruteforce threshold (overrides config)")
     ap.add_argument("--bf-window", type=int, default=None, help="Bruteforce window minutes (overrides config)")
@@ -209,7 +218,23 @@ def main():
     ap.add_argument("--rules", action="append", help="Rule file or directory (repeatable)")
     ap.add_argument("--rules-only", action="store_true", help="Run YAML rules only (skip built-in detectors)")
     ap.add_argument("--coverage", action="store_true", help="Print MITRE coverage for for loaded YAML rules and exit")
+    ap.add_argument(
+        "--simulate",
+        default=None,
+        choices=["brute_force", "password_spray"],
+        help="Generate a simulated attack scenario and exit",
+    )
+    ap.add_argument(
+        "--sim-output",
+        default="out/simulated_events.jsonl",
+        help="Output path for simulated JSONL events"
+    )
     args = ap.parse_args()
+    if not args.simulate and not args.input:
+        ap.error("--input is required unless --simulate is used")
+
+    if args.simulate:
+        return run_simulator(args)
 
     cfg = load_config(args.config)
 
@@ -354,6 +379,63 @@ def main():
     cases = attach_case_stories(cases, hunt_findings_json)
     export_cases_json(cases, Path(html_path).parent)
 
+    reconstructions = []
+
+    for case in cases:
+        header = case.get("header", {}) or {}
+        items = case.get("items", []) or []
+
+        reconstruction = reconstruct_case(header, items)
+
+        reconstructions.append(
+            {
+                "case_id": reconstruction.case_id,
+                "summary": reconstruction.summary,
+                "confidence": reconstruction.confidence,
+                "attack_path": [
+                    {
+                        "step_no": step.step_no,
+                        "stage": step.stage,
+                        "title": step.title,
+                        "technique": step.technique,
+                        "tactic": step.tactic,
+                        "timestamp": step.timestamp,
+                        "confidence": step.confidence,
+                        "entities": step.entities,
+                        "evidence": [
+                            {
+                                "kind": ev.kind,
+                                "ref": ev.ref,
+                                "timestamp": ev.timestamp,
+                                "rule_id": ev.rule_id,
+                                "event_id": ev.event_id,
+                                "summary": ev.summary,
+                            }
+                            for ev in step.evidence
+                        ],
+                        "notes": step.notes,
+                        "inferred": step.inferred,
+                    }
+                    for step in reconstruction.attack_path
+                ],
+                "relationships": [
+                    {
+                        "from_step": rel.from_step,
+                        "to_step": rel.to_step,
+                        "reason": rel.reason,
+                        "weight": rel.weight,
+                    }
+                    for rel in reconstruction.relationships
+                ],
+                "key_entities": reconstruction.key_entities,
+                "gaps": reconstruction.gaps,
+                "assumptions": reconstruction.assumptions,
+            }
+        )
+
+    recon_path = out_path.parent / "reconstructions.json"
+    recon_path.write_text(json.dumps(reconstructions, indent=2), encoding="utf-8")
+
 
     write_html_report(
         alerts=alert_dicts,
@@ -361,6 +443,7 @@ def main():
         input_name=str(input_path.name),
         mitre_coverage=coverage_rows,
         corr_summary=corr_summary,
+        reconstructions=reconstructions,
         hunt_findings=hunt_findings_json,
         risk_summary=risk_summary,
         cases=cases,

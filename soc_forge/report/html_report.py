@@ -1243,6 +1243,7 @@ HTML_TEMPLATE = Template(
           {% for c in cases %}
             {% set h = c.header %}
             {% set cr = (h.get('details', {}) or {}).get('case_risk', {}) %}
+            {% set recon = (recon_by_case or {}).get(h.get('case_id')) %}
 
             <div class="case-meta">
             <span class="badge badge-{{ cr.get('case_severity', h.severity)|lower }}">
@@ -1267,6 +1268,144 @@ HTML_TEMPLATE = Template(
                     </li>
                   {% endfor %}
                 </ul>
+              </div>
+            {% endif %}
+
+            {% set recon = (recon_by_case or {}).get(h.get('case_id')) %}
+            {% if recon %}
+              <div class="card" style="margin-top:14px;">
+                <div style="font-weight:900; font-size:1.05rem;">Attack Reconstruction</div>
+
+                <div style="margin-top:8px;">
+                  <strong>Summary:</strong> {{ recon.get('summary', 'No reconstruction summary available.') }}
+                </div>
+
+                <div class="muted" style="margin-top:4px;">
+                  Confidence:
+                  {{ ((recon.get('confidence', 0) or 0) * 100) | round(0) }}%
+                </div>
+
+                {% set attack_path = recon.get('attack_path', []) or [] %}
+                {% if attack_path %}
+                  <ol style="margin-top:12px; padding-left:20px;">
+                    {% for step in attack_path %}
+                      <li style="margin-bottom:12px;">
+                        <div>
+                          <strong>{{ step.get('stage', 'Unknown Stage') }}</strong>
+                          — {{ step.get('title', 'Unknown activity') }}
+                          {% if step.get('inferred') %}
+                            <span class="badge" style="margin-left:8px;">Inferred</span>
+                          {% endif %}
+                        </div>
+
+                        <div class="muted" style="margin-top:3px;">
+                          {{ step.get('timestamp') or 'No timestamp' }}
+                          {% if step.get('technique') %}
+                            · {{ step.get('technique') }}
+                          {% endif %}
+                          {% if step.get('confidence') is not none %}
+                            · confidence {{ ((step.get('confidence', 0) or 0) * 100) | round(0) }}%
+                          {% endif %}
+                        </div>
+
+                        {% set entities = step.get('entities', {}) or {} %}
+                        {% if entities %}
+                          <div style="margin-top:6px;">
+                            {% if entities.get('src_ip') %}
+                              <code>{{ entities.get('src_ip') }}</code>
+                            {% endif %}
+                            {% if entities.get('username') %}
+                              <code>{{ entities.get('username') }}</code>
+                            {% endif %}
+                            {% if entities.get('host') %}
+                              <code>{{ entities.get('host') }}</code>
+                            {% endif %}
+                          </div>
+                        {% endif %}
+
+                        {% set notes = step.get('notes', []) or [] %}
+                        {% if notes %}
+                          <ul style="margin-top:6px;">
+                            {% for note in notes %}
+                              <li>{{ note }}</li>
+                            {% endfor %}
+                          </ul>
+                        {% endif %}
+                      </li>
+                    {% endfor %}
+                  </ol>
+                {% else %}
+                  <div class="muted" style="margin-top:8px;">No attack path steps were reconstructed.</div>
+                {% endif %}
+
+                {% set relationships = recon.get('relationships', []) or [] %}
+                {% if relationships %}
+                  <details style="margin-top:10px;">
+                    <summary>Step Relationships</summary>
+                    <table style="margin-top:8px;">
+                      <thead>
+                        <tr>
+                          <th>From</th>
+                          <th>To</th>
+                          <th>Reason</th>
+                          <th>Weight</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for rel in relationships %}
+                          <tr>
+                            <td>{{ rel.get('from_step') }}</td>
+                            <td>{{ rel.get('to_step') }}</td>
+                            <td>{{ rel.get('reason') }}</td>
+                            <td>{{ '%.2f'|format(rel.get('weight', 0) or 0) }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </details>
+                {% endif %}
+
+                {% set key_entities = recon.get('key_entities', {}) or {} %}
+                {% if key_entities %}
+                  <div style="margin-top:10px;">
+                    <div style="font-weight:700;">Key Entities</div>
+                    <div class="muted" style="margin-top:4px;">
+                      {% if key_entities.get('src_ips') %}
+                        <strong>IPs:</strong> {{ key_entities.get('src_ips') | join(', ') }}<br>
+                      {% endif %}
+                      {% if key_entities.get('users') %}
+                        <strong>Users:</strong> {{ key_entities.get('users') | join(', ') }}<br>
+                      {% endif %}
+                      {% if key_entities.get('hosts') %}
+                        <strong>Hosts:</strong> {{ key_entities.get('hosts') | join(', ') }}
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endif %}
+
+                {% set gaps = recon.get('gaps', []) or [] %}
+                {% if gaps %}
+                  <div style="margin-top:10px;">
+                    <div style="font-weight:700;">Observed Gaps</div>
+                    <ul style="margin-top:4px;">
+                      {% for gap in gaps %}
+                        <li>{{ gap }}</li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                {% endif %}
+
+                {% set assumptions = recon.get('assumptions', []) or [] %}
+                {% if assumptions %}
+                  <div style="margin-top:10px;">
+                    <div style="font-weight:700;">Assumptions</div>
+                    <ul style="margin-top:4px;">
+                      {% for assumption in assumptions %}
+                        <li>{{ assumption }}</li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                {% endif %}
               </div>
             {% endif %}
 
@@ -1845,6 +1984,7 @@ def write_html_report(
     input_name: str,
     mitre_coverage: List[Tuple[str, int]] | None = None,
     corr_summary: Dict[str, Any] | None = None,
+    reconstructions: List[Dict[str, Any]] | None = None,
     hunt_findings=None,
     risk_summary=None,
     cases=None,
@@ -1924,6 +2064,12 @@ def write_html_report(
 
         cases = built_cases
 
+    recon_by_case = {
+      r.get("case_id"): r
+      for r in (reconstructions or [])
+      if r.get("case_id")
+    }
+
     html = HTML_TEMPLATE.render(
         cases=cases,
         standalone=standalone,
@@ -1931,6 +2077,8 @@ def write_html_report(
         input_name=input_name,
         mitre_coverage=mitre_coverage or [],
         corr_summary=corr_summary or {"total": 0, "by_rule": []},
+        reconstructions=reconstructions or [],
+        recon_by_case=recon_by_case,
         hunt_findings=hunt_findings or [],
         risk_summary=risk_summary or{
             "overall_score": 0,

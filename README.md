@@ -316,3 +316,12 @@ SOC-Forge v1.0.0 is the first major release of a mini SOC detection, investigati
 - Threat hunting analytics
 - Risk overview scoring
 - HTML investigation reporting
+
+## Attack Simulation
+
+SOC-Forge can generate simulated authentication attack data for end-to-end validation.
+
+### Brute force
+```bash
+soc-forge --simulate brute_force --sim-output out/simulated_events.jsonl
+soc-forge --input out/simulated_events.jsonl
