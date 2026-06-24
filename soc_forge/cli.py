@@ -230,11 +230,26 @@ def main():
         help="Output path for simulated JSONL events"
     )
     args = ap.parse_args()
-    if not args.simulate and not args.input:
-        ap.error("--input is required unless --simulate is used")
+    if not args.input and not args.simulate and not args.coverage:
+        parser.error("--input is required unless --simulate or --coverage is used")
 
     if args.simulate:
         return run_simulator(args)
+
+    if args.coverage:
+        from soc_forge.rules.engine import load_rules
+        from soc_forge.rules.coverage import (
+            mitre_coverage_by_tactic,
+            format_coverage_table,
+        )
+
+        rule_paths = args.rules or ["soc_forge/rules"]
+        rules = load_rules(rule_paths)
+
+        rows = mitre_coverage_by_tactic(rules)
+        print(format_coverage_table(rows))
+
+        return
 
     cfg = load_config(args.config)
 
