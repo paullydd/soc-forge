@@ -221,7 +221,7 @@ def main():
     ap.add_argument(
         "--simulate",
         default=None,
-        choices=["brute_force", "password_spray"],
+        choices=["brute_force", "password_spray", "privilege_escalation", "mixed"],
         help="Generate a simulated attack scenario and exit",
     )
     ap.add_argument(
