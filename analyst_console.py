@@ -5,71 +5,21 @@ import json
 from colorama import Fore, Style, init
 import time
 import sys
+from soc_forge.investigations.workspace import launch_case_workspace
+from soc_forge.investigations.ioc_explorer import build_ioc_index, list_iocs
+from soc_forge.ui.loading import startup_screen as ui_startup_screen
+from soc_forge.ui.panels import menu_group, menu_option
+from soc_forge.menus.investigations import investigations_menu
+from soc_forge.menus.detection import detection_menu
+from soc_forge.menus.analysis import analysis_menu
+from soc_forge.menus.reporting import reporting_menu
+from soc_forge.menus.system import system_menu
 
 init()
 
-def typewriter(text, delay=0.02, color=None):
-    if color:
-        sys.stdout.write(color)
-        sys.stdout.flush()
 
-    for char in text:
-        sys.stdout.write(char)
-        sys.stdout.flush()
-        time.sleep(delay)
-
-    if color:
-        sys.stdout.write(Style.RESET_ALL)
-        sys.stdout.flush()
-
-    print()
-    
 def startup_screen():
-    clear_screen()
-
-    logo = r"""
-
- ███████╗ ██████╗  ██████╗
- ██╔════╝██╔═══██╗██╔════╝
- ███████╗██║   ██║██║
- ╚════██║██║   ██║██║
- ███████║╚██████╔╝╚██████╗
- ╚══════╝ ╚═════╝  ╚═════╝
-
-""" 
-
-    print(Fore.CYAN, end="")
-    typewriter(logo, 0.0005)
-    print(Style.RESET_ALL, end="")
-
-    time.sleep(0.4)
-
-    typewriter("       SOC-FORGE", 0.05, Fore.YELLOW)
-
-    typewriter(" Security Operations Platform", 0.02, Fore.CYAN)
-
-    print()
-
-    loading_items = [
-        "Loading detection engine...",
-        "Loading attack reconstructions...",
-        "Loading cases...",
-        "Loading analyst notes...",
-        "Loading dashboard...",
-        "Loading MITRE mappings...",
-    ]
-
-    for item in loading_items:
-        print(Fore.YELLOW + "[*] " + Style.RESET_ALL, end="")
-        typewriter(item, 0.02)
-        time.sleep(0.15)
-
-    print()
-
-    typewriter("[+] SOC-FORGE READY", 0.03, Fore.GREEN)
-
-    time.sleep(1.5)
-    clear_screen()
+    ui_startup_screen(clear_screen)
 
 def color_severity(severity):
     severity = severity.lower()
@@ -165,6 +115,74 @@ SOC-FORGE v1.2
 Security Operations Platform
 ==================================================
 """ + Style.RESET_ALL
+
+def create_demo_case():
+    os.makedirs("out", exist_ok=True)
+
+    demo_case = {
+        "case_id": 1,
+        "title": "Password Spray Suspected",
+        "status": "Investigating",
+        "risk_score": 320,
+        "created_at": "2026-06-25 15:44",
+        "mitre": ["T1110 - Brute Force", "Credential Access"],
+        "alerts": [
+            "SOCF-010 Password Spray",
+            "SOCF-001 Brute Force",
+            "SOCF-002 Account Lockout"
+        ],
+        "indicators": {
+            "IP Addresses": ["203.0.113.10"],
+            "Users": ["alice", "bob"],
+            "Hosts": ["DC1"],
+            "Services": ["Spooler"],
+            "Scheduled Tasks": ["Windows Update"]
+        },
+        "timeline": [
+            {
+                "timestamp": "15:42",
+                "description": "Multiple failed logins detected"
+            },
+            {
+                "timestamp": "15:43",
+                "description": "Failed logins observed across multiple users"
+            },
+            {
+                "timestamp": "15:44",
+                "description": "Password Spray rule SOCF-010 triggered"
+            },
+            {
+                "timestamp": "15:45",
+                "description": "Account lockout detected"
+            },
+            {
+                "timestamp": "15:46",
+                "description": "Case created for analyst review"
+            }
+        ],
+        "story": "A suspected password spraying attack targeted multiple user accounts from external IP 203.0.113.10. The activity generated repeated failed authentication events and resulted in at least one account lockout.",
+        "attack_graph": [
+            "203.0.113.10",
+            "   |",
+            "   v",
+            "alice / bob",
+            "   |",
+            "   v",
+            "DC1",
+            "   |",
+            "   v",
+            "Password Spray"
+        ],
+        "notes": [
+            "Initial investigation opened.",
+            "Source IP should be reviewed and blocked if malicious."
+        ]
+    }
+
+    with open("out/cases.json", "w", encoding="utf-8") as file:
+        json.dump([demo_case], file, indent=4)
+
+    print("Demo case created.")
 
 def load_cases():
     file_path = "out/cases.json"
@@ -1133,53 +1151,64 @@ def main_menu():
 
         print("\n" + "=" * 50)
 
-        print()
-        print(Fore.CYAN + "Menu")
-        print("-" * 50 + Style.RESET_ALL)
-
-        print(Fore.CYAN + "[1] Analyze Log File" + Style.RESET_ALL)
-        print(Fore.MAGENTA + "[2] Run Attack Simulation" + Style.RESET_ALL)
-        print(Fore.YELLOW + "[3] View Cases" + Style.RESET_ALL)
-        print(Fore.RED + "[4] View Alerts" + Style.RESET_ALL)
-        print(Fore.BLUE + "[5] Open Report" + Style.RESET_ALL)
-        print(Fore.GREEN + "[6] MITRE Coverage" + Style.RESET_ALL)
-        print(Fore.WHITE + "[7] Rules Only Mode" + Style.RESET_ALL)
-        print(Fore.LIGHTMAGENTA_EX + "[8] Search Alerts" + Style.RESET_ALL)
-        print(Fore.LIGHTCYAN_EX + "[9] Attack Stories" + Style.RESET_ALL)
-        print(Fore.LIGHTGREEN_EX + "[10] Attack Graph Viewer" + Style.RESET_ALL)
-        print(Fore.LIGHTYELLOW_EX + "[11] Analyst Notes" + Style.RESET_ALL)
-        print(Fore.LIGHTBLUE_EX + "[12] Case Status Management" + Style.RESET_ALL)
-        print(Fore.LIGHTBLACK_EX + "[0] Exit" + Style.RESET_ALL)
+        menu_group("Command Center")
+        menu_option("1", "Detection")
+        menu_option("2", "Investigations")
+        menu_option("3", "Analysis")
+        menu_option("4", "Reporting")
+        menu_option("5", "System")
+        menu_option("0", "Exit")
 
         choice = input("\nSelect option: ").strip()
 
         if choice == "1":
-            analyze_log_file()
+            detection_menu(
+                clear_screen,
+                pause,
+                analyze_log_file,
+                run_attack_simulation,
+                view_alerts,
+                run_rules_only,
+                search_alerts,
+            )
+
         elif choice == "2":
-            run_attack_simulation()
+            investigations_menu(
+                clear_screen,
+                pause,
+                load_cases,
+                view_cases,
+                view_or_add_notes,
+                manage_case_status,
+            )
+
         elif choice == "3":
-            view_cases()
+            analysis_menu(
+                clear_screen,
+                pause,
+                attack_stories,
+                attack_graph_viewer,
+            )
+
         elif choice == "4":
-            view_alerts()
+            reporting_menu(
+                clear_screen,
+                pause,
+                open_report,
+                view_mitre_coverage,
+            )
+
         elif choice == "5":
-            open_report()
-        elif choice == "6":
-            view_mitre_coverage()
-        elif choice == "7":
-            run_rules_only()
-        elif choice == "8":
-            search_alerts()
-        elif choice == "9":
-            attack_stories()
-        elif choice == "10":
-            attack_graph_viewer()
-        elif choice == "11":
-            view_or_add_notes()
-        elif choice == "12":
-            manage_case_status()
+            system_menu(
+                clear_screen,
+                pause,
+                create_demo_case,
+            )
+
         elif choice == "0":
             print("\nExiting SOC-Forge Analyst Console.")
             sys.exit(0)
+
         else:
             print("\nInvalid option.")
             pause()
