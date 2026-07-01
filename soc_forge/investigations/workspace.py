@@ -1,6 +1,8 @@
 from typing import Any, Dict, List
 from soc_forge.ui.colors import Colors
 from soc_forge.ui.panels import header, section, divider, info_panel, menu_option, warning, error, success, status_card, progress_bar_line
+from soc_forge.core.investigation_graph import build_investigation_graph, summarize_graph
+from soc_forge.ui.investigation.graph import graph_panel
 from soc_forge.ui.screen import begin_screen
 from soc_forge.investigations.timeline import show_timeline
 from soc_forge.investigations.export import export_investigation_bundle
@@ -284,6 +286,7 @@ def open_case_menu(case: Dict[str, Any], clear_screen=None) -> None:
         menu_option("6", "Notes")
         menu_option("7", "Change Status")
         menu_option("8", "Export")
+        menu_option("9", "View Investigation Graph")
         menu_option("0", "Back")
 
         choice = input("\nSelect an option: ").strip()
@@ -311,6 +314,15 @@ def open_case_menu(case: Dict[str, Any], clear_screen=None) -> None:
 
         elif choice == "8":
             export_investigation_bundle(case)
+        elif choice == "9":
+            begin_screen("Investigation Graph")
+
+            graph = build_investigation_graph(case)
+            graph["summary"] = summarize_graph(graph)
+
+            graph_panel(graph)
+
+            input("\nPress Enter to return...")
         elif choice == "0":
             if clear_screen:
                 clear_screen()
