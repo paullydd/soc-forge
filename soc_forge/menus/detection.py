@@ -1,4 +1,5 @@
 from soc_forge.ui.panels import header, menu_option, error
+from soc_forge.ui.screen import begin_screen
 
 
 def detection_menu(
@@ -11,9 +12,7 @@ def detection_menu(
     search_alerts,
 ):
     while True:
-        clear_screen()
-
-        header("DETECTION")
+        begin_screen("DETECTION")
 
         menu_option("1", "Analyze Log File")
         menu_option("2", "Run Attack Simulation")

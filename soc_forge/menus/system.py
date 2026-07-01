@@ -1,5 +1,6 @@
 import sys
 from soc_forge.ui.panels import header, menu_option, info_panel, error
+from soc_forge.ui.screen import begin_screen
 
 
 def system_menu(
@@ -8,9 +9,7 @@ def system_menu(
     create_demo_case,
 ):
     while True:
-        clear_screen()
-
-        header("SYSTEM")
+        begin_screen("SYSTEM")
 
         menu_option("1", "Create Demo Case")
         menu_option("2", "About SOC-Forge")

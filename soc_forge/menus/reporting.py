@@ -1,4 +1,5 @@
 from soc_forge.ui.panels import header, menu_option, error, warning
+from soc_forge.ui.screen import begin_screen
 
 
 def reporting_menu(
@@ -8,9 +9,7 @@ def reporting_menu(
     view_mitre_coverage,
 ):
     while True:
-        clear_screen()
-
-        header("REPORTING")
+        begin_screen("REPORTING")
 
         menu_option("1", "Open HTML Report")
         menu_option("2", "MITRE Coverage")

@@ -1,17 +1,28 @@
 from typing import Any, Dict, List
 from soc_forge.ui.colors import Colors
-from soc_forge.ui.panels import header, section, divider, info_panel, menu_option, warning, error, success
+from soc_forge.ui.panels import header, section, divider, info_panel, menu_option, warning, error, success, status_card, progress_bar_line
+from soc_forge.ui.screen import begin_screen
+from soc_forge.investigations.timeline import show_timeline
+from soc_forge.investigations.export import export_investigation_bundle
+from soc_forge.investigations.replay import replay_case
+from soc_forge.core.analyst import (
+    build_analyst_summary,
+    build_analyst_findings,
+    build_analyst_recommendations,
+    calculate_confidence, 
+    calculate_investigation_score,
+)
 
 VALID_STATUSES = ["New", "Investigating", "Contained", "Closed", "False Positive"]
 
 
-def launch_case_workspace(cases: List[Dict[str, Any]]) -> None:
+def launch_case_workspace(cases: List[Dict[str, Any]], clear_screen=None) -> None:
     if not cases:
         print(Colors.YELLOW + "\nNo cases available." + Colors.RESET)
         return
 
     while True:
-        header("INVESTIGATION WORKSPACE")
+        begin_screen("INVESTIGATION WORKSPACE")
 
         for idx, case in enumerate(cases, start=1):
             title = case.get("title", case.get("name", "Untitled Case"))
@@ -38,7 +49,7 @@ def launch_case_workspace(cases: List[Dict[str, Any]]) -> None:
             continue
 
         selected_case = cases[int(choice) - 1]
-        open_case_menu(selected_case)
+        open_case_menu(selected_case, clear_screen)
 
 def get_severity(risk: Any) -> str:
     try:
@@ -56,6 +67,34 @@ def get_severity(risk: Any) -> str:
         return "Low"
     return "Informational"
 
+def show_soc_forge_analyst(case: Dict[str, Any]) -> None:
+    section("SOC-FORGE ANALYST")
+
+    print(build_analyst_summary(case))
+
+    confidence = calculate_confidence(case)
+
+    print()
+    progress_bar_line("Confidence", confidence)
+    investigation_score = calculate_investigation_score(case)
+    progress_bar_line("Case Score", investigation_score)
+
+    findings = build_analyst_findings(case)
+
+    if findings:
+        print()
+        print("Findings")
+        for finding in findings:
+            print(f"- {finding}")
+
+    recommendations = build_analyst_recommendations(case)
+
+    if recommendations:
+        print()
+        print("Recommended Next Steps")
+        for index, recommendation in enumerate(recommendations, start=1):
+            print(f"{index}. {recommendation['action']}")
+            print(f"   Reason: {recommendation['reason']}")
 
 def get_mitre_summary(case: Dict[str, Any]) -> str:
     mitre = case.get("mitre", case.get("mitre_attack", case.get("techniques", [])))
@@ -147,7 +186,7 @@ def print_case_summary(case: Dict[str, Any]) -> None:
     note_count = count_items(case.get("notes", []))
 
     print("\n" + Colors.CYAN + "=" * 60 + Colors.RESET)
-    header(f"CASE #{case_id}")
+    begin_screen(f"CASE #{case_id}")
 
     info_panel(
         title=title,
@@ -163,78 +202,144 @@ def print_case_summary(case: Dict[str, Any]) -> None:
         ],
     )
 
-def open_case_menu(case: Dict[str, Any]) -> None:
-    while True:
-        print_case_summary(case)
+def print_case_dashboard(case: Dict[str, Any]) -> None:
+    title = case.get("title", case.get("name", "Untitled Case"))
+    risk = case.get("risk_score", case.get("risk", 0))
+    status = case.get("status", "New")
+    created = case.get("created_at", case.get("created", "Unknown"))
 
-        menu_option("1", "Timeline")
-        menu_option("2", "Story")
-        menu_option("3", "Attack Graph")
-        menu_option("4", "Indicators")
-        menu_option("5", "Notes")
-        menu_option("6", "Change Status")
-        menu_option("7", "Export")
+    severity = get_severity(risk)
+    mitre = get_mitre_summary(case)
+    alert_count = count_items(case.get("alerts", []))
+    indicator_count = count_indicators(case)
+    note_count = count_items(case.get("notes", []))
+    timeline = case.get("timeline", [])
+
+    begin_screen("CASE DASHBOARD")
+
+    status_card(
+        title,
+        [
+            ("Status", color_status(status)),
+            ("Severity", color_severity(severity)),
+            ("Risk Score", risk),
+            ("MITRE", mitre),
+            ("Created", created),
+            ("Alerts", alert_count),
+            ("Entities", indicator_count),
+            ("Notes", note_count),
+        ],
+    )
+
+    section("INVESTIGATION HEALTH")
+
+    try:
+        risk_value = int(risk)
+    except (TypeError, ValueError):
+        risk_value = 0
+
+    risk_percent = min(100, int(risk_value / 4))
+    evidence_percent = min(100, alert_count * 20)
+    entity_percent = min(100, indicator_count * 15)
+    note_percent = min(100, note_count * 25)
+
+    progress_bar_line("Risk", risk_percent)
+    progress_bar_line("Evidence", evidence_percent)
+    progress_bar_line("Entities", entity_percent)
+    progress_bar_line("Notes", note_percent)
+
+    show_soc_forge_analyst(case)
+
+    section("RECENT TIMELINE")
+
+    # if timeline:
+        # for event in timeline[:3]:
+            # timestamp = event.get("timestamp", "Unknown")
+            #description = event.get("description", event.get("event", "Unknown Event"))
+            #print(f"{Colors.CYAN}{timestamp:<8}{Colors.RESET} {description}")
+    #else:
+        #warning("No timeline events available.")
+
+    print()
+
+    # show_insights(case)
+
+    print()
+
+    # show_recommendations(case)
+
+def open_case_menu(case: Dict[str, Any], clear_screen=None) -> None:
+    while True:
+        if clear_screen:
+            clear_screen()
+
+        print_case_dashboard(case)
+        section("INVESTIGATION ACTIONS")
+
+        menu_option("1", "Investigation Replay")
+        menu_option("2", "Timeline")
+        menu_option("3", "Investigation Narrative")
+        menu_option("4", "Attack Graph")
+        menu_option("5", "Entity Explorer")
+        menu_option("6", "Notes")
+        menu_option("7", "Change Status")
+        menu_option("8", "Export")
         menu_option("0", "Back")
 
         choice = input("\nSelect an option: ").strip()
 
-        if choice == "0":
-            return
-        elif choice == "1":
-            show_timeline(case)
+        if choice == "1":
+            replay_case(case, clear_screen)
+
         elif choice == "2":
-            show_story(case)
+            show_timeline(case, clear_screen)
+
         elif choice == "3":
-            show_attack_graph(case)
+            show_story(case)
+
         elif choice == "4":
-            show_indicators(case)
+            show_attack_graph(case)
+
         elif choice == "5":
-            manage_notes(case)
+            show_indicators(case)
+
         elif choice == "6":
-            change_status(case)
+            manage_notes(case)
+
         elif choice == "7":
-            export_placeholder(case)
+            change_status(case)
+
+        elif choice == "8":
+            export_investigation_bundle(case)
+        elif choice == "0":
+            if clear_screen:
+                clear_screen()
+            return
         else:
-            print("Invalid option.")
-
-
-def show_timeline(case: Dict[str, Any]) -> None:
-    print("\nAttack Timeline")
-    print("-" * 60)
-
-    timeline = case.get("timeline", [])
-
-    if not timeline:
-        print("No timeline data available yet.")
-        return
-
-    for event in timeline:
-        timestamp = event.get("timestamp", "Unknown Time")
-        description = event.get("description", event.get("event", "Unknown Event"))
-        print(f"{timestamp}  {description}")
-
+            error("Invalid option.")
 
 def show_story(case: Dict[str, Any]) -> None:
-    print("\nAttack Story")
-    print("-" * 60)
+    begin_screen("ATTACK STORY")
 
     story = case.get("story") or case.get("analyst_summary")
 
     if not story:
-        print("No story available yet.")
+        warning("No story available yet.")
+        input("\nPress Enter to return...")
         return
 
     print(story)
+    input("\nPress Enter to return...")
 
 
 def show_attack_graph(case: Dict[str, Any]) -> None:
-    print("\nAttack Graph")
-    print("-" * 60)
+    begin_screen("ATTACK GRAPH")
 
     graph = case.get("attack_graph") or case.get("graph")
 
     if not graph:
-        print("No attack graph available yet.")
+        warning("No attack graph available yet.")
+        input("\nPress Enter to return...")
         return
 
     if isinstance(graph, list):
@@ -242,6 +347,8 @@ def show_attack_graph(case: Dict[str, Any]) -> None:
             print(line)
     else:
         print(graph)
+
+    input("\nPress Enter to return...")
 
 def show_indicators(case: Dict[str, Any]) -> None:
     indicators = case.get("indicators", case.get("iocs", {}))

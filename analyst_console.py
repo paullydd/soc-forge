@@ -14,6 +14,8 @@ from soc_forge.menus.detection import detection_menu
 from soc_forge.menus.analysis import analysis_menu
 from soc_forge.menus.reporting import reporting_menu
 from soc_forge.menus.system import system_menu
+from soc_forge.dashboard.dashboard import show_dashboard
+from soc_forge.ui.screen import set_clear_screen
 
 init()
 
@@ -1111,43 +1113,13 @@ def view_or_add_notes():
 def main_menu():
     while True:
         clear_screen()
-        print(BANNER)
-
-        stats = get_dashboard_stats()
-        recent = get_recent_activity()
-
-        print(Fore.CYAN + "┌" + "─" * 48 + "┐")
-        print("│" + "DASHBOARD".center(48) + "│")
-        print("├" + "─" * 48 + "┤" + Style.RESET_ALL)
-
-        box_row("Alerts Generated", stats["alerts"])
-        box_row("Cases Created", stats["cases"])
-
-        print(Fore.CYAN + "├" + "─" * 48 + "┤" + Style.RESET_ALL)
-
-        box_row("High Severity", stats["high"], Fore.RED)
-        box_row("Medium Severity", stats["medium"], Fore.YELLOW)
-        box_row("Low Severity", stats["low"], Fore.GREEN)
-
-        print(Fore.CYAN + "└" + "─" * 48 + "┘" + Style.RESET_ALL)
-
-        print()
-        print(Fore.CYAN + "Case Status")
-        print("-" * 50 + Style.RESET_ALL)
-
-        print(f"Open Cases:          {color_status('Open')} {stats['open']}")
-        print(f"Investigating Cases: {color_status('Investigating')} {stats['investigating']}")
-        print(f"Closed Cases:        {color_status('Closed')} {stats['closed']}")
-
-        print("\nRecent Activity")
-        print("-" * 50)
-
-        if recent:
-            for item in recent:
-                severity = color_severity(item["severity"])
-                print(f"{item['timestamp']} | {severity} | {item['title']}")
-        else:
-            warning("No recent activity found.")
+        show_dashboard(
+            get_dashboard_stats,
+            get_recent_activity,
+            box_row,
+            color_status,
+            color_severity,
+        )
 
         print("\n" + "=" * 50)
 
@@ -1214,5 +1186,6 @@ def main_menu():
             pause()
 
 if __name__ == "__main__":
+    set_clear_screen(clear_screen)
     startup_screen()
     main_menu()
