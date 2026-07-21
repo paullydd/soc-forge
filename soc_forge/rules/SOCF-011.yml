@@ -1,0 +1,58 @@
+version: 1
+rules:
+- id: SOCF-011
+  enabled: true
+  title: Suspicious PowerShell execution
+  description: Detects PowerShell command lines with encoded commands, download cradles,
+    or hidden execution flags.
+  author: SOC-Forge
+  created: '2026-07-17'
+  logsource: windows-process
+  tags:
+  - windows
+  - powershell
+  - execution
+  severity: high
+  score: 85
+  mitre:
+  - tactic: Execution
+    technique: 'Command and Scripting Interpreter: PowerShell'
+    id: T1059.001
+  - tactic: Defense Evasion
+    technique: Obfuscated Files or Information
+    id: T1027
+  match:
+    all:
+    - any:
+      - field: process_name
+        op: regex
+        value: (?i)powershell(?:\.exe)?|pwsh(?:\.exe)?
+      - field: command_line
+        op: regex
+        value: (?i)powershell(?:\.exe)?|pwsh(?:\.exe)?
+      - field: message
+        op: regex
+        value: (?i)powershell(?:\.exe)?|pwsh(?:\.exe)?
+    - any:
+      - field: command_line
+        op: regex
+        value: (?i)(-|/)enc(?:odedcommand)?\b
+      - field: command_line
+        op: regex
+        value: (?i)downloadstring|invoke-webrequest|iwr\b|frombase64string
+      - field: command_line
+        op: regex
+        value: (?i)-nop\b|-w\s+hidden|-windowstyle\s+hidden
+      - field: message
+        op: regex
+        value: (?i)(-|/)enc(?:odedcommand)?\b|downloadstring|invoke-webrequest|frombase64string|-windowstyle\s+hidden
+  emit:
+    details:
+      host: ${host}
+      username: ${username}
+      ip: ${ip}
+      process_name: ${process_name}
+      parent_process: ${parent_process}
+      command_line: ${command_line}
+      message: ${message}
+      suspicious: true

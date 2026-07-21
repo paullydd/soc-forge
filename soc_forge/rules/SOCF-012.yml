@@ -1,0 +1,64 @@
+version: 1
+rules:
+- id: SOCF-012
+  enabled: true
+  title: Process launched from user-writable path
+  description: Detects process execution from user-writable directories such as AppData,
+    Temp, Downloads, or ProgramData.
+  author: SOC-Forge
+  created: '2026-07-17'
+  logsource: windows-process
+  tags:
+  - windows
+  - process
+  - suspicious-path
+  severity: medium
+  score: 60
+  mitre:
+  - tactic: Defense Evasion
+    technique: Masquerading
+    id: T1036
+  - tactic: Execution
+    technique: User Execution
+    id: T1204
+  match:
+    all:
+    - field: event_id
+      op: eq
+      value: 4688
+    - any:
+      - field: image_path
+        op: regex
+        value: (?i)\\Users\\[^\\]+\\(AppData|Downloads|Desktop)\\|\\Windows\\Temp\\|\\Temp\\|\\ProgramData\\
+      - field: command_line
+        op: regex
+        value: (?i)\\Users\\[^\\]+\\(AppData|Downloads|Desktop)\\|\\Windows\\Temp\\|\\Temp\\|\\ProgramData\\
+      - field: message
+        op: regex
+        value: (?i)\\Users\\[^\\]+\\(AppData|Downloads|Desktop)\\|\\Windows\\Temp\\|\\Temp\\|\\ProgramData\\
+  emit:
+    details:
+      host: ${host}
+      username: ${username}
+      ip: ${ip}
+      process_name: ${process_name}
+      parent_process: ${parent_process}
+      image_path: ${image_path}
+      command_line: ${command_line}
+      message: ${message}
+      suspicious: true
+  score_modifiers:
+  - when:
+      any:
+      - field: process_name
+        op: regex
+        value: (?i)svchost\.exe|rundll32\.exe|regsvr32\.exe|mshta\.exe
+      - field: command_line
+        op: regex
+        value: (?i)svchost\.exe|rundll32\.exe|regsvr32\.exe|mshta\.exe
+    add: 15
+    bump_severity: true
+    set_details:
+      masquerade_risk: true
+    reason: Suspicious or commonly abused process name launched from user-writable
+      path

@@ -2,56 +2,92 @@ from typing import Any, Dict, List
 from soc_forge.ui.colors import Colors
 from soc_forge.ui.panels import header, section, divider, info_panel, menu_option, warning, error, success, status_card, progress_bar_line
 from soc_forge.core.investigation_graph import build_investigation_graph, summarize_graph
-from soc_forge.ui.investigation.graph import graph_panel
+from soc_forge.ui.investigation.graph import graph_overview_panel
+from soc_forge.ui.investigation.navigation import investigation_graph_menu
+from soc_forge.ui.investigation.entity_browser import entity_browser_panel
+from soc_forge.ui.investigation.entity_profile import entity_profile_panel
+from soc_forge.ui.investigation.relationships import relationships_panel
+from soc_forge.ui.investigation.attack_path import attack_path_panel
+from soc_forge.core.entity_intelligence import build_entity_profile
 from soc_forge.ui.screen import begin_screen
 from soc_forge.investigations.timeline import show_timeline
 from soc_forge.investigations.export import export_investigation_bundle
 from soc_forge.investigations.replay import replay_case
+from soc_forge.cases.lifecycle import (
+    VALID_CASE_STATUSES,
+    add_case_note,
+    assign_case_owner,
+    change_case_status,
+    ensure_case_lifecycle,
+)
+from soc_forge.cases.store import filter_cases, replace_case, sort_cases
 from soc_forge.core.analyst import (
     build_analyst_summary,
     build_analyst_findings,
     build_analyst_recommendations,
-    calculate_confidence, 
+    calculate_confidence,
     calculate_investigation_score,
 )
 
-VALID_STATUSES = ["New", "Investigating", "Contained", "Closed", "False Positive"]
+VALID_STATUSES = VALID_CASE_STATUSES
 
 
-def launch_case_workspace(cases: List[Dict[str, Any]], clear_screen=None) -> None:
+def launch_case_workspace(cases: List[Dict[str, Any]], clear_screen=None, save_cases=None) -> None:
     if not cases:
         print(Colors.YELLOW + "\nNo cases available." + Colors.RESET)
         return
 
+    active_filter = "all"
+    active_sort = "risk_desc"
+    current_owner = ""
+
     while True:
         begin_screen("INVESTIGATION WORKSPACE")
+        visible_cases = sort_cases(filter_cases(cases, active_filter, current_owner=current_owner), active_sort)
 
-        for idx, case in enumerate(cases, start=1):
+        print(f"Filter: {active_filter.replace('_', ' ').title()} | Sort: {active_sort.replace('_', ' ').title()} | Showing {len(visible_cases)} of {len(cases)} case(s)")
+        print()
+
+        for idx, case in enumerate(visible_cases, start=1):
+            ensure_case_lifecycle(case)
             title = case.get("title", case.get("name", "Untitled Case"))
             risk = case.get("risk_score", case.get("risk", "N/A"))
             status = case.get("status", "New")
+            owner = case.get("owner", "Unassigned")
             severity = get_severity(risk)
 
             print(
                 f"{Colors.BOLD}[{idx}]{Colors.RESET} "
                 f"{title} | "
                 f"Risk: {color_severity(severity)} {risk} | "
-                f"Status: {color_status(status)}"
+                f"Status: {color_status(status)} | "
+                f"Owner: {owner}"
             )
 
-        print(Colors.GRAY + "[0] Back" + Colors.RESET)
+        print()
+        print(Colors.GRAY + "[F] Filter  [S] Sort  [0] Back" + Colors.RESET)
 
         choice = input("\nSelect a case: ").strip()
 
         if choice == "0":
+            if save_cases:
+                save_cases(cases)
             return
 
-        if not choice.isdigit() or not (1 <= int(choice) <= len(cases)):
+        if choice.lower() == "f":
+            active_filter, current_owner = choose_case_filter(current_owner)
+            continue
+
+        if choice.lower() == "s":
+            active_sort = choose_case_sort(active_sort)
+            continue
+
+        if not choice.isdigit() or not (1 <= int(choice) <= len(visible_cases)):
             print(Colors.RED + "Invalid selection." + Colors.RESET)
             continue
 
-        selected_case = cases[int(choice) - 1]
-        open_case_menu(selected_case, clear_screen)
+        selected_case = visible_cases[int(choice) - 1]
+        open_case_menu(selected_case, clear_screen, save_case=lambda case: save_case_update(cases, case, save_cases))
 
 def get_severity(risk: Any) -> str:
     try:
@@ -179,7 +215,10 @@ def print_case_summary(case: Dict[str, Any]) -> None:
     case_id = case.get("id", case.get("case_id", "N/A"))
     risk = case.get("risk_score", case.get("risk", 0))
     status = case.get("status", "New")
+    ensure_case_lifecycle(case)
     created = case.get("created_at", case.get("created", "Unknown"))
+    updated = case.get("updated_at", "Unknown")
+    owner = case.get("owner", "Unassigned")
 
     severity = get_severity(risk)
     mitre = get_mitre_summary(case)
@@ -197,7 +236,9 @@ def print_case_summary(case: Dict[str, Any]) -> None:
             ("Severity", color_severity(severity)),
             ("Risk Score", risk),
             ("MITRE", mitre),
+            ("Owner", owner),
             ("Created", created),
+            ("Updated", updated),
             ("Alerts", alert_count),
             ("Indicators", indicator_count),
             ("Notes", note_count),
@@ -208,7 +249,10 @@ def print_case_dashboard(case: Dict[str, Any]) -> None:
     title = case.get("title", case.get("name", "Untitled Case"))
     risk = case.get("risk_score", case.get("risk", 0))
     status = case.get("status", "New")
+    ensure_case_lifecycle(case)
     created = case.get("created_at", case.get("created", "Unknown"))
+    updated = case.get("updated_at", "Unknown")
+    owner = case.get("owner", "Unassigned")
 
     severity = get_severity(risk)
     mitre = get_mitre_summary(case)
@@ -226,7 +270,9 @@ def print_case_dashboard(case: Dict[str, Any]) -> None:
             ("Severity", color_severity(severity)),
             ("Risk Score", risk),
             ("MITRE", mitre),
+            ("Owner", owner),
             ("Created", created),
+            ("Updated", updated),
             ("Alerts", alert_count),
             ("Entities", indicator_count),
             ("Notes", note_count),
@@ -270,7 +316,7 @@ def print_case_dashboard(case: Dict[str, Any]) -> None:
 
     # show_recommendations(case)
 
-def open_case_menu(case: Dict[str, Any], clear_screen=None) -> None:
+def open_case_menu(case: Dict[str, Any], clear_screen=None, save_case=None) -> None:
     while True:
         if clear_screen:
             clear_screen()
@@ -285,8 +331,12 @@ def open_case_menu(case: Dict[str, Any], clear_screen=None) -> None:
         menu_option("5", "Entity Explorer")
         menu_option("6", "Notes")
         menu_option("7", "Change Status")
-        menu_option("8", "Export")
-        menu_option("9", "View Investigation Graph")
+        menu_option("8", "Assign Owner")
+        menu_option("9", "Lifecycle")
+        menu_option("10", "Next Actions")
+        menu_option("11", "Close Case")
+        menu_option("12", "Export")
+        menu_option("13", "View Investigation Graph")
         menu_option("0", "Back")
 
         choice = input("\nSelect an option: ").strip()
@@ -308,22 +358,79 @@ def open_case_menu(case: Dict[str, Any], clear_screen=None) -> None:
 
         elif choice == "6":
             manage_notes(case)
+            persist_case(case, save_case)
 
         elif choice == "7":
             change_status(case)
+            persist_case(case, save_case)
 
         elif choice == "8":
-            export_investigation_bundle(case)
+            assign_owner(case)
+            persist_case(case, save_case)
+
         elif choice == "9":
-            begin_screen("Investigation Graph")
+            show_lifecycle(case)
 
-            graph = build_investigation_graph(case)
-            graph["summary"] = summarize_graph(graph)
+        elif choice == "10":
+            show_next_actions(case)
 
-            graph_panel(graph)
+        elif choice == "11":
+            close_case(case)
+            persist_case(case, save_case)
 
-            input("\nPress Enter to return...")
+        elif choice == "12":
+            export_investigation_bundle(case)
+
+        elif choice == "13":
+            while True:
+                begin_screen("Entity Relationship Explorer")
+
+                graph = build_investigation_graph(case)
+                graph["summary"] = summarize_graph(graph)
+
+                graph_overview_panel(graph, case)
+
+                graph_choice = investigation_graph_menu()
+
+                if graph_choice == "0":
+                    break
+
+                elif graph_choice == "1":
+                    begin_screen("Entity Browser")
+                    selected_entity = entity_browser_panel(graph)
+
+                    if selected_entity:
+                        begin_screen("Entity Profile")
+                        profile = build_entity_profile(graph, case, selected_entity)
+                        related = entity_profile_panel(profile)
+
+                        if related:
+                            print()
+                            pivot = input("Select related entity number to pivot, or Enter to return: ").strip()
+
+                            if pivot.isdigit():
+                                index = int(pivot) - 1
+
+                                if 0 <= index < len(related):
+                                    begin_screen("Entity Profile")
+                                    pivot_profile = build_entity_profile(graph, case, related[index])
+                                    entity_profile_panel(pivot_profile)
+                                    input("\nPress Enter to return...")
+
+                        else:
+                            input("\nPress Enter to return...")
+
+                elif graph_choice == "2":
+                    begin_screen("Relationship Explorer")
+                    relationships_panel(graph)
+                    input("\nPress Enter to return...")
+
+                elif graph_choice == "3":
+                    begin_screen("Attack Path")
+                    attack_path_panel(case)
+                    input("\nPress Enter to return...")
         elif choice == "0":
+            persist_case(case, save_case)
             if clear_screen:
                 clear_screen()
             return
@@ -453,6 +560,7 @@ def manage_notes(case: Dict[str, Any]) -> None:
 
 
 def view_notes(case: Dict[str, Any]) -> None:
+    ensure_case_lifecycle(case)
     notes = case.get("notes", [])
 
     print("\nNotes")
@@ -463,7 +571,13 @@ def view_notes(case: Dict[str, Any]) -> None:
         return
 
     for idx, note in enumerate(notes, start=1):
-        print(f"[{idx}] {note}")
+        if isinstance(note, dict):
+            timestamp = note.get("created_at") or "unknown time"
+            author = note.get("author") or "analyst"
+            text = note.get("text", "")
+            print(f"[{idx}] {timestamp} | {author}: {text}")
+        else:
+            print(f"[{idx}] {note}")
 
 
 def add_note(case: Dict[str, Any]) -> None:
@@ -473,7 +587,8 @@ def add_note(case: Dict[str, Any]) -> None:
         print("Note not added.")
         return
 
-    case.setdefault("notes", []).append(note)
+    author = input("Author [analyst]: ").strip() or "analyst"
+    add_case_note(case, note, author=author)
     print("Note added.")
 
 
@@ -490,11 +605,159 @@ def change_status(case: Dict[str, Any]) -> None:
         print("Invalid status.")
         return
 
-    case["status"] = VALID_STATUSES[int(choice) - 1]
+    reason = input("Reason [optional]: ").strip()
+    change_case_status(case, VALID_STATUSES[int(choice) - 1], reason=reason)
     print(f"Status updated to: {case['status']}")
+
+
+def assign_owner(case: Dict[str, Any]) -> None:
+    owner = input("\nOwner [Unassigned]: ").strip()
+    assign_case_owner(case, owner)
+    print(f"Owner updated to: {case['owner']}")
 
 
 def export_placeholder(case: Dict[str, Any]) -> None:
     print("\nExport Investigation")
     print("-" * 60)
     print("Export bundle will be added in Phase 18.6.")
+
+def persist_case(case: Dict[str, Any], save_case=None) -> None:
+    ensure_case_lifecycle(case)
+    if save_case:
+        save_case(case)
+
+
+def save_case_update(cases: List[Dict[str, Any]], case: Dict[str, Any], save_cases=None) -> None:
+    replace_case(cases, case)
+    if save_cases:
+        save_cases(cases)
+
+
+def choose_case_sort(current_sort: str) -> str:
+    print("\nCase Sorting")
+    print("-" * 60)
+    options = [
+        ("1", "risk_desc", "Risk, highest first"),
+        ("2", "updated_desc", "Recently updated"),
+        ("3", "status", "Status"),
+        ("4", "owner", "Owner"),
+        ("5", "title", "Title"),
+    ]
+
+    for key, value, label in options:
+        marker = "*" if value == current_sort else " "
+        print(f"[{key}] {marker} {label}")
+
+    choice = input("\nSelect sort: ").strip()
+    return next((value for key, value, _label in options if key == choice), current_sort)
+
+
+def choose_case_filter(current_owner: str) -> tuple[str, str]:
+    print("\nCase Filters")
+    print("-" * 60)
+    options = [
+        ("1", "all", "All cases"),
+        ("2", "open", "Open / active cases"),
+        ("3", "high_risk", "High risk"),
+        ("4", "assigned_to_me", "Assigned to me"),
+        ("5", "has_notes", "Has notes"),
+        ("6", "no_notes", "No notes"),
+        ("7", "closed", "Closed"),
+    ]
+
+    for key, _value, label in options:
+        print(f"[{key}] {label}")
+
+    choice = input("\nSelect filter: ").strip()
+    selected = next((value for key, value, _label in options if key == choice), "all")
+
+    if selected == "assigned_to_me":
+        owner = input(f"Owner [{current_owner or 'analyst'}]: ").strip() or current_owner or "analyst"
+        return selected, owner
+
+    return selected, current_owner
+
+
+def show_lifecycle(case: Dict[str, Any]) -> None:
+    ensure_case_lifecycle(case)
+    begin_screen("CASE LIFECYCLE")
+
+    print(f"Case: {case.get('case_id', case.get('id', 'Unknown'))}")
+    print(f"Status: {case.get('status', 'New')}")
+    print(f"Owner: {case.get('owner', 'Unassigned')}")
+    print(f"Created: {case.get('created_at', 'Unknown')}")
+    print(f"Updated: {case.get('updated_at', 'Unknown')}")
+    print(f"Evidence Items: {len(case.get('evidence', []))}")
+    print(f"Notes: {len(case.get('notes', []))}")
+
+    print("\nStatus History")
+    print("-" * 60)
+    for event in case.get("status_history", []):
+        print(
+            f"{event.get('changed_at', 'unknown time')} | "
+            f"{event.get('changed_by', 'analyst')} | "
+            f"{event.get('status', 'Unknown')}"
+        )
+        if event.get("reason"):
+            print(f"  Reason: {event['reason']}")
+
+    input("\nPress Enter to return...")
+
+
+def show_next_actions(case: Dict[str, Any]) -> None:
+    begin_screen("NEXT ACTIONS")
+    recommendations = build_analyst_recommendations(case)
+
+    if not recommendations:
+        warning("No recommendations available.")
+        input("\nPress Enter to return...")
+        return
+
+    for index, recommendation in enumerate(recommendations, start=1):
+        print(f"{index}. {recommendation['action']}")
+        print(f"   Reason: {recommendation['reason']}")
+
+    input("\nPress Enter to return...")
+
+
+def close_case(case: Dict[str, Any]) -> None:
+    print("\nClose Case")
+    print("-" * 60)
+    print("[1] True Positive")
+    print("[2] False Positive")
+    print("[3] Benign Authorized")
+    print("[4] Duplicate")
+    print("[0] Cancel")
+
+    choice = input("\nDisposition: ").strip()
+    dispositions = {
+        "1": "True Positive",
+        "2": "False Positive",
+        "3": "Benign Authorized",
+        "4": "Duplicate",
+    }
+
+    if choice == "0":
+        return
+
+    disposition = dispositions.get(choice)
+    if not disposition:
+        print("Invalid disposition.")
+        return
+
+    summary = input("Closure summary: ").strip()
+    containment = input("Containment action [optional]: ").strip()
+
+    case["disposition"] = disposition
+    case["closure_summary"] = summary
+    case["containment_action"] = containment
+
+    target_status = "False Positive" if disposition == "False Positive" else "Closed"
+    reason = summary or disposition
+    change_case_status(case, target_status, reason=reason)
+
+    if containment:
+        add_case_note(case, f"Containment action: {containment}")
+
+    print(f"Case closed as: {disposition}")
+

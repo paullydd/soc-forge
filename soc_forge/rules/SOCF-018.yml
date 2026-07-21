@@ -1,0 +1,55 @@
+version: 1
+rules:
+  - id: SOCF-018
+    enabled: true
+    title: Suspicious LOLBin script execution
+    description: Detects commonly abused Windows binaries executing scripts, remote content, or scriptlet payloads.
+    author: SOC-Forge
+    created: "2026-07-21"
+    logsource: windows-process
+    tags:
+      - windows
+      - defense-evasion
+      - lolbin
+    severity: high
+    score: 85
+    mitre:
+      - tactic: Defense Evasion
+        technique: "System Binary Proxy Execution"
+        id: T1218
+      - tactic: Execution
+        technique: "Command and Scripting Interpreter"
+        id: T1059
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4688
+            - field: event_id
+              op: eq
+              value: 1
+        - any:
+            - field: process_name
+              op: regex
+              value: '(?i)\b(mshta|regsvr32|rundll32|msiexec)(?:\.exe)?\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\b(mshta|regsvr32|rundll32|msiexec)(?:\.exe)?\b'
+        - any:
+            - field: command_line
+              op: regex
+              value: '(?i)(http://|https://|javascript:|vbscript:|scrobj\.dll|/i:http|url\.dll,FileProtocolHandler|comsvcs\.dll,\s*MiniDump)'
+            - field: message
+              op: regex
+              value: '(?i)(http://|https://|javascript:|vbscript:|scrobj\.dll|/i:http|url\.dll,FileProtocolHandler|comsvcs\.dll,\s*MiniDump)'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

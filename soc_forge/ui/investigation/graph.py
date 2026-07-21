@@ -1,17 +1,28 @@
 from soc_forge.ui.panels import section, divider, status_card, warning
+from soc_forge.ui.investigation.attack_path import attack_path_panel
 
 
-def graph_panel(graph):
-    section("Investigation Graph")
+def graph_overview_panel(graph, case=None):
+    section("Entity Relationship Explorer")
+
+    if case is not None:
+        attack_path_panel(case)
 
     nodes = graph.get("nodes", {})
     edges = graph.get("edges", [])
+
+    techniques = set()
+
+    for node in nodes.values():
+        for technique in node.get("techniques", []):
+            techniques.add(technique)
 
     status_card(
         "Graph Summary",
         [
             ("Entities", len(nodes)),
             ("Relationships", len(edges)),
+            ("Techniques", len(techniques)),
         ],
     )
 
@@ -19,37 +30,3 @@ def graph_panel(graph):
 
     if not nodes:
         warning("No entity relationships were found for this case.")
-        return
-
-    section("Entities")
-
-    for entity_id, node in nodes.items():
-        print(f"[{node['type'].upper()}] {entity_id}")
-        print(f"  Events: {node['events']}")
-        print(f"  Risk: {node['risk']}")
-
-        techniques = node.get("techniques", [])
-        if techniques:
-            print(f"  Techniques: {', '.join(techniques)}")
-
-        print()
-
-    divider()
-
-    section("Relationships")
-
-    if not edges:
-        warning("No relationships found.")
-        return
-
-    for edge in edges:
-        print(
-            f"{edge['source']} "
-            f"--[{edge['relationship']}]--> "
-            f"{edge['target']}"
-        )
-
-        if edge.get("evidence"):
-            print(f"  Evidence: {edge['evidence']}")
-
-        print()

@@ -16,6 +16,7 @@ from soc_forge.menus.reporting import reporting_menu
 from soc_forge.menus.system import system_menu
 from soc_forge.dashboard.dashboard import show_dashboard
 from soc_forge.ui.screen import set_clear_screen
+from soc_forge.cases.store import load_cases_file, save_cases_file
 
 init()
 
@@ -187,23 +188,11 @@ def create_demo_case():
     print("Demo case created.")
 
 def load_cases():
-    file_path = "out/cases.json"
+    return load_cases_file("out/cases.json")
 
-    if not os.path.exists(file_path):
-        return []
 
-    with open(file_path, "r", encoding="utf-8") as file:
-        data = json.load(file)
-
-    if isinstance(data, list):
-        return data
-
-    if isinstance(data, dict):
-        if "cases" in data:
-            return data["cases"]
-        return [data]
-
-    return []
+def save_cases(cases):
+    save_cases_file(cases, "out/cases.json")
 
 
 def view_cases():
@@ -1152,6 +1141,7 @@ def main_menu():
                 view_cases,
                 view_or_add_notes,
                 manage_case_status,
+                save_cases,
             )
 
         elif choice == "3":

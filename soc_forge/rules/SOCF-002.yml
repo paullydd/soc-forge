@@ -1,23 +1,31 @@
 version: 1
 rules:
-  - id: "SOCF-002"
-    enabled: true
-    title: "Account lockout observed"
-    severity: "medium"
-    score: 40
-    mitre:
-      - tactic: "Credential Access"
-        technique: "Brute Force"
-        id: "T1110"
-    match:
-      all:
-        - field: "event_id"
-          op: "eq"
-          value: 4740
-
-    emit:
-      details:
-        host: "${host}"
-        username: "${username}"
-        ip: "${ip}"
-        message: "${message}"
+- id: SOCF-002
+  enabled: true
+  title: Account lockout observed
+  severity: medium
+  score: 40
+  mitre:
+  - tactic: Credential Access
+    technique: Brute Force
+    id: T1110
+  match:
+    all:
+    - field: event_id
+      op: eq
+      value: 4740
+  emit:
+    details:
+      host: ${host}
+      username: ${username}
+      ip: ${ip}
+      message: ${message}
+  description: Detects Windows account lockout events that may indicate password attacks
+    or account misuse.
+  logsource: windows-security
+  tags:
+  - windows
+  - identity
+  - account-lockout
+  author: SOC-Forge
+  created: '2026-07-17'

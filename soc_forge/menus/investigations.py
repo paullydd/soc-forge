@@ -11,6 +11,7 @@ def investigations_menu(
     view_cases,
     view_or_add_notes,
     manage_case_status,
+    save_cases=None,
 ):
     while True:
         begin_screen("INVESTIGATIONS")
@@ -29,7 +30,7 @@ def investigations_menu(
 
         elif choice == "2":
             cases = load_cases()
-            launch_case_workspace(cases, clear_screen)
+            launch_case_workspace(cases, clear_screen, save_cases=save_cases)
 
         elif choice == "3":
             cases = load_cases()

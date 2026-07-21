@@ -1,0 +1,58 @@
+version: 1
+rules:
+  - id: SOCF-014
+    enabled: true
+    title: Credential dumping or LSASS access command
+    description: Detects command lines associated with credential dumping, LSASS memory access, or known dumping utilities.
+    author: SOC-Forge
+    created: "2026-07-17"
+    logsource: windows-process
+    tags:
+      - windows
+      - credential-access
+      - lsass
+    severity: critical
+    score: 110
+    mitre:
+      - tactic: Credential Access
+        technique: "OS Credential Dumping: LSASS Memory"
+        id: T1003.001
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4688
+            - field: event_id
+              op: eq
+              value: 10
+            - field: event_id
+              op: eq
+              value: 1
+        - any:
+            - field: command_line
+              op: regex
+              value: '(?i)procdump(?:64)?\.exe.*\blsass(?:\.exe)?\b'
+            - field: command_line
+              op: regex
+              value: '(?i)rundll32\.exe\s+.*comsvcs\.dll,\s*MiniDump'
+            - field: command_line
+              op: regex
+              value: '(?i)\b(sekurlsa::logonpasswords|lsadump::sam|mimikatz|nanodump|dumpert)\b'
+            - field: target_process
+              op: regex
+              value: '(?i)\blsass\.exe\b'
+            - field: message
+              op: regex
+              value: '(?i)(procdump.*lsass|comsvcs\.dll,\s*MiniDump|sekurlsa::logonpasswords|mimikatz|nanodump|dumpert|target.*lsass\.exe)'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        target_process: "${target_process}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

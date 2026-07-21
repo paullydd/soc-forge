@@ -6,6 +6,18 @@ from soc_forge.ui.panels import header, info_panel, menu_option, warning
 from soc_forge.ui.screen import begin_screen
 
 
+def describe_timeline_event(event: Dict[str, Any]) -> str:
+    if not isinstance(event, dict):
+        return str(event)
+
+    for key in ("description", "event", "title", "summary", "rule_name", "rule_id"):
+        value = event.get(key)
+        if value:
+            return str(value)
+
+    return "Unknown Event"
+
+
 def replay_case(case: Dict[str, Any], clear_screen=None) -> None:
     timeline = case.get("timeline", [])
 
@@ -48,7 +60,7 @@ def show_event(case, timeline, index, clear_screen=None):
         "CURRENT EVENT",
         [
             ("Time", event.get("timestamp", "Unknown")),
-            ("Event", event.get("description", event.get("event", "Unknown"))),
+            ("Event", describe_timeline_event(event)),
             ("Status", case.get("status", "New")),
         ],
     )
@@ -79,7 +91,7 @@ def auto_play(case, clear_screen=None):
 
         for idx, visible_event in enumerate(visible_events):
             timestamp = visible_event.get("timestamp", "Unknown")
-            description = visible_event.get("description", visible_event.get("event", "Unknown Event"))
+            description = describe_timeline_event(visible_event)
 
             print(
                 f"{Colors.CYAN}{timestamp:<8}{Colors.RESET} "

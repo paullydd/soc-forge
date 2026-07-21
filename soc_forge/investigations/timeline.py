@@ -2,6 +2,7 @@ from typing import Any, Dict
 from soc_forge.ui.colors import Colors
 from soc_forge.ui.panels import header, info_panel, warning
 from soc_forge.ui.screen import begin_screen
+from soc_forge.investigations.replay import describe_timeline_event
 
 
 def show_timeline(case: Dict[str, Any], clear_screen=None) -> None:
@@ -23,7 +24,7 @@ def show_timeline(case: Dict[str, Any], clear_screen=None) -> None:
 
     for idx, event in enumerate(timeline):
         timestamp = event.get("timestamp", "Unknown")
-        description = event.get("description", event.get("event", "Unknown Event"))
+        description = describe_timeline_event(event)
 
         print(
             f"{Colors.CYAN}{timestamp:<8}{Colors.RESET} "

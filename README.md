@@ -1,327 +1,213 @@
 # SOC-Forge
 
-SOC-Forge is a lightweight **Security Operations Center (SOC) detection engine** written in Python.  
-It processes security events, applies detection rules, correlates related alerts into investigation cases, and generates an interactive HTML report that helps analysts understand potential attack activity.
+SOC-Forge is a lightweight Security Operations Center (SOC) investigation platform written in Python. It processes security events, applies detection rules, correlates related alerts into cases, reconstructs attack activity, scores risk, and produces analyst-friendly reports and investigation artifacts.
 
-The goal of this project is to demonstrate how a **modern detection pipeline** works in real SOC environments.
+The project is designed as a portfolio-ready SOC workflow: it shows detection engineering depth, analyst triage, attack reconstruction, case quality, graph analysis, and report export in one repeatable demo.
 
----
+## What It Does
 
-# Features
-
-SOC-Forge currently includes:
-
-## Event Processing
-- Ingests structured security events
+- Ingests JSONL security events and Windows Security CSV exports
 - Normalizes event data for analysis
+- Runs YAML-based detection rules with MITRE ATT&CK mappings
+- Runs a built-in brute-force detector for legacy compatibility
+- Correlates related alerts into investigation cases
+- Tracks case lifecycle fields including owner, status history, notes, timestamps, and evidence
+- Builds timelines, IOC summaries, attack chains, and attack graphs
+- Scores case risk and generates analyst summaries
+- Exports alerts, hunts, cases, reconstructions, and HTML reports
+- Includes attack simulation scenarios for demos and regression testing
+- Provides a local web UI with scenario switching, guided demo flow, case review, graph view, alerts, hunts, and scorecard
+- Provides a terminal analyst console for deeper case review workflows
+- Supports case filtering, sorting, owner/status persistence, closure workflow, and investigation bundle export
+- Adds case quality briefs with executive summaries, key findings, evidence rationale, containment guidance, and quality gaps
+- Includes process-chain, credential-access, lateral-movement, persistence, and collection detections
+- Scores detection engineering maturity across rule quality, MITRE coverage, evidence context, correlation depth, and demo readiness
 
-## Detection Engine
-- YAML-based detection rules
-- MITRE ATT&CK tactic mapping
-- Modular rule engine
+## Pipeline
 
-## Correlation
-- Groups related alerts into investigation **cases**
-- Detects multi-step attack behavior
-
-## Case Analysis
-- Timeline reconstruction
-- Indicator extraction (IPs, hosts, users)
-- Risk scoring per case
-- Analyst-style investigation summary
-
-## Attack Chain Visualization
-- Reconstructs attacker activity stages
-- Maps events to MITRE ATT&CK tactics
-- Displays attack progression inside the report
-
-## Reporting
-
-SOC-Forge generates a detailed **HTML investigation report** including:
-
-- Severity statistics
-- MITRE coverage
-- Correlation summary
-- Investigation cases
-- Indicators of compromise (IOCs)
-- Attack timeline
-- Attack chain reconstruction
-
-## Testing & CI
-
-- Automated tests with **pytest**
-- GitHub Actions CI pipeline
-- Multi-version testing (Python 3.10, 3.11, 3.12)
-
----
-
-# Project Architecture
-
-SOC-Forge follows a simplified SOC detection pipeline:
-
-Below is the same README formatted exactly for a README.md file so you can copy-paste it directly into your repo.
-
-# SOC-Forge
-
-SOC-Forge is a lightweight **Security Operations Center (SOC) detection engine** written in Python.  
-It processes security events, applies detection rules, correlates related alerts into investigation cases, and generates an interactive HTML report that helps analysts understand potential attack activity.
-
-The goal of this project is to demonstrate how a **modern detection pipeline** works in real SOC environments.
-
----
-
-# Features
-
-SOC-Forge currently includes:
-
-## Event Processing
-- Ingests structured security events
-- Normalizes event data for analysis
-
-## Detection Engine
-- YAML-based detection rules
-- MITRE ATT&CK tactic mapping
-- Modular rule engine
-
-## Correlation
-- Groups related alerts into investigation **cases**
-- Detects multi-step attack behavior
-
-## Case Analysis
-- Timeline reconstruction
-- Indicator extraction (IPs, hosts, users)
-- Risk scoring per case
-- Analyst-style investigation summary
-
-## Attack Chain Visualization
-- Reconstructs attacker activity stages
-- Maps events to MITRE ATT&CK tactics
-- Displays attack progression inside the report
-
-## Reporting
-
-SOC-Forge generates a detailed **HTML investigation report** including:
-
-- Severity statistics
-- MITRE coverage
-- Correlation summary
-- Investigation cases
-- Indicators of compromise (IOCs)
-- Attack timeline
-- Attack chain reconstruction
-
-## Testing & CI
-
-- Automated tests with **pytest**
-- GitHub Actions CI pipeline
-- Multi-version testing (Python 3.10, 3.11, 3.12)
-
----
-
-# Project Architecture
-
-SOC-Forge follows a simplified SOC detection pipeline:
-
-
+```text
 Security Events
-↓
-Event Normalization
-↓
-Detection Rules (YAML)
-↓
-Alert Generation
-↓
-Correlation Engine
-↓
-Case Grouping
-↓
-Risk Scoring
-↓
-IOC Extraction
-↓
-Attack Chain Reconstruction
-↓
-HTML Investigation Report
----
-
-# Example Attack Chain
-
-SOC-Forge can reconstruct multi-stage attack behavior.
-
-Example investigation:
-Credential Access → Lateral Movement → Persistence
-
-
-Detected events may include:
-
-
-Account Lockout
-RDP Logon
-Scheduled Task Created
-
-These events are grouped into a single investigation case with a timeline and evidence.
-
----
-
-# Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/YOUR_USERNAME/soc-forge.git
-cd soc-forge
-
-Install the project:
-
-pip install -e .
-
-Usage
-
-Run SOC-Forge against a sample event file:
-
-soc-forge --input sample_events.jsonl
-
-Output files will be generated in the out/ directory:
-
-out/
- ├── alerts.json
- ├── normalized_events.jsonl
- └── report.html
-
-Open the HTML report in a browser to view the investigation results.
-
-Running Tests
-
-SOC-Forge includes a full test suite.
-
-Run all tests with:
-
-pytest -q
-
-Tests cover:
-
-Detection rules
-
-Correlation logic
-
-Risk scoring
-
-MITRE mapping
-
-Case enrichment
-
-Attack chain reconstruction
-
-Example Repository Structure
-soc-forge
-│
-├── soc_forge
-│   ├── cli.py
-│   ├── config.py
-│   ├── models.py
-│   ├── ingest
-│   ├── rules
-│   ├── correlate
-│   ├── scoring
-│   └── report
-│
-├── tests
-├── sample_events.jsonl
-├── config.yml
-├── pyproject.toml
-└── README.md
-MITRE ATT&CK Alignment
-
-SOC-Forge detection rules can map alerts to MITRE ATT&CK tactics, enabling investigation views such as:
-
-Initial Access
-
-Credential Access
-
-Lateral Movement
-
-Persistence
-
-Privilege Escalation
-
-The engine reconstructs attack progression across these tactics.
-
-Project Goals
-
-This project was built to explore and demonstrate:
-
-SOC detection engineering
-
-SIEM-style correlation pipelines
-
-MITRE ATT&CK mapping
-
-Incident investigation workflows
-
-Python-based security tooling
+  -> Event Normalization
+  -> Detection Rules
+  -> Alert Generation
+  -> Correlation
+  -> Case Building
+  -> Risk Scoring
+  -> IOC Extraction
+  -> Attack Reconstruction
+  -> HTML Report / Investigation Export
 ```
 
-## Phase 11 – Detection Depth
+## Main Components
 
-Phase 11 expands SOC-Forge detection coverage with additional Windows security detections and multi-stage correlations.
+```text
+soc_forge/
+  cli.py                    Command-line analysis pipeline
+  config.py                 YAML-backed configuration
+  models.py                 Shared alert and case normalization helpers
+  ingest/                   Event loaders and converters
+  rules/                    YAML detection rules and rule engine
+  correlate/                Multi-alert correlation logic
+  hunts/                    Hunt analytics
+  scoring/                  Risk scoring
+  reconstruct/              Attack reconstruction
+  intelligence/             Summaries, scoring, and story generation
+  investigations/           Analyst workspace helpers
+  ui/                       Terminal UI panels and investigation views
+  web/                      Local analyst web UI
+  report/                   HTML report generation
+  simulator/                Attack scenario generator
+```
 
-### New detections
+## Quick Start
 
-- SOCF-007 – New user account created
-- SOCF-008 – Privileged group membership change
-- SOCF-009 – Windows Security log cleared
+Install the project in editable mode:
 
-### New correlations
-
-- SOCF-CORR-004 – New account followed by privileged group assignment
-- SOCF-CORR-005 – New privileged account followed by audit log clearing
-
-### Example attack chain
-
-Create Account → Privilege Escalation → Defense Evasion
-
-SOC-Forge automatically detects this pattern and produces a high-confidence case investigation report.
-
-## 🔎 Threat Hunting (Phase 12)
-
-SOC-Forge now includes a threat hunting engine to identify suspicious behavior even when no detection rules fire.
-
-### Hunt Capabilities
-- Suspicious command execution (e.g., PowerShell encoded)
-- Rare source IP detection per user
-- Multi-host lateral movement detection
-- Failed login burst detection
-
-### Output
-- CLI hunt summary
-- JSON export (`out/hunts.json`)
-- Integrated HTML report section with:
-  - Findings
-  - Entities
-  - Evidence
-  - MITRE mapping
-
-
-## v1.0.0
-
-SOC-Forge v1.0.0 is the first major release of a mini SOC detection, investigation, and threat hunting platform.
-
-### Core capabilities
-- Event ingestion from JSONL and Windows Security CSV
-- YAML-based detection rules
-- Alert correlation
-- Case building and evidence expansion
-- MITRE ATT&CK mapping
-- IOC extraction and recommended actions
-- Threat hunting analytics
-- Risk overview scoring
-- HTML investigation reporting
-
-## Attack Simulation
-
-SOC-Forge can generate simulated authentication attack data for end-to-end validation.
-
-### Brute force
 ```bash
-soc-forge --simulate brute_force --sim-output out/simulated_events.jsonl
-soc-forge --input out/simulated_events.jsonl
+pip install -e .
+```
+
+Run analysis against a JSONL event file:
+
+```bash
+soc-forge --input sample_events.jsonl
+```
+
+Generate a demo attack scenario and analyze it:
+
+```bash
+python3 -m soc_forge.cli --simulate mixed --sim-output out/simulated_events.jsonl
+python3 -m soc_forge.cli --input out/simulated_events.jsonl --out out/alerts.json --html out/report.html
+
+# Richer graph demo: RDP -> scheduled task -> new admin account -> log clearing
+python3 -m soc_forge.cli --simulate attack_chain --sim-output out/attack_chain_events.jsonl
+python3 -m soc_forge.cli --input out/attack_chain_events.jsonl --out out/alerts.json --html out/report.html
+
+# Detection engineering demo: Office -> PowerShell -> credential access
+python3 -m soc_forge.cli --simulate detection_lab --sim-output out/detection_lab_events.jsonl
+python3 -m soc_forge.cli --input out/detection_lab_events.jsonl --out out/alerts.json --html out/report.html
+```
+
+Review generated artifacts:
+
+```text
+out/alerts.json
+out/hunts.json
+out/cases.json
+out/reconstructions.json
+out/report.html
+```
+
+Start the local web UI:
+
+```bash
+python3 -m soc_forge.web.app --port 8765
+```
+
+Then open `http://127.0.0.1:8765`, choose a scenario, and click `Start Demo`.
+
+
+## Portfolio Demo Package
+
+SOC-Forge now includes a portfolio-ready demo package that shows both analyst workflow and detection engineering depth:
+
+- [Release package guide](docs/release_package.md)
+- [Portfolio overview](docs/portfolio_overview.md)
+- [Demo in 5 minutes](docs/demo_in_5_minutes.md)
+- [Detailed attack-chain walkthrough](docs/demo_walkthrough.md)
+- [Architecture diagrams](docs/architecture.md)
+- [Case quality polish](docs/case_quality.md)
+- [Detection engineering](docs/detection_engineering.md)
+- [Rule quality](docs/rule_quality.md)
+- [Web UI](docs/web_ui.md)
+- [Checked-in sample artifacts](samples/attack_chain_demo/)
+
+The attack-chain scenario demonstrates RDP activity, scheduled task persistence, service-style admin account creation, privileged group assignment, log clearing, correlated case generation, investigation replay, graph review, lifecycle tracking, and case export.
+
+The detection-lab scenario demonstrates process-chain and credential-access detections: Office spawning PowerShell, execution from a user-writable path, LSASS dumping, browser credential-store access, and three related correlations.
+
+## Screenshots
+
+### Analyst Web UI Overview
+
+![SOC-Forge web overview showing 8 alerts, 3 correlations, 1 hunt, and 100/100 case quality](docs/screenshots/web-overview.png)
+
+### Case Detail And Findings
+
+![SOC-Forge case detail showing executive summary, key findings, containment guidance, and evidence](docs/screenshots/case-detail.png)
+
+### Entity Relationship Explorer
+
+![SOC-Forge terminal entity relationship explorer showing IP, user, host, action, and graph summary](docs/screenshots/entity-relationship-explorer.png)
+
+### HTML Report Export
+
+![SOC-Forge HTML report showing critical risk, MITRE coverage, and correlation summary](docs/screenshots/html-report.png)
+
+## Demo Walkthrough
+
+For the best portfolio-style demo, run the attack-chain scenario:
+
+```bash
+python3 -m soc_forge.cli --simulate attack_chain --sim-output out/attack_chain_events.jsonl
+python3 -m soc_forge.cli --input out/attack_chain_events.jsonl --out out/alerts.json --html out/report.html
+python3 analyst_console.py
+```
+
+Then open `Investigations -> Investigation Workspace` and inspect replay, timeline, graph, entity profiles, relationship evidence, next actions, and case closure/export.
+
+A complete walkthrough lives in [`docs/demo_walkthrough.md`](docs/demo_walkthrough.md). Sample generated artifacts live in [`samples/attack_chain_demo/`](samples/attack_chain_demo/).
+
+## Rule Coverage
+
+Print MITRE coverage for loaded rules:
+
+```bash
+soc-forge --coverage
+```
+
+Run rule quality checks before adding or showing detection content:
+
+```bash
+python3 -m soc_forge.cli --rule-quality
+```
+
+See [`docs/rule_quality.md`](docs/rule_quality.md) for the current rule quality standard.
+
+Rules live in `soc_forge/rules` and use a YAML format with:
+
+- Rule metadata
+- Match conditions
+- Severity and score
+- MITRE ATT&CK mapping
+- Optional score modifiers
+- Optional emitted detail fields
+
+## Testing
+
+Run the full test suite:
+
+```bash
+pytest -q
+```
+
+The suite covers detection rules, config loading, correlation, risk scoring, MITRE coverage, CSV ingestion, case enrichment, attack reconstruction, hunts, simulation, and shared model normalization.
+
+## Current Enhancement Roadmap
+
+1. Add event upload and custom dataset loading to the web UI so demos can move beyond the built-in scenarios.
+2. Add saved analyst notes, ownership, and closure decisions to the web UI case workflow.
+3. Add exportable graph images and case PDF bundles for analyst handoff.
+4. Expand detection content into cloud identity, SaaS audit logs, and EDR-style process telemetry.
+5. Add rule tuning metadata such as false-positive notes, data-source requirements, severity rationale, and test coverage status.
+
+## Project Goals
+
+SOC-Forge is built to explore and demonstrate:
+
+- Detection engineering
+- SIEM-style alert correlation
+- SOC case triage workflows
+- MITRE ATT&CK mapping
+- Incident reconstruction
+- Analyst-facing reporting

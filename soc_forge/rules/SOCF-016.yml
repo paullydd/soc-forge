@@ -1,0 +1,54 @@
+version: 1
+rules:
+  - id: SOCF-016
+    enabled: true
+    title: PsExec-style service execution
+    description: Detects service creation or process execution patterns commonly associated with PsExec-style lateral movement.
+    author: SOC-Forge
+    created: "2026-07-21"
+    logsource: windows-service
+    tags:
+      - windows
+      - lateral-movement
+      - service-execution
+    severity: high
+    score: 90
+    mitre:
+      - tactic: Lateral Movement
+        technique: "Remote Services: SMB/Windows Admin Shares"
+        id: T1021.002
+      - tactic: Execution
+        technique: System Services
+        id: T1569.002
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 7045
+            - field: event_id
+              op: eq
+              value: 4697
+        - any:
+            - field: service_name
+              op: regex
+              value: '(?i)\b(psexesvc|paexec|remcom|csexec)\b'
+            - field: image_path
+              op: regex
+              value: '(?i)\\ADMIN\$\\|\\Windows\\PSEXESVC\.exe|psexesvc'
+            - field: command_line
+              op: regex
+              value: '(?i)\\ADMIN\$\\|psexesvc|paexec|remcom|csexec'
+            - field: message
+              op: regex
+              value: '(?i)(psexesvc|paexec|remcom|csexec|ADMIN\$)'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        service_name: "${service_name}"
+        image_path: "${image_path}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

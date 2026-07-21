@@ -1,0 +1,55 @@
+version: 1
+rules:
+  - id: SOCF-020
+    enabled: true
+    title: Suspicious archive staging of sensitive files
+    description: Detects archive utilities staging likely sensitive files, credential material, or bulk data for collection.
+    author: SOC-Forge
+    created: "2026-07-21"
+    logsource: windows-process
+    tags:
+      - windows
+      - collection
+      - exfiltration-prep
+    severity: high
+    score: 80
+    mitre:
+      - tactic: Collection
+        technique: "Archive Collected Data"
+        id: T1560
+      - tactic: Credential Access
+        technique: "Credentials from Password Stores"
+        id: T1555
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4688
+            - field: event_id
+              op: eq
+              value: 1
+        - any:
+            - field: process_name
+              op: regex
+              value: '(?i)\b(7z|7za|rar|winrar|tar)(?:\.exe)?\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\b(7z|7za|rar|winrar|tar)(?:\.exe)?\b'
+        - any:
+            - field: command_line
+              op: regex
+              value: '(?i)(\\Users\\|\\Documents\\|\\Desktop\\|Login Data|Cookies|ntds\.dit|lsass\.dmp|\.kdbx|password|credential|secrets)'
+            - field: message
+              op: regex
+              value: '(?i)(\\Users\\|\\Documents\\|\\Desktop\\|Login Data|Cookies|ntds\.dit|lsass\.dmp|\.kdbx|password|credential|secrets)'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

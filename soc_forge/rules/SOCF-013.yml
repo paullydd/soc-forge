@@ -1,0 +1,55 @@
+version: 1
+rules:
+  - id: SOCF-013
+    enabled: true
+    title: Office application spawned script interpreter
+    description: Detects Microsoft Office parent processes spawning script interpreters or command shells, a common phishing and macro execution pattern.
+    author: SOC-Forge
+    created: "2026-07-17"
+    logsource: windows-process
+    tags:
+      - windows
+      - process-chain
+      - office
+      - execution
+    severity: high
+    score: 90
+    mitre:
+      - tactic: Execution
+        technique: "User Execution: Malicious File"
+        id: T1204.002
+      - tactic: Execution
+        technique: Command and Scripting Interpreter
+        id: T1059
+    match:
+      all:
+        - field: event_id
+          op: eq
+          value: 4688
+        - any:
+            - field: parent_process
+              op: regex
+              value: '(?i)\b(winword|excel|powerpnt|outlook|onenote)\.exe\b'
+            - field: message
+              op: regex
+              value: '(?i)Parent.*\b(winword|excel|powerpnt|outlook|onenote)\.exe\b'
+        - any:
+            - field: process_name
+              op: regex
+              value: '(?i)\b(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32|regsvr32)\.exe\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\b(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32|regsvr32)\.exe\b'
+            - field: message
+              op: regex
+              value: '(?i)\b(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32|regsvr32)\.exe\b'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

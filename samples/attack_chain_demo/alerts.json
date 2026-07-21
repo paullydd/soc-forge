@@ -1,0 +1,336 @@
+[
+  {
+    "rule_id": "SOCF-006",
+    "severity": "medium",
+    "title": "RDP logon detected (LogonType 10)",
+    "timestamp": "2026-07-16T17:22:56Z",
+    "details": {
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "host": "WS-ENG-01",
+      "message": "An account was successfully logged on. User: alice. Source Network Address: 198.51.100.77. Logon Type: 10."
+    },
+    "mitre": [
+      {
+        "tactic": "Lateral Movement",
+        "technique": "Remote Services",
+        "id": "T1021"
+      }
+    ],
+    "score": 55,
+    "status": "new",
+    "correlation_id": "3221f258a60b",
+    "rule": {
+      "description": "",
+      "author": "",
+      "created": "",
+      "logsource": "",
+      "tags": []
+    }
+  },
+  {
+    "rule_id": "SOCF-005",
+    "severity": "critical",
+    "title": "Scheduled task created",
+    "timestamp": "2026-07-16T17:24:56Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "actor": "alice",
+      "task_name": "WindowsUpdateCheck",
+      "task_command": "powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=",
+      "message": "A scheduled task was created. Task Name: WindowsUpdateCheck. Author: alice. Command: powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=.",
+      "suspicious": true,
+      "modifier_reasons": [
+        "Suspicious keyword in task command/message"
+      ]
+    },
+    "mitre": [
+      {
+        "tactic": "Persistence",
+        "technique": "Scheduled Task/Job",
+        "id": "T1053"
+      }
+    ],
+    "score": 95,
+    "status": "new",
+    "correlation_id": "044596ac3ae5",
+    "rule": {
+      "description": "",
+      "author": "",
+      "created": "",
+      "logsource": "",
+      "tags": []
+    }
+  },
+  {
+    "rule_id": "SOCF-007",
+    "severity": "high",
+    "title": "New user account created",
+    "timestamp": "2026-07-16T17:26:56Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "ip": "198.51.100.77",
+      "actor": "alice",
+      "target_user": "svc-backup-admin",
+      "message": "A user account was created. Subject: alice. New Account: svc-backup-admin.",
+      "suspicious": true,
+      "modifier_reasons": [
+        "Suspicious account naming pattern"
+      ]
+    },
+    "mitre": [
+      {
+        "tactic": "Persistence",
+        "technique": "Create Account",
+        "id": "T1136"
+      },
+      {
+        "tactic": "Privilege Escalation",
+        "technique": "Create Account",
+        "id": "T1136"
+      }
+    ],
+    "score": 70,
+    "status": "new",
+    "correlation_id": "e353a2e912eb",
+    "rule": {
+      "description": "",
+      "author": "",
+      "created": "",
+      "logsource": "",
+      "tags": []
+    }
+  },
+  {
+    "rule_id": "SOCF-008",
+    "severity": "high",
+    "title": "User added to privileged group",
+    "timestamp": "2026-07-16T17:27:56Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "ip": "198.51.100.77",
+      "actor": "alice",
+      "target_user": "svc-backup-admin",
+      "group_name": "Administrators",
+      "message": "A member was added to a security-enabled local group. Subject: alice. Member: svc-backup-admin. Group: Administrators.",
+      "suspicious": true
+    },
+    "mitre": [
+      {
+        "tactic": "Persistence",
+        "technique": "Account Manipulation",
+        "id": "T1098"
+      },
+      {
+        "tactic": "Privilege Escalation",
+        "technique": "Account Manipulation",
+        "id": "T1098"
+      }
+    ],
+    "score": 75,
+    "status": "new",
+    "correlation_id": "e353a2e912eb",
+    "rule": {
+      "description": "",
+      "author": "",
+      "created": "",
+      "logsource": "",
+      "tags": []
+    }
+  },
+  {
+    "rule_id": "SOCF-009",
+    "severity": "high",
+    "title": "Audit logs cleared",
+    "timestamp": "2026-07-16T17:29:56Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "ip": "198.51.100.77",
+      "actor": "svc-backup-admin",
+      "message": "The audit log was cleared. Subject: svc-backup-admin. Host: WS-ENG-01.",
+      "suspicious": true
+    },
+    "mitre": [
+      {
+        "tactic": "Defense Evasion",
+        "technique": "Indicator Removal on Host",
+        "id": "T1070"
+      }
+    ],
+    "score": 80,
+    "status": "new",
+    "correlation_id": "e353a2e912eb",
+    "rule": {
+      "description": "",
+      "author": "",
+      "created": "",
+      "logsource": "",
+      "tags": []
+    }
+  },
+  {
+    "rule_id": "SOCF-CORR-002",
+    "severity": "high",
+    "title": "RDP logon followed by scheduled task creation (possible persistence)",
+    "timestamp": "2026-07-16T17:24:56Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "window_minutes": 15,
+      "evidence": [
+        {
+          "rule_id": "SOCF-006",
+          "timestamp": "2026-07-16T17:22:56Z"
+        },
+        {
+          "rule_id": "SOCF-005",
+          "timestamp": "2026-07-16T17:24:56Z"
+        }
+      ]
+    },
+    "mitre": [
+      {
+        "tactic": "Persistence",
+        "technique": "Scheduled Task/Job",
+        "id": "T1053"
+      },
+      {
+        "tactic": "Lateral Movement",
+        "technique": "Remote Services",
+        "id": "T1021"
+      }
+    ],
+    "score": 110,
+    "status": "new",
+    "correlation_id": "044596ac3ae5"
+  },
+  {
+    "rule_id": "SOCF-CORR-003",
+    "severity": "critical",
+    "title": "RDP logon followed by privileged group change (possible takeover)",
+    "timestamp": "2026-07-16T17:27:56Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "window_minutes": 15,
+      "evidence": [
+        {
+          "rule_id": "SOCF-006",
+          "timestamp": "2026-07-16T17:22:56Z"
+        },
+        {
+          "rule_id": "SOCF-008",
+          "timestamp": "2026-07-16T17:27:56Z"
+        }
+      ]
+    },
+    "mitre": [
+      {
+        "tactic": "Lateral Movement",
+        "technique": "Remote Services",
+        "id": "T1021"
+      },
+      {
+        "tactic": "Privilege Escalation",
+        "technique": "Account Manipulation",
+        "id": "T1098"
+      }
+    ],
+    "score": 130,
+    "status": "new",
+    "correlation_id": "3221f258a60b"
+  },
+  {
+    "rule_id": "SOCF-CORR-004",
+    "severity": "critical",
+    "title": "New account followed by privileged group assignment",
+    "timestamp": "2026-07-16T17:27:56Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "target_user": "svc-backup-admin",
+      "window_minutes": 15,
+      "evidence": [
+        {
+          "rule_id": "SOCF-007",
+          "timestamp": "2026-07-16T17:26:56Z"
+        },
+        {
+          "rule_id": "SOCF-008",
+          "timestamp": "2026-07-16T17:27:56Z"
+        }
+      ],
+      "source_rule_ids": [
+        "SOCF-007",
+        "SOCF-008"
+      ]
+    },
+    "mitre": [
+      {
+        "tactic": "Persistence",
+        "technique": "Create Account",
+        "id": "T1136"
+      },
+      {
+        "tactic": "Privilege Escalation",
+        "technique": "Account Manipulation",
+        "id": "T1098"
+      }
+    ],
+    "score": 130,
+    "status": "new",
+    "correlation_id": "076a09c83b53"
+  },
+  {
+    "rule_id": "SOCF-CORR-005",
+    "severity": "critical",
+    "title": "New privileged account followed by log clearing (possible account abuse)",
+    "timestamp": "2026-07-16T17:29:56Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "target_user": "svc-backup-admin",
+      "actor": "svc-backup-admin",
+      "window_minutes": 15,
+      "evidence": [
+        {
+          "rule_id": "SOCF-007",
+          "timestamp": "2026-07-16T17:26:56Z"
+        },
+        {
+          "rule_id": "SOCF-008",
+          "timestamp": "2026-07-16T17:27:56Z"
+        },
+        {
+          "rule_id": "SOCF-009",
+          "timestamp": "2026-07-16T17:29:56Z"
+        }
+      ],
+      "source_rule_ids": [
+        "SOCF-007",
+        "SOCF-008",
+        "SOCF-009"
+      ]
+    },
+    "mitre": [
+      {
+        "tactic": "Persistence",
+        "technique": "Create Account",
+        "id": "T1136"
+      },
+      {
+        "tactic": "Privilege Escalation",
+        "technique": "Account Manipulation",
+        "id": "T1098"
+      },
+      {
+        "tactic": "Defense Evasion",
+        "technique": "Indicator Removal on Host",
+        "id": "T1070"
+      }
+    ],
+    "score": 150,
+    "status": "new",
+    "correlation_id": "e353a2e912eb"
+  }
+]

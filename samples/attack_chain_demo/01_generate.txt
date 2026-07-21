@@ -1,0 +1,2 @@
+[+] Generated 5 events for scenario: attack_chain
+[+] Wrote simulated events to: samples/attack_chain_demo/attack_chain_events.jsonl

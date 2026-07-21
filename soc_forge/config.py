@@ -65,7 +65,7 @@ class SocForgeConfig:
     new_admin: SimpleRuleConfig = SimpleRuleConfig(severity="high", score=90)
     new_service_installed: HeuristicRuleConfig = HeuristicRuleConfig(severity="high", score=80, score_boost=20, suspicious_markers=[])
     scheduled_task_created: HeuristicRuleConfig = HeuristicRuleConfig(severity="high", score=75, score_boost=20, suspicious_markers=[])
-    suspicious_rdp_logon: SimpleRuleConfig = SimpleRuleConfig(severity="medium", score=55)
+    suspicious_rdp_logon: RdpLogonConfig = RdpLogonConfig()
     correlation: CorrelationConfig = CorrelationConfig()
 
 
@@ -130,16 +130,10 @@ def load_config(path: Optional[str]) -> SocForgeConfig:
         suspicious_markers=list(_get(raw, "detections.scheduled_task_created.suspicious_markers", [])) or [],
     )
 
-    rdp = SimpleRuleConfig(
-    severity=str(_get(raw, "detections.suspicious_rdp_logon.severity", "medium")),
-    score=int(_get(raw, "detections.suspicious_rdp_logon.score", 55)),
-    )
-    rdp_logon_type = int(_get(raw, "detections.suspicious_rdp_logon.logon_type", 10))
-
     rdp = RdpLogonConfig(
-    logon_type=int(_get(raw, "detections.suspicious_rdp_logon.logon_type", 10)),
-    severity=str(_get(raw, "detections.suspicious_rdp_logon.severity", "medium")),
-    score=int(_get(raw, "detections.suspicious_rdp_logon.score", 55)),
+        logon_type=int(_get(raw, "detections.suspicious_rdp_logon.logon_type", 10)),
+        severity=str(_get(raw, "detections.suspicious_rdp_logon.severity", "medium")),
+        score=int(_get(raw, "detections.suspicious_rdp_logon.score", 55)),
     )
 
     corr = CorrelationConfig(
@@ -164,6 +158,6 @@ def load_config(path: Optional[str]) -> SocForgeConfig:
         new_admin=admin,
         new_service_installed=svc,
         scheduled_task_created=task,
-        suspicious_rdp_logon = rdp,
+        suspicious_rdp_logon=rdp,
         correlation=corr,
     )
