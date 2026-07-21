@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 soc-forge = "soc_forge.cli:main"
+soc-forge-web = "soc_forge.web.app:main"
 
 [tool.setuptools]
 package-dir = {"" = "."}
@@ -23,3 +24,5 @@ package-dir = {"" = "."}
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["soc_forge*"]
+[tool.setuptools.package-data]
+"soc_forge.web" = ["static/*.html", "static/*.css", "static/*.js"]

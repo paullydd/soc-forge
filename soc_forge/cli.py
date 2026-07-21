@@ -1,46 +1,29 @@
 import argparse
 import json
-import re
 from collections import defaultdict, deque, Counter
-from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from soc_forge.report.html_report import write_html_report
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.config import load_config
 from soc_forge import __version__
 from soc_forge.ingest.windows_security_csv import load_windows_security_csv
 from soc_forge.rules.engine import load_rules, run_rules
-from soc_forge.models import Alert
+from soc_forge.models import Alert, alert_to_dict, normalize_alerts
 from soc_forge.hunts import findings_to_dicts, run_hunts
-from soc_forge.intelligence.aggregator import build_risk_summary
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
+from soc_forge.rules.quality import evaluate_rule_quality_from_paths, format_rule_quality_report
 from soc_forge.report.html_report import write_html_report, build_cases
 from soc_forge.export.cases_export import export_cases_json
 from soc_forge.reconstruct.engine import reconstruct_case
 from soc_forge.simulator import generate_scenario, write_events_jsonl
 from soc_forge.intelligence import attach_case_stories, build_risk_summary
-from dataclasses import asdict, is_dataclass
-from typing import Any, Dict, List
+from typing import Any, List
 
 from rich.console import Console
 from rich.table import Table
 
 console = Console()
-
-# ---------- Models ----------
-@dataclass
-class Alert:
-    rule_id: str
-    severity: str
-    title: str
-    timestamp: str
-    details: dict
-    mitre: list
-    score: int = 0
-    status: str = "new"
-    correlation_id: str | None = None
 
 # ---------- Helpers ----------
 def parse_ts(ts: str) -> datetime:
@@ -56,40 +39,6 @@ def read_jsonl(path: Path):
             if not line:
                 continue
             yield json.loads(line)
-
-def _contains_any(s: str | None, needles: list[str]) -> bool:
-    if not s:
-        return False
-    hay = s.lower()
-    return any(n.lower() in hay for n in needles)
-
-def _bump_severity(base: str) -> str:
-    order = ["low", "medium", "high", "critical"]
-    try:
-        idx = order.index((base or "medium").lower())
-    except ValueError:
-        idx = 1
-    return order[min(idx + 1, len(order) - 1)]
-
-def _contains_any(s: str | None, needles: list[str]) -> bool:
-    if not s:
-        return False
-    hay = s.lower()
-    return any(n.lower() in hay for n in needles)
-
-def _bump_severity(base: str) -> str:
-    order = ["low", "medium", "high", "critical"]
-    try:
-        idx = order.index((base or "medium").lower())
-    except ValueError:
-        idx = 1
-    return order[min(idx + 1, len(order) - 1)]
-
-def _extract_logon_type(msg: str) -> int | None:
-    if not msg:
-        return None
-    m = re.search(r"logon\s*type:\s*(\d+)", msg, flags=re.IGNORECASE)
-    return int(m.group(1)) if m else None
 
 # ---------- Detectors ----------
 def detect_bruteforce(events, threshold=8, window_minutes=10, severity="high", score=60):
@@ -136,22 +85,7 @@ def detect_bruteforce(events, threshold=8, window_minutes=10, severity="high", s
 def write_alerts(path: Path, alerts):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
-        json.dump([asdict(a) for a in alerts], f, indent=2)
-
-def _as_alert_dict(a: Any) -> Dict[str, Any]:
-    """Accept Alert dataclass or dict and return a dict shape."""
-    if isinstance(a, dict):
-        return a
-    if is_dataclass(a):
-        return asdict(a)
-    # last resort: try attribute access
-    return {
-        "severity": getattr(a, "severity", ""),
-        "rule_id": getattr(a, "rule_id", ""),
-        "title": getattr(a, "title", ""),
-        "timestamp": getattr(a, "timestamp", ""),
-        "details": getattr(a, "details", {}) or {},
-    }
+        json.dump(normalize_alerts(alerts), f, indent=2)
 
 def print_summary(alerts: List[Any]) -> None:
     """
@@ -171,11 +105,11 @@ def print_summary(alerts: List[Any]) -> None:
 
     # Sort: severity then time (optional). Keep simple: by timestamp string.
     def _sort_key(a: Any):
-        d = _as_alert_dict(a)
+        d = alert_to_dict(a)
         return (str(d.get("severity", "")), str(d.get("timestamp", "")))
 
     for a in sorted(alerts, key=_sort_key):
-        d = _as_alert_dict(a)
+        d = alert_to_dict(a)
         details = d.get("details", {}) or {}
 
         key_detail = ""
@@ -217,11 +151,12 @@ def main():
     ap.add_argument("--write-events", default=None, help="Write normalized events to this JSON path")
     ap.add_argument("--rules", action="append", help="Rule file or directory (repeatable)")
     ap.add_argument("--rules-only", action="store_true", help="Run YAML rules only (skip built-in detectors)")
-    ap.add_argument("--coverage", action="store_true", help="Print MITRE coverage for for loaded YAML rules and exit")
+    ap.add_argument("--coverage", action="store_true", help="Print MITRE coverage for loaded YAML rules and exit")
+    ap.add_argument("--rule-quality", action="store_true", help="Run rule quality checks for loaded YAML rules and exit")
     ap.add_argument(
         "--simulate",
         default=None,
-        choices=["brute_force", "password_spray"],
+        choices=["brute_force", "password_spray", "privilege_escalation", "mixed", "attack_chain", "detection_lab"],
         help="Generate a simulated attack scenario and exit",
     )
     ap.add_argument(
@@ -230,11 +165,25 @@ def main():
         help="Output path for simulated JSONL events"
     )
     args = ap.parse_args()
-    if not args.simulate and not args.input:
-        ap.error("--input is required unless --simulate is used")
+    if not args.input and not args.simulate and not args.coverage and not args.rule_quality:
+        ap.error("--input is required unless --simulate, --coverage, or --rule-quality is used")
 
     if args.simulate:
         return run_simulator(args)
+
+    if args.coverage:
+        rule_paths = args.rules or ["soc_forge/rules"]
+        rules = load_rules(rule_paths)
+        rows = mitre_coverage_by_tactic(rules)
+        print(format_coverage_table(rows))
+        return 0
+
+    if args.rule_quality:
+        rule_paths = args.rules or ["soc_forge/rules"]
+        load_rules(rule_paths)
+        report = evaluate_rule_quality_from_paths(rule_paths)
+        print(format_rule_quality_report(report))
+        return 0 if report.passed else 1
 
     cfg = load_config(args.config)
 
@@ -295,7 +244,7 @@ def main():
         )
 
     # Merge legacy + YAML once
-    alert_dicts = [asdict(a) for a in alerts] + yaml_alerts
+    alert_dicts = normalize_alerts(alerts) + normalize_alerts(yaml_alerts)
 
     # Correlation
     alert_dicts = correlate_alerts(
@@ -315,10 +264,10 @@ def main():
         rdp_new_admin_score=cfg.correlation.rdp_new_admin_score,
     )
 
-    corr_alerts = [a for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF_CORR")]
+    corr_alerts = [a for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF-CORR")]
     corr_counts = {}
     for a in corr_alerts:
-        rid = a.get("rule_id", "SOCF_CORR_UNKNOWN")
+        rid = a.get("rule_id", "SOCF-CORR-UNKNOWN")
         corr_counts[rid] = corr_counts.get(rid, 0) + 1
 
     corr_summary = {
@@ -453,7 +402,7 @@ def main():
 
     console.print(f"\nSaved alerts to: [bold]{out_path}[/bold]")
     console.print(f"Saved HTML report to: [bold]{html_path}[/bold]")
-    corr_count = sum(1 for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF_CORR"))
+    corr_count = sum(1 for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF-CORR"))
     console.print(f"[bold]Correlated alerts:[/bold] {corr_count}")
 if __name__ == "__main__":
     main()

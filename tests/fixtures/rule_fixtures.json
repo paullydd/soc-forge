@@ -1,0 +1,239 @@
+[
+  {
+    "rule_id": "SOCF-002",
+    "rule_file": "SOCF-002.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:00:00Z",
+      "event_id": 4740,
+      "host": "DC1",
+      "username": "alice",
+      "ip": "203.0.113.10",
+      "message": "A user account was locked out."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:00:00Z",
+      "event_id": 4624,
+      "host": "DC1",
+      "username": "alice",
+      "ip": "203.0.113.10",
+      "message": "Successful logon."
+    }
+  },
+  {
+    "rule_id": "SOCF-003",
+    "rule_file": "SOCF-003.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:01:00Z",
+      "event_id": 4728,
+      "host": "DC1",
+      "actor": "admin01",
+      "username": "bob",
+      "group": "Domain Admins",
+      "message": "Member added to Domain Admins."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:01:00Z",
+      "event_id": 4728,
+      "host": "DC1",
+      "actor": "admin01",
+      "username": "bob",
+      "group": "Marketing",
+      "message": "Member added to Marketing."
+    }
+  },
+  {
+    "rule_id": "SOCF-004",
+    "rule_file": "SOCF-004.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:02:00Z",
+      "event_id": 7045,
+      "host": "WS-01",
+      "service_name": "UpdaterSvc",
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "service_account": "LocalSystem",
+      "message": "A service was installed."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:02:00Z",
+      "event_id": 7036,
+      "host": "WS-01",
+      "service_name": "UpdaterSvc",
+      "message": "A service changed state."
+    }
+  },
+  {
+    "rule_id": "SOCF-005",
+    "rule_file": "SOCF-005.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:03:00Z",
+      "event_id": 4698,
+      "host": "WS-01",
+      "actor": "alice",
+      "task_name": "Updater",
+      "task_command": "C:\\Windows\\System32\\cmd.exe /c whoami",
+      "message": "A scheduled task was created."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:03:00Z",
+      "event_id": 4702,
+      "host": "WS-01",
+      "actor": "alice",
+      "task_name": "Updater",
+      "message": "A scheduled task was updated."
+    }
+  },
+  {
+    "rule_id": "SOCF-006",
+    "rule_file": "SOCF-006.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:04:00Z",
+      "event_id": 4624,
+      "host": "WS-01",
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "logon_type": 10,
+      "message": "Successful logon. Logon Type: 10."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:04:00Z",
+      "event_id": 4624,
+      "host": "WS-01",
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "logon_type": 3,
+      "message": "Successful logon. Logon Type: 3."
+    }
+  },
+  {
+    "rule_id": "SOCF-007",
+    "rule_file": "SOCF-007.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:05:00Z",
+      "event_id": 4720,
+      "host": "DC1",
+      "actor": "admin01",
+      "target_user": "svc-backup",
+      "ip": "198.51.100.77",
+      "message": "A user account was created."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:05:00Z",
+      "event_id": 4726,
+      "host": "DC1",
+      "actor": "admin01",
+      "target_user": "svc-backup",
+      "message": "A user account was deleted."
+    }
+  },
+  {
+    "rule_id": "SOCF-008",
+    "rule_file": "SOCF-008.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:06:00Z",
+      "event_id": 4732,
+      "host": "DC1",
+      "actor": "admin01",
+      "target_user": "svc-backup",
+      "group_name": "Administrators",
+      "ip": "198.51.100.77",
+      "message": "A member was added to a security-enabled local group. Group: Administrators."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:06:00Z",
+      "event_id": 4732,
+      "host": "DC1",
+      "actor": "admin01",
+      "target_user": "bob",
+      "group_name": "Marketing",
+      "message": "A member was added to a distribution group. Group: Marketing."
+    }
+  },
+  {
+    "rule_id": "SOCF-009",
+    "rule_file": "SOCF-009.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:07:00Z",
+      "event_id": 1102,
+      "host": "WS-01",
+      "actor": "svc-backup",
+      "ip": "198.51.100.77",
+      "message": "The audit log was cleared."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:07:00Z",
+      "event_id": 4624,
+      "host": "WS-01",
+      "actor": "svc-backup",
+      "message": "Successful logon."
+    }
+  },
+  {
+    "rule_id": "SOCF-010",
+    "rule_file": "SOCF-010.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:08:00Z",
+      "event_id": 4625,
+      "host": "DC1",
+      "username": "alice",
+      "src_ip": "203.0.113.55",
+      "ip": "203.0.113.55",
+      "message": "An account failed to log on."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:08:00Z",
+      "event_id": 4624,
+      "host": "DC1",
+      "username": "alice",
+      "src_ip": "203.0.113.55",
+      "message": "An account successfully logged on."
+    }
+  },
+  {
+    "rule_id": "SOCF-011",
+    "rule_file": "SOCF-011.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:09:00Z",
+      "event_id": 4688,
+      "host": "WS-01",
+      "username": "alice",
+      "process_name": "powershell.exe",
+      "parent_process": "explorer.exe",
+      "command_line": "powershell.exe -NoP -W Hidden -enc SQBFAFgA",
+      "message": "New process powershell.exe -enc SQBFAFgA"
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:09:00Z",
+      "event_id": 4688,
+      "host": "WS-01",
+      "username": "admin01",
+      "process_name": "powershell.exe",
+      "command_line": "powershell.exe Get-Service WinDefend",
+      "message": "New process powershell.exe Get-Service WinDefend"
+    }
+  },
+  {
+    "rule_id": "SOCF-012",
+    "rule_file": "SOCF-012.yml",
+    "match": {
+      "timestamp": "2026-07-17T12:10:00Z",
+      "event_id": 4688,
+      "host": "WS-01",
+      "username": "alice",
+      "process_name": "svchost.exe",
+      "parent_process": "explorer.exe",
+      "image_path": "C:\\Users\\alice\\AppData\\Roaming\\svchost.exe",
+      "command_line": "C:\\Users\\alice\\AppData\\Roaming\\svchost.exe",
+      "message": "New process from AppData."
+    },
+    "non_match": {
+      "timestamp": "2026-07-17T12:10:00Z",
+      "event_id": 4688,
+      "host": "WS-01",
+      "username": "alice",
+      "process_name": "svchost.exe",
+      "image_path": "C:\\Windows\\System32\\svchost.exe",
+      "command_line": "C:\\Windows\\System32\\svchost.exe -k netsvcs",
+      "message": "New process from System32."
+    }
+  }
+]

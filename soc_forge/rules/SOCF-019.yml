@@ -1,0 +1,49 @@
+version: 1
+rules:
+  - id: SOCF-019
+    enabled: true
+    title: Remote admin share execution
+    description: Detects commands that execute binaries or scripts from Windows administrative shares.
+    author: SOC-Forge
+    created: "2026-07-21"
+    logsource: windows-process
+    tags:
+      - windows
+      - lateral-movement
+      - admin-share
+    severity: high
+    score: 80
+    mitre:
+      - tactic: Lateral Movement
+        technique: "Remote Services: SMB/Windows Admin Shares"
+        id: T1021.002
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4688
+            - field: event_id
+              op: eq
+              value: 1
+        - any:
+            - field: command_line
+              op: regex
+              value: '(?i)\\\\[^\\]+\\(ADMIN\$|C\$|IPC\$)\\.*\.(exe|bat|cmd|ps1)\b'
+            - field: image_path
+              op: regex
+              value: '(?i)\\\\[^\\]+\\(ADMIN\$|C\$|IPC\$)\\.*\.(exe|bat|cmd|ps1)\b'
+            - field: message
+              op: regex
+              value: '(?i)\\\\[^\\]+\\(ADMIN\$|C\$|IPC\$)\\.*\.(exe|bat|cmd|ps1)\b'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        image_path: "${image_path}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

@@ -133,6 +133,46 @@ def build_recommended_actions(items_sorted: List[Dict[str, Any]]) -> List[str]:
         actions.append("Disable the account, revoke privileged access, and isolate the host if activity is unauthorized.")
         actions.append("Preserve forensic evidence before additional logs or artifacts are destroyed and hunt for persistence such as tasks, services, or remote access.")
 
+    # SOCF-CORR-006: Office -> suspicious script interpreter
+    if _has_rule(items_sorted, "SOCF-CORR-006"):
+        actions.append("Treat the Office-to-script sequence as possible malicious document execution and collect the document, email context, and full process tree.")
+        actions.append("Contain the endpoint if the Office child process or command line is unauthorized.")
+
+    # SOCF-CORR-007: Script execution -> credential dumping
+    if _has_rule(items_sorted, "SOCF-CORR-007"):
+        actions.append("Treat script execution followed by credential dumping as high-confidence credential theft activity.")
+        actions.append("Preserve process and memory evidence, reset potentially exposed credentials, and hunt for follow-on lateral movement.")
+
+    # SOCF-CORR-008: Suspicious process -> browser credential store access
+    if _has_rule(items_sorted, "SOCF-CORR-008"):
+        actions.append("Review why the suspicious process accessed browser credential stores and preserve any copied browser database artifacts.")
+        actions.append("Rotate exposed browser-saved credentials and inspect nearby process, file, and network activity.")
+
+    # SOCF-CORR-009: RDP -> PsExec-style service execution
+    if _has_rule(items_sorted, "SOCF-CORR-009"):
+        actions.append("Treat RDP followed by PsExec-style service execution as likely hands-on-keyboard lateral movement.")
+        actions.append("Review remote service creation, source authentication, SMB activity, and endpoint process trees for the affected host.")
+
+    # SOCF-CORR-010: WMI -> suspicious execution
+    if _has_rule(items_sorted, "SOCF-CORR-010"):
+        actions.append("Treat WMI followed by suspicious execution as possible remote command execution.")
+        actions.append("Hunt for the same account using WMI across nearby hosts and collect command-line/process ancestry evidence.")
+
+    # SOCF-CORR-011: Credential access -> archive staging
+    if _has_rule(items_sorted, "SOCF-CORR-011"):
+        actions.append("Treat credential access followed by archive staging as possible credential collection and exfiltration preparation.")
+        actions.append("Preserve the archive, identify included files, and review outbound transfer or cleanup after archive creation.")
+
+    # SOCF-CORR-012: Lateral movement -> credential access
+    if _has_rule(items_sorted, "SOCF-CORR-012"):
+        actions.append("Treat lateral movement followed by credential access as possible host compromise expansion.")
+        actions.append("Reset exposed credentials, inspect lateral movement paths, and contain impacted hosts if unauthorized.")
+
+    # SOCF-CORR-013: Admin share execution -> persistence or staging
+    if _has_rule(items_sorted, "SOCF-CORR-013"):
+        actions.append("Review administrative share execution followed by persistence or staging as a likely remote operator sequence.")
+        actions.append("Inspect SMB sessions, copied binaries, scheduled tasks/services, and staged archives on the destination host.")
+
     if _has_rule(items_sorted, "SOCF-006") and _has_rule(items_sorted, "SOCF-005", "SOCF-010", "SOCF-011"):
         actions.append("Pull EDR triage: process tree around first RDP logon (parent/child, network, command line)")
         actions.append("Check scheduled task details (name, triggers, command, author) and capture the full XML if available")
@@ -146,6 +186,46 @@ def build_recommended_actions(items_sorted: List[Dict[str, Any]]) -> List[str]:
         actions.append("Review authentication logs for password spray / brute-force scope (users targeted, hosts, time window).")
         if src_ips:
             actions.append(f"Consider blocking source IP(s) if unauthorized: {', '.join(src_ips)}")
+
+    # SOCF-013: Office spawned script interpreter
+    if _has_rule(items_sorted, "SOCF-013"):
+        actions.append("Review the Office parent process, source document, email context, macro/script settings, and child process command line.")
+        actions.append("Collect process tree evidence and isolate the host if the document or child process is unauthorized.")
+
+    # SOCF-014: Credential dumping / LSASS access
+    if _has_rule(items_sorted, "SOCF-014"):
+        actions.append("Treat LSASS access or credential dumping as critical and preserve memory/process evidence before cleanup.")
+        actions.append("Reset potentially exposed credentials and review lateral movement from the same host or user.")
+
+    # SOCF-015: Browser credential store access
+    if _has_rule(items_sorted, "SOCF-015"):
+        actions.append("Validate why a non-browser process accessed browser credential stores and preserve copied credential database files.")
+        actions.append("Rotate affected browser-saved credentials if access is unauthorized.")
+
+    # SOCF-016: PsExec-style service execution
+    if _has_rule(items_sorted, "SOCF-016"):
+        actions.append("Review service creation details for PsExec-style lateral movement, including service name, binary path, source account, and remote source.")
+        actions.append("Validate whether remote service execution was authorized and isolate impacted hosts if activity is suspicious.")
+
+    # SOCF-017: WMI process execution
+    if _has_rule(items_sorted, "SOCF-017"):
+        actions.append("Review WMI execution context, parent process, target host, command line, and initiating account.")
+        actions.append("Hunt for additional WMI-created processes across nearby hosts and timestamps.")
+
+    # SOCF-018: Suspicious LOLBin script execution
+    if _has_rule(items_sorted, "SOCF-018"):
+        actions.append("Inspect the LOLBin command line, remote content URL, scriptlet path, or DLL invocation for proxy execution.")
+        actions.append("Block or collect referenced remote payloads and review parent process ancestry.")
+
+    # SOCF-019: Remote admin share execution
+    if _has_rule(items_sorted, "SOCF-019"):
+        actions.append("Validate administrative share execution paths and confirm whether remote file staging was approved.")
+        actions.append("Review SMB/session telemetry for the source host and account associated with the admin share activity.")
+
+    # SOCF-020: Suspicious archive staging
+    if _has_rule(items_sorted, "SOCF-020"):
+        actions.append("Review archive contents, destination path, and process ancestry to determine whether data collection occurred.")
+        actions.append("Search for follow-on upload, external transfer, or cleanup behavior after archive creation.")
 
     threat = _first(items_sorted, "threat_level") or _first(items_sorted, "severity")
     if hosts and threat and str(threat).lower() in {"high", "critical"}:

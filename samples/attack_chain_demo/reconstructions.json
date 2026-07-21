@@ -1,0 +1,120 @@
+[
+  {
+    "case_id": "CASE-7B42A8CD",
+    "summary": "Likely malicious activity centered on Persistence.",
+    "confidence": 0.98,
+    "attack_path": [
+      {
+        "step_no": 1,
+        "stage": "Persistence",
+        "title": "Scheduled task created",
+        "technique": "T1053.005",
+        "tactic": "Persistence",
+        "timestamp": "2026-07-16T17:21:54Z",
+        "confidence": 0.98,
+        "entities": {
+          "src_ip": null,
+          "username": null,
+          "host": "WS-ENG-01"
+        },
+        "evidence": [
+          {
+            "kind": "alert",
+            "ref": "cand-1",
+            "timestamp": "2026-07-16T17:21:54Z",
+            "rule_id": "SOCF-005",
+            "event_id": null,
+            "summary": "Scheduled task created"
+          }
+        ],
+        "notes": [],
+        "inferred": false
+      }
+    ],
+    "relationships": [],
+    "key_entities": {
+      "src_ips": [],
+      "users": [],
+      "hosts": [
+        "WS-ENG-01"
+      ]
+    },
+    "gaps": [
+      "Execution activity was not directly observed before persistence-related behavior."
+    ],
+    "assumptions": []
+  },
+  {
+    "case_id": "CASE-1EA49C63",
+    "summary": "No meaningful attack path could be reconstructed.",
+    "confidence": 0.0,
+    "attack_path": [],
+    "relationships": [],
+    "key_entities": {
+      "src_ips": [],
+      "users": [],
+      "hosts": []
+    },
+    "gaps": [],
+    "assumptions": []
+  },
+  {
+    "case_id": "CASE-1F9D40EA",
+    "summary": "Likely malicious activity centered on Initial Access.",
+    "confidence": 0.83,
+    "attack_path": [
+      {
+        "step_no": 1,
+        "stage": "Initial Access",
+        "title": "RDP logon detected (LogonType 10)",
+        "technique": "T1021.001",
+        "tactic": "Initial Access",
+        "timestamp": "2026-07-16T17:19:54Z",
+        "confidence": 0.8250000000000001,
+        "entities": {
+          "src_ip": null,
+          "username": "alice",
+          "host": "WS-ENG-01"
+        },
+        "evidence": [
+          {
+            "kind": "alert",
+            "ref": "cand-1",
+            "timestamp": "2026-07-16T17:19:54Z",
+            "rule_id": "SOCF-006",
+            "event_id": null,
+            "summary": "RDP logon detected (LogonType 10)"
+          }
+        ],
+        "notes": [],
+        "inferred": false
+      }
+    ],
+    "relationships": [],
+    "key_entities": {
+      "src_ips": [],
+      "users": [
+        "alice"
+      ],
+      "hosts": [
+        "WS-ENG-01"
+      ]
+    },
+    "gaps": [],
+    "assumptions": []
+  },
+  {
+    "case_id": "CASE-18FA7129",
+    "summary": "No meaningful attack path could be reconstructed.",
+    "confidence": 0.0,
+    "attack_path": [],
+    "relationships": [],
+    "key_entities": {
+      "src_ips": [],
+      "users": [],
+      "hosts": []
+    },
+    "gaps": [],
+    "assumptions": []
+  }
+]

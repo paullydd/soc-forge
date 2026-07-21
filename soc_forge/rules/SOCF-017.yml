@@ -1,0 +1,66 @@
+version: 1
+rules:
+  - id: SOCF-017
+    enabled: true
+    title: WMI process execution
+    description: Detects process execution initiated through WMI tooling or WMI provider processes.
+    author: SOC-Forge
+    created: "2026-07-21"
+    logsource: windows-process
+    tags:
+      - windows
+      - lateral-movement
+      - wmi
+    severity: high
+    score: 85
+    mitre:
+      - tactic: Execution
+        technique: "Windows Management Instrumentation"
+        id: T1047
+      - tactic: Lateral Movement
+        technique: "Remote Services"
+        id: T1021
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4688
+            - field: event_id
+              op: eq
+              value: 1
+        - any:
+            - all:
+                - any:
+                    - field: process_name
+                      op: regex
+                      value: '(?i)\bwmic(?:\.exe)?\b'
+                    - field: command_line
+                      op: regex
+                      value: '(?i)\bwmic\b'
+                - any:
+                    - field: command_line
+                      op: regex
+                      value: '(?i)\bprocess\b.*\bcall\b.*\bcreate\b'
+                    - field: message
+                      op: regex
+                      value: '(?i)\bprocess\b.*\bcall\b.*\bcreate\b'
+            - all:
+                - field: parent_process
+                  op: regex
+                  value: '(?i)\bwmiprvse\.exe\b'
+                - any:
+                    - field: command_line
+                      op: exists
+                    - field: process_name
+                      op: exists
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

@@ -1,0 +1,2325 @@
+[
+  {
+    "correlation_id": "044596ac3ae5",
+    "header": {
+      "correlation_id": "044596ac3ae5",
+      "input_name": "out/attack_chain_events.jsonl",
+      "title": "RDP logon followed by scheduled task creation (possible persistence)",
+      "severity": "high",
+      "timestamp": "2026-07-16T17:21:54Z",
+      "score": 110,
+      "details": {
+        "recommended_actions": [
+          "Validate user access with HR/IT: alice",
+          "Identify impacted endpoint(s): WS-ENG-01",
+          "Confirm source IP reputation/ownership: 198.51.100.77",
+          "Inspect the scheduled task name, trigger, author, and full command line to determine whether persistence was established.",
+          "Capture the task XML or task definition from the endpoint and review adjacent administrative activity.",
+          "Treat the RDP plus scheduled task sequence as possible hands-on-keyboard persistence and validate the task immediately.",
+          "Review whether the same user, host, and source IP appear in other nearby alerts or endpoint telemetry.",
+          "If activity is unauthorized, initiate containment on impacted hosts and reset affected credentials."
+        ],
+        "case_risk": {
+          "base_score": 205,
+          "boost": 40,
+          "case_score": 245,
+          "case_severity": "critical",
+          "case_threat_level": "critical",
+          "reasons": [
+            "Correlation present (+30)",
+            "Multi-tactic activity (+10): Persistence, Lateral Movement"
+          ],
+          "tactics": [
+            "Persistence",
+            "Lateral Movement"
+          ],
+          "alert_count": 2
+        },
+        "attack_flow": [
+          {
+            "rule_id": "SOCF-005",
+            "label": "Persistence",
+            "timestamp": "2026-07-16T17:21:54Z",
+            "severity": "critical",
+            "mitre_ids": [
+              "Scheduled Task/Job"
+            ]
+          },
+          {
+            "rule_id": "SOCF-CORR-002",
+            "label": "Remote Access",
+            "timestamp": "2026-07-16T17:21:54Z",
+            "severity": "high",
+            "mitre_ids": [
+              "Scheduled Task/Job",
+              "Remote Services"
+            ]
+          }
+        ],
+        "attack_graph": {
+          "nodes": [
+            {
+              "id": "action:Persistence",
+              "label": "Persistence",
+              "type": "action"
+            },
+            {
+              "id": "host:WS-ENG-01",
+              "label": "WS-ENG-01",
+              "type": "host"
+            },
+            {
+              "id": "action:Remote Access",
+              "label": "Remote Access",
+              "type": "action"
+            },
+            {
+              "id": "ip:198.51.100.77",
+              "label": "198.51.100.77",
+              "type": "ip"
+            },
+            {
+              "id": "user:alice",
+              "label": "alice",
+              "type": "user"
+            }
+          ],
+          "edges": [
+            {
+              "source": "host:WS-ENG-01",
+              "target": "action:Persistence"
+            },
+            {
+              "source": "ip:198.51.100.77",
+              "target": "user:alice"
+            },
+            {
+              "source": "user:alice",
+              "target": "host:WS-ENG-01"
+            },
+            {
+              "source": "host:WS-ENG-01",
+              "target": "action:Remote Access"
+            }
+          ]
+        },
+        "attack_path": [
+          {
+            "id": "ip:198.51.100.77",
+            "label": "198.51.100.77",
+            "type": "ip"
+          },
+          {
+            "id": "user:alice",
+            "label": "alice",
+            "type": "user"
+          },
+          {
+            "id": "host:WS-ENG-01",
+            "label": "WS-ENG-01",
+            "type": "host"
+          },
+          {
+            "id": "action:Persistence",
+            "label": "Persistence",
+            "type": "action"
+          }
+        ],
+        "attack_chain": {
+          "tactics": [
+            "Persistence (T1053)",
+            "Lateral Movement (T1021)"
+          ],
+          "by_tactic": {
+            "Persistence (T1053)": {
+              "first_seen": "2026-07-16T17:21:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-005",
+                  "title": "Scheduled task created",
+                  "timestamp": "2026-07-16T17:21:54Z"
+                },
+                {
+                  "rule_id": "SOCF-CORR-002",
+                  "title": "RDP logon followed by scheduled task creation (possible persistence)",
+                  "timestamp": "2026-07-16T17:21:54Z"
+                }
+              ],
+              "description": "The activity suggests a mechanism intended to survive reboots or maintain access."
+            },
+            "Lateral Movement (T1021)": {
+              "first_seen": "2026-07-16T17:21:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-CORR-002",
+                  "title": "RDP logon followed by scheduled task creation (possible persistence)",
+                  "timestamp": "2026-07-16T17:21:54Z"
+                }
+              ],
+              "description": "The activity suggests movement from one host or account context to another."
+            }
+          }
+        },
+        "iocs": {
+          "ips": [
+            "198.51.100.77"
+          ],
+          "hosts": [
+            "WS-ENG-01"
+          ],
+          "users": [
+            "alice"
+          ]
+        },
+        "timeline": [
+          {
+            "timestamp": "2026-07-16T17:21:54Z",
+            "rule_id": "SOCF-005",
+            "title": "Scheduled task created",
+            "severity": "critical"
+          },
+          {
+            "timestamp": "2026-07-16T17:21:54Z",
+            "rule_id": "SOCF-CORR-002",
+            "title": "RDP logon followed by scheduled task creation (possible persistence)",
+            "severity": "high"
+          }
+        ],
+        "analyst_summary": "This case shows RDP interactive access followed by scheduled task activity, which is consistent with post-compromise persistence and operator automation. A correlation rule fired, increasing confidence that these events are related. (e.g., user alice, host WS-ENG-01, ip 198.51.100.77) Validate whether the task is authorized, confirm the source of the RDP session, and review endpoint telemetry around the first RDP logon time."
+      },
+      "case_id": "CASE-7B42A8CD",
+      "status": "New",
+      "risk_score": 245
+    },
+    "timeline": [
+      {
+        "timestamp": "2026-07-16T17:21:54Z",
+        "rule_id": "SOCF-005",
+        "title": "Scheduled task created",
+        "severity": "critical"
+      },
+      {
+        "timestamp": "2026-07-16T17:21:54Z",
+        "rule_id": "SOCF-CORR-002",
+        "title": "RDP logon followed by scheduled task creation (possible persistence)",
+        "severity": "high"
+      }
+    ],
+    "attack_flow": [
+      {
+        "rule_id": "SOCF-005",
+        "label": "Persistence",
+        "timestamp": "2026-07-16T17:21:54Z",
+        "severity": "critical",
+        "mitre_ids": [
+          "Scheduled Task/Job"
+        ]
+      },
+      {
+        "rule_id": "SOCF-CORR-002",
+        "label": "Remote Access",
+        "timestamp": "2026-07-16T17:21:54Z",
+        "severity": "high",
+        "mitre_ids": [
+          "Scheduled Task/Job",
+          "Remote Services"
+        ]
+      }
+    ],
+    "attack_graph": {
+      "nodes": [
+        {
+          "id": "action:Persistence",
+          "label": "Persistence",
+          "type": "action"
+        },
+        {
+          "id": "host:WS-ENG-01",
+          "label": "WS-ENG-01",
+          "type": "host"
+        },
+        {
+          "id": "action:Remote Access",
+          "label": "Remote Access",
+          "type": "action"
+        },
+        {
+          "id": "ip:198.51.100.77",
+          "label": "198.51.100.77",
+          "type": "ip"
+        },
+        {
+          "id": "user:alice",
+          "label": "alice",
+          "type": "user"
+        }
+      ],
+      "edges": [
+        {
+          "source": "host:WS-ENG-01",
+          "target": "action:Persistence"
+        },
+        {
+          "source": "ip:198.51.100.77",
+          "target": "user:alice"
+        },
+        {
+          "source": "user:alice",
+          "target": "host:WS-ENG-01"
+        },
+        {
+          "source": "host:WS-ENG-01",
+          "target": "action:Remote Access"
+        }
+      ]
+    },
+    "attack_path": [
+      {
+        "id": "ip:198.51.100.77",
+        "label": "198.51.100.77",
+        "type": "ip"
+      },
+      {
+        "id": "user:alice",
+        "label": "alice",
+        "type": "user"
+      },
+      {
+        "id": "host:WS-ENG-01",
+        "label": "WS-ENG-01",
+        "type": "host"
+      },
+      {
+        "id": "action:Persistence",
+        "label": "Persistence",
+        "type": "action"
+      }
+    ],
+    "attack_chain": {
+      "tactics": [
+        "Persistence (T1053)",
+        "Lateral Movement (T1021)"
+      ],
+      "by_tactic": {
+        "Persistence (T1053)": {
+          "first_seen": "2026-07-16T17:21:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-005",
+              "title": "Scheduled task created",
+              "timestamp": "2026-07-16T17:21:54Z"
+            },
+            {
+              "rule_id": "SOCF-CORR-002",
+              "title": "RDP logon followed by scheduled task creation (possible persistence)",
+              "timestamp": "2026-07-16T17:21:54Z"
+            }
+          ],
+          "description": "The activity suggests a mechanism intended to survive reboots or maintain access."
+        },
+        "Lateral Movement (T1021)": {
+          "first_seen": "2026-07-16T17:21:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-CORR-002",
+              "title": "RDP logon followed by scheduled task creation (possible persistence)",
+              "timestamp": "2026-07-16T17:21:54Z"
+            }
+          ],
+          "description": "The activity suggests movement from one host or account context to another."
+        }
+      }
+    },
+    "iocs": {
+      "ips": [
+        "198.51.100.77"
+      ],
+      "hosts": [
+        "WS-ENG-01"
+      ],
+      "users": [
+        "alice"
+      ]
+    },
+    "evidence": [
+      {
+        "timestamp": "2026-07-16T17:21:54Z",
+        "rule_id": "SOCF-005",
+        "title": "Scheduled task created",
+        "severity": "critical",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "task_name",
+            "WindowsUpdateCheck"
+          ]
+        ]
+      },
+      {
+        "timestamp": "2026-07-16T17:21:54Z",
+        "rule_id": "SOCF-CORR-002",
+        "title": "RDP logon followed by scheduled task creation (possible persistence)",
+        "severity": "high",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "username",
+            "alice"
+          ],
+          [
+            "ip",
+            "198.51.100.77"
+          ]
+        ]
+      }
+    ],
+    "alerts": [
+      {
+        "rule_id": "SOCF-005",
+        "severity": "critical",
+        "title": "Scheduled task created",
+        "timestamp": "2026-07-16T17:21:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "actor": "alice",
+          "task_name": "WindowsUpdateCheck",
+          "task_command": "powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=",
+          "message": "A scheduled task was created. Task Name: WindowsUpdateCheck. Author: alice. Command: powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=.",
+          "suspicious": true,
+          "modifier_reasons": [
+            "Suspicious keyword in task command/message"
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Scheduled Task/Job",
+            "id": "T1053"
+          }
+        ],
+        "score": 95,
+        "status": "new",
+        "correlation_id": "044596ac3ae5",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-CORR-002",
+        "severity": "high",
+        "title": "RDP logon followed by scheduled task creation (possible persistence)",
+        "timestamp": "2026-07-16T17:21:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "username": "alice",
+          "ip": "198.51.100.77",
+          "window_minutes": 15,
+          "evidence": [
+            {
+              "rule_id": "SOCF-006",
+              "timestamp": "2026-07-16T17:19:54Z"
+            },
+            {
+              "rule_id": "SOCF-005",
+              "timestamp": "2026-07-16T17:21:54Z"
+            }
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Scheduled Task/Job",
+            "id": "T1053"
+          },
+          {
+            "tactic": "Lateral Movement",
+            "technique": "Remote Services",
+            "id": "T1021"
+          }
+        ],
+        "score": 110,
+        "status": "new",
+        "correlation_id": "044596ac3ae5"
+      }
+    ],
+    "case_id": "CASE-7B42A8CD",
+    "id": "CASE-7B42A8CD",
+    "title": "RDP logon followed by scheduled task creation (possible persistence)",
+    "status": "New",
+    "created_at": "2026-07-16T17:21:54Z",
+    "severity": "critical",
+    "risk_score": 245,
+    "summary": "This case shows RDP interactive access followed by scheduled task activity, which is consistent with post-compromise persistence and operator automation. A correlation rule fired, increasing confidence that these events are related. (e.g., user alice, host WS-ENG-01, ip 198.51.100.77) Validate whether the task is authorized, confirm the source of the RDP session, and review endpoint telemetry around the first RDP logon time.",
+    "indicators": {
+      "ips": [
+        "198.51.100.77"
+      ],
+      "hosts": [
+        "WS-ENG-01"
+      ],
+      "users": [
+        "alice"
+      ]
+    },
+    "mitre": [
+      "Persistence",
+      "Lateral Movement"
+    ],
+    "items": [
+      {
+        "rule_id": "SOCF-005",
+        "severity": "critical",
+        "title": "Scheduled task created",
+        "timestamp": "2026-07-16T17:21:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "actor": "alice",
+          "task_name": "WindowsUpdateCheck",
+          "task_command": "powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=",
+          "message": "A scheduled task was created. Task Name: WindowsUpdateCheck. Author: alice. Command: powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=.",
+          "suspicious": true,
+          "modifier_reasons": [
+            "Suspicious keyword in task command/message"
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Scheduled Task/Job",
+            "id": "T1053"
+          }
+        ],
+        "score": 95,
+        "status": "new",
+        "correlation_id": "044596ac3ae5",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-CORR-002",
+        "severity": "high",
+        "title": "RDP logon followed by scheduled task creation (possible persistence)",
+        "timestamp": "2026-07-16T17:21:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "username": "alice",
+          "ip": "198.51.100.77",
+          "window_minutes": 15,
+          "evidence": [
+            {
+              "rule_id": "SOCF-006",
+              "timestamp": "2026-07-16T17:19:54Z"
+            },
+            {
+              "rule_id": "SOCF-005",
+              "timestamp": "2026-07-16T17:21:54Z"
+            }
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Scheduled Task/Job",
+            "id": "T1053"
+          },
+          {
+            "tactic": "Lateral Movement",
+            "technique": "Remote Services",
+            "id": "T1021"
+          }
+        ],
+        "score": 110,
+        "status": "new",
+        "correlation_id": "044596ac3ae5"
+      }
+    ],
+    "owner": "Unassigned",
+    "updated_at": "2026-07-16T17:21:54Z",
+    "notes": [],
+    "status_history": [
+      {
+        "status": "New",
+        "changed_at": "2026-07-16T17:21:54Z",
+        "changed_by": "analyst",
+        "reason": "Case created"
+      }
+    ],
+    "related_hunts": [],
+    "story": "At 17:21, a scheduled task was created. At 17:21, rdp logon followed by scheduled task creation (possible persistence). This activity aligns with Execution behavior."
+  },
+  {
+    "correlation_id": "076a09c83b53",
+    "header": {
+      "correlation_id": "076a09c83b53",
+      "input_name": "out/attack_chain_events.jsonl",
+      "title": "New account followed by privileged group assignment",
+      "severity": "critical",
+      "timestamp": "2026-07-16T17:24:54Z",
+      "score": 130,
+      "details": {
+        "recommended_actions": [
+          "Validate user access with HR/IT: svc-backup-admin",
+          "Identify impacted endpoint(s): WS-ENG-01",
+          "Disable the newly created account immediately if the account and privilege change were not explicitly approved.",
+          "Remove the account from privileged groups and review all logons or administrative actions involving that account.",
+          "If activity is unauthorized, initiate containment on impacted hosts and reset affected credentials."
+        ],
+        "case_risk": {
+          "base_score": 130,
+          "boost": 40,
+          "case_score": 170,
+          "case_severity": "critical",
+          "case_threat_level": "critical",
+          "reasons": [
+            "Correlation present (+30)",
+            "Multi-tactic activity (+10): Persistence, Privilege Escalation"
+          ],
+          "tactics": [
+            "Persistence",
+            "Privilege Escalation"
+          ],
+          "alert_count": 1
+        },
+        "attack_flow": [
+          {
+            "rule_id": "SOCF-CORR-004",
+            "label": "Privilege Escalation",
+            "timestamp": "2026-07-16T17:24:54Z",
+            "severity": "critical",
+            "mitre_ids": [
+              "Create Account",
+              "Account Manipulation"
+            ]
+          }
+        ],
+        "attack_graph": {
+          "nodes": [
+            {
+              "id": "action:Privilege Escalation",
+              "label": "Privilege Escalation",
+              "type": "action"
+            },
+            {
+              "id": "host:WS-ENG-01",
+              "label": "WS-ENG-01",
+              "type": "host"
+            }
+          ],
+          "edges": [
+            {
+              "source": "host:WS-ENG-01",
+              "target": "action:Privilege Escalation"
+            }
+          ]
+        },
+        "attack_path": [
+          {
+            "id": "host:WS-ENG-01",
+            "label": "WS-ENG-01",
+            "type": "host"
+          },
+          {
+            "id": "action:Privilege Escalation",
+            "label": "Privilege Escalation",
+            "type": "action"
+          }
+        ],
+        "attack_chain": {
+          "tactics": [
+            "Persistence (T1136)",
+            "Privilege Escalation (T1098)"
+          ],
+          "by_tactic": {
+            "Persistence (T1136)": {
+              "first_seen": "2026-07-16T17:24:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-CORR-004",
+                  "title": "New account followed by privileged group assignment",
+                  "timestamp": "2026-07-16T17:24:54Z"
+                }
+              ],
+              "description": "The activity suggests a mechanism intended to survive reboots or maintain access."
+            },
+            "Privilege Escalation (T1098)": {
+              "first_seen": "2026-07-16T17:24:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-CORR-004",
+                  "title": "New account followed by privileged group assignment",
+                  "timestamp": "2026-07-16T17:24:54Z"
+                }
+              ],
+              "description": "The activity may indicate an attempt to gain elevated rights or broader permissions."
+            }
+          }
+        },
+        "iocs": {
+          "ips": [],
+          "hosts": [
+            "WS-ENG-01"
+          ],
+          "users": []
+        },
+        "timeline": [
+          {
+            "timestamp": "2026-07-16T17:24:54Z",
+            "rule_id": "SOCF-CORR-004",
+            "title": "New account followed by privileged group assignment",
+            "severity": "critical"
+          }
+        ],
+        "analyst_summary": "This case contains multiple related alerts that warrant review and correlation. A correlation rule fired, increasing confidence that these events are related. (e.g., host WS-ENG-01) Review the timeline progression, validate user/host context, and pivot to endpoint telemetry for confirmation."
+      },
+      "case_id": "CASE-1EA49C63",
+      "status": "New",
+      "risk_score": 170
+    },
+    "timeline": [
+      {
+        "timestamp": "2026-07-16T17:24:54Z",
+        "rule_id": "SOCF-CORR-004",
+        "title": "New account followed by privileged group assignment",
+        "severity": "critical"
+      }
+    ],
+    "attack_flow": [
+      {
+        "rule_id": "SOCF-CORR-004",
+        "label": "Privilege Escalation",
+        "timestamp": "2026-07-16T17:24:54Z",
+        "severity": "critical",
+        "mitre_ids": [
+          "Create Account",
+          "Account Manipulation"
+        ]
+      }
+    ],
+    "attack_graph": {
+      "nodes": [
+        {
+          "id": "action:Privilege Escalation",
+          "label": "Privilege Escalation",
+          "type": "action"
+        },
+        {
+          "id": "host:WS-ENG-01",
+          "label": "WS-ENG-01",
+          "type": "host"
+        }
+      ],
+      "edges": [
+        {
+          "source": "host:WS-ENG-01",
+          "target": "action:Privilege Escalation"
+        }
+      ]
+    },
+    "attack_path": [
+      {
+        "id": "host:WS-ENG-01",
+        "label": "WS-ENG-01",
+        "type": "host"
+      },
+      {
+        "id": "action:Privilege Escalation",
+        "label": "Privilege Escalation",
+        "type": "action"
+      }
+    ],
+    "attack_chain": {
+      "tactics": [
+        "Persistence (T1136)",
+        "Privilege Escalation (T1098)"
+      ],
+      "by_tactic": {
+        "Persistence (T1136)": {
+          "first_seen": "2026-07-16T17:24:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-CORR-004",
+              "title": "New account followed by privileged group assignment",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ],
+          "description": "The activity suggests a mechanism intended to survive reboots or maintain access."
+        },
+        "Privilege Escalation (T1098)": {
+          "first_seen": "2026-07-16T17:24:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-CORR-004",
+              "title": "New account followed by privileged group assignment",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ],
+          "description": "The activity may indicate an attempt to gain elevated rights or broader permissions."
+        }
+      }
+    },
+    "iocs": {
+      "ips": [],
+      "hosts": [
+        "WS-ENG-01"
+      ],
+      "users": []
+    },
+    "evidence": [
+      {
+        "timestamp": "2026-07-16T17:24:54Z",
+        "rule_id": "SOCF-CORR-004",
+        "title": "New account followed by privileged group assignment",
+        "severity": "critical",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "username",
+            "svc-backup-admin"
+          ]
+        ]
+      }
+    ],
+    "alerts": [
+      {
+        "rule_id": "SOCF-CORR-004",
+        "severity": "critical",
+        "title": "New account followed by privileged group assignment",
+        "timestamp": "2026-07-16T17:24:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "target_user": "svc-backup-admin",
+          "window_minutes": 15,
+          "evidence": [
+            {
+              "rule_id": "SOCF-007",
+              "timestamp": "2026-07-16T17:23:54Z"
+            },
+            {
+              "rule_id": "SOCF-008",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ],
+          "source_rule_ids": [
+            "SOCF-007",
+            "SOCF-008"
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Create Account",
+            "id": "T1136"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          }
+        ],
+        "score": 130,
+        "status": "new",
+        "correlation_id": "076a09c83b53"
+      }
+    ],
+    "case_id": "CASE-1EA49C63",
+    "id": "CASE-1EA49C63",
+    "title": "New account followed by privileged group assignment",
+    "status": "New",
+    "created_at": "2026-07-16T17:24:54Z",
+    "severity": "critical",
+    "risk_score": 170,
+    "summary": "This case contains multiple related alerts that warrant review and correlation. A correlation rule fired, increasing confidence that these events are related. (e.g., host WS-ENG-01) Review the timeline progression, validate user/host context, and pivot to endpoint telemetry for confirmation.",
+    "indicators": {
+      "ips": [],
+      "hosts": [
+        "WS-ENG-01"
+      ],
+      "users": []
+    },
+    "mitre": [
+      "Persistence",
+      "Privilege Escalation"
+    ],
+    "items": [
+      {
+        "rule_id": "SOCF-CORR-004",
+        "severity": "critical",
+        "title": "New account followed by privileged group assignment",
+        "timestamp": "2026-07-16T17:24:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "target_user": "svc-backup-admin",
+          "window_minutes": 15,
+          "evidence": [
+            {
+              "rule_id": "SOCF-007",
+              "timestamp": "2026-07-16T17:23:54Z"
+            },
+            {
+              "rule_id": "SOCF-008",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ],
+          "source_rule_ids": [
+            "SOCF-007",
+            "SOCF-008"
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Create Account",
+            "id": "T1136"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          }
+        ],
+        "score": 130,
+        "status": "new",
+        "correlation_id": "076a09c83b53"
+      }
+    ],
+    "owner": "Unassigned",
+    "updated_at": "2026-07-16T17:24:54Z",
+    "notes": [],
+    "status_history": [
+      {
+        "status": "New",
+        "changed_at": "2026-07-16T17:24:54Z",
+        "changed_by": "analyst",
+        "reason": "Case created"
+      }
+    ],
+    "related_hunts": [],
+    "story": "At 17:24, new account followed by privileged group assignment."
+  },
+  {
+    "correlation_id": "3221f258a60b",
+    "header": {
+      "correlation_id": "3221f258a60b",
+      "input_name": "out/attack_chain_events.jsonl",
+      "title": "RDP logon followed by privileged group change (possible takeover)",
+      "severity": "critical",
+      "timestamp": "2026-07-16T17:24:54Z",
+      "score": 130,
+      "details": {
+        "recommended_actions": [
+          "Validate user access with HR/IT: alice",
+          "Identify impacted endpoint(s): WS-ENG-01",
+          "Confirm source IP reputation/ownership: 198.51.100.77",
+          "Review the source of the RDP session and confirm whether remote access was expected.",
+          "Inspect endpoint telemetry around the first RDP logon for process execution, network activity, and privilege changes.",
+          "Treat the RDP session followed by privileged group change as possible account takeover or privilege escalation.",
+          "Review authentication context, administrative actions, and any additional persistence or lateral movement from the same host."
+        ],
+        "case_risk": {
+          "base_score": 185,
+          "boost": 40,
+          "case_score": 225,
+          "case_severity": "critical",
+          "case_threat_level": "critical",
+          "reasons": [
+            "Correlation present (+30)",
+            "Multi-tactic activity (+10): Lateral Movement, Privilege Escalation"
+          ],
+          "tactics": [
+            "Lateral Movement",
+            "Privilege Escalation"
+          ],
+          "alert_count": 2
+        },
+        "attack_flow": [
+          {
+            "rule_id": "SOCF-006",
+            "label": "Remote Access",
+            "timestamp": "2026-07-16T17:19:54Z",
+            "severity": "medium",
+            "mitre_ids": [
+              "Remote Services",
+              "Account Manipulation"
+            ]
+          }
+        ],
+        "attack_graph": {
+          "nodes": [
+            {
+              "id": "action:Remote Access",
+              "label": "Remote Access",
+              "type": "action"
+            },
+            {
+              "id": "ip:198.51.100.77",
+              "label": "198.51.100.77",
+              "type": "ip"
+            },
+            {
+              "id": "user:alice",
+              "label": "alice",
+              "type": "user"
+            },
+            {
+              "id": "host:WS-ENG-01",
+              "label": "WS-ENG-01",
+              "type": "host"
+            }
+          ],
+          "edges": [
+            {
+              "source": "ip:198.51.100.77",
+              "target": "user:alice"
+            },
+            {
+              "source": "user:alice",
+              "target": "host:WS-ENG-01"
+            },
+            {
+              "source": "host:WS-ENG-01",
+              "target": "action:Remote Access"
+            }
+          ]
+        },
+        "attack_path": [
+          {
+            "id": "ip:198.51.100.77",
+            "label": "198.51.100.77",
+            "type": "ip"
+          },
+          {
+            "id": "user:alice",
+            "label": "alice",
+            "type": "user"
+          },
+          {
+            "id": "host:WS-ENG-01",
+            "label": "WS-ENG-01",
+            "type": "host"
+          },
+          {
+            "id": "action:Remote Access",
+            "label": "Remote Access",
+            "type": "action"
+          }
+        ],
+        "attack_chain": {
+          "tactics": [
+            "Lateral Movement (T1021)",
+            "Privilege Escalation (T1098)"
+          ],
+          "by_tactic": {
+            "Lateral Movement (T1021)": {
+              "first_seen": "2026-07-16T17:19:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-006",
+                  "title": "RDP logon detected (LogonType 10)",
+                  "timestamp": "2026-07-16T17:19:54Z"
+                },
+                {
+                  "rule_id": "SOCF-CORR-003",
+                  "title": "RDP logon followed by privileged group change (possible takeover)",
+                  "timestamp": "2026-07-16T17:24:54Z"
+                }
+              ],
+              "description": "The activity suggests movement from one host or account context to another."
+            },
+            "Privilege Escalation (T1098)": {
+              "first_seen": "2026-07-16T17:24:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-CORR-003",
+                  "title": "RDP logon followed by privileged group change (possible takeover)",
+                  "timestamp": "2026-07-16T17:24:54Z"
+                }
+              ],
+              "description": "The activity may indicate an attempt to gain elevated rights or broader permissions."
+            }
+          }
+        },
+        "iocs": {
+          "ips": [
+            "198.51.100.77"
+          ],
+          "hosts": [
+            "WS-ENG-01"
+          ],
+          "users": [
+            "alice"
+          ]
+        },
+        "timeline": [
+          {
+            "timestamp": "2026-07-16T17:19:54Z",
+            "rule_id": "SOCF-006",
+            "title": "RDP logon detected (LogonType 10)",
+            "severity": "medium"
+          },
+          {
+            "timestamp": "2026-07-16T17:24:54Z",
+            "rule_id": "SOCF-CORR-003",
+            "title": "RDP logon followed by privileged group change (possible takeover)",
+            "severity": "critical"
+          }
+        ],
+        "analyst_summary": "This case includes RDP logon activity that may indicate lateral movement or remote access. A correlation rule fired, increasing confidence that these events are related. (e.g., user alice, host WS-ENG-01, ip 198.51.100.77) Validate source IP and user, confirm business justification, and correlate with endpoint process execution."
+      },
+      "case_id": "CASE-1F9D40EA",
+      "status": "New",
+      "risk_score": 225
+    },
+    "timeline": [
+      {
+        "timestamp": "2026-07-16T17:19:54Z",
+        "rule_id": "SOCF-006",
+        "title": "RDP logon detected (LogonType 10)",
+        "severity": "medium"
+      },
+      {
+        "timestamp": "2026-07-16T17:24:54Z",
+        "rule_id": "SOCF-CORR-003",
+        "title": "RDP logon followed by privileged group change (possible takeover)",
+        "severity": "critical"
+      }
+    ],
+    "attack_flow": [
+      {
+        "rule_id": "SOCF-006",
+        "label": "Remote Access",
+        "timestamp": "2026-07-16T17:19:54Z",
+        "severity": "medium",
+        "mitre_ids": [
+          "Remote Services",
+          "Account Manipulation"
+        ]
+      }
+    ],
+    "attack_graph": {
+      "nodes": [
+        {
+          "id": "action:Remote Access",
+          "label": "Remote Access",
+          "type": "action"
+        },
+        {
+          "id": "ip:198.51.100.77",
+          "label": "198.51.100.77",
+          "type": "ip"
+        },
+        {
+          "id": "user:alice",
+          "label": "alice",
+          "type": "user"
+        },
+        {
+          "id": "host:WS-ENG-01",
+          "label": "WS-ENG-01",
+          "type": "host"
+        }
+      ],
+      "edges": [
+        {
+          "source": "ip:198.51.100.77",
+          "target": "user:alice"
+        },
+        {
+          "source": "user:alice",
+          "target": "host:WS-ENG-01"
+        },
+        {
+          "source": "host:WS-ENG-01",
+          "target": "action:Remote Access"
+        }
+      ]
+    },
+    "attack_path": [
+      {
+        "id": "ip:198.51.100.77",
+        "label": "198.51.100.77",
+        "type": "ip"
+      },
+      {
+        "id": "user:alice",
+        "label": "alice",
+        "type": "user"
+      },
+      {
+        "id": "host:WS-ENG-01",
+        "label": "WS-ENG-01",
+        "type": "host"
+      },
+      {
+        "id": "action:Remote Access",
+        "label": "Remote Access",
+        "type": "action"
+      }
+    ],
+    "attack_chain": {
+      "tactics": [
+        "Lateral Movement (T1021)",
+        "Privilege Escalation (T1098)"
+      ],
+      "by_tactic": {
+        "Lateral Movement (T1021)": {
+          "first_seen": "2026-07-16T17:19:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-006",
+              "title": "RDP logon detected (LogonType 10)",
+              "timestamp": "2026-07-16T17:19:54Z"
+            },
+            {
+              "rule_id": "SOCF-CORR-003",
+              "title": "RDP logon followed by privileged group change (possible takeover)",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ],
+          "description": "The activity suggests movement from one host or account context to another."
+        },
+        "Privilege Escalation (T1098)": {
+          "first_seen": "2026-07-16T17:24:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-CORR-003",
+              "title": "RDP logon followed by privileged group change (possible takeover)",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ],
+          "description": "The activity may indicate an attempt to gain elevated rights or broader permissions."
+        }
+      }
+    },
+    "iocs": {
+      "ips": [
+        "198.51.100.77"
+      ],
+      "hosts": [
+        "WS-ENG-01"
+      ],
+      "users": [
+        "alice"
+      ]
+    },
+    "evidence": [
+      {
+        "timestamp": "2026-07-16T17:19:54Z",
+        "rule_id": "SOCF-006",
+        "title": "RDP logon detected (LogonType 10)",
+        "severity": "medium",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "username",
+            "alice"
+          ],
+          [
+            "ip",
+            "198.51.100.77"
+          ]
+        ]
+      },
+      {
+        "timestamp": "2026-07-16T17:24:54Z",
+        "rule_id": "SOCF-CORR-003",
+        "title": "RDP logon followed by privileged group change (possible takeover)",
+        "severity": "critical",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "username",
+            "alice"
+          ],
+          [
+            "ip",
+            "198.51.100.77"
+          ]
+        ]
+      }
+    ],
+    "alerts": [
+      {
+        "rule_id": "SOCF-006",
+        "severity": "medium",
+        "title": "RDP logon detected (LogonType 10)",
+        "timestamp": "2026-07-16T17:19:54Z",
+        "details": {
+          "username": "alice",
+          "ip": "198.51.100.77",
+          "host": "WS-ENG-01",
+          "message": "An account was successfully logged on. User: alice. Source Network Address: 198.51.100.77. Logon Type: 10."
+        },
+        "mitre": [
+          {
+            "tactic": "Lateral Movement",
+            "technique": "Remote Services",
+            "id": "T1021"
+          }
+        ],
+        "score": 55,
+        "status": "new",
+        "correlation_id": "3221f258a60b",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-CORR-003",
+        "severity": "critical",
+        "title": "RDP logon followed by privileged group change (possible takeover)",
+        "timestamp": "2026-07-16T17:24:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "username": "alice",
+          "ip": "198.51.100.77",
+          "window_minutes": 15,
+          "evidence": [
+            {
+              "rule_id": "SOCF-006",
+              "timestamp": "2026-07-16T17:19:54Z"
+            },
+            {
+              "rule_id": "SOCF-008",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Lateral Movement",
+            "technique": "Remote Services",
+            "id": "T1021"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          }
+        ],
+        "score": 130,
+        "status": "new",
+        "correlation_id": "3221f258a60b"
+      }
+    ],
+    "case_id": "CASE-1F9D40EA",
+    "id": "CASE-1F9D40EA",
+    "title": "RDP logon followed by privileged group change (possible takeover)",
+    "status": "New",
+    "created_at": "2026-07-16T17:24:54Z",
+    "severity": "critical",
+    "risk_score": 225,
+    "summary": "This case includes RDP logon activity that may indicate lateral movement or remote access. A correlation rule fired, increasing confidence that these events are related. (e.g., user alice, host WS-ENG-01, ip 198.51.100.77) Validate source IP and user, confirm business justification, and correlate with endpoint process execution.",
+    "indicators": {
+      "ips": [
+        "198.51.100.77"
+      ],
+      "hosts": [
+        "WS-ENG-01"
+      ],
+      "users": [
+        "alice"
+      ]
+    },
+    "mitre": [
+      "Lateral Movement",
+      "Privilege Escalation"
+    ],
+    "items": [
+      {
+        "rule_id": "SOCF-006",
+        "severity": "medium",
+        "title": "RDP logon detected (LogonType 10)",
+        "timestamp": "2026-07-16T17:19:54Z",
+        "details": {
+          "username": "alice",
+          "ip": "198.51.100.77",
+          "host": "WS-ENG-01",
+          "message": "An account was successfully logged on. User: alice. Source Network Address: 198.51.100.77. Logon Type: 10."
+        },
+        "mitre": [
+          {
+            "tactic": "Lateral Movement",
+            "technique": "Remote Services",
+            "id": "T1021"
+          }
+        ],
+        "score": 55,
+        "status": "new",
+        "correlation_id": "3221f258a60b",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-CORR-003",
+        "severity": "critical",
+        "title": "RDP logon followed by privileged group change (possible takeover)",
+        "timestamp": "2026-07-16T17:24:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "username": "alice",
+          "ip": "198.51.100.77",
+          "window_minutes": 15,
+          "evidence": [
+            {
+              "rule_id": "SOCF-006",
+              "timestamp": "2026-07-16T17:19:54Z"
+            },
+            {
+              "rule_id": "SOCF-008",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Lateral Movement",
+            "technique": "Remote Services",
+            "id": "T1021"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          }
+        ],
+        "score": 130,
+        "status": "new",
+        "correlation_id": "3221f258a60b"
+      }
+    ],
+    "owner": "Unassigned",
+    "updated_at": "2026-07-16T17:24:54Z",
+    "notes": [],
+    "status_history": [
+      {
+        "status": "New",
+        "changed_at": "2026-07-16T17:24:54Z",
+        "changed_by": "analyst",
+        "reason": "Case created"
+      }
+    ],
+    "related_hunts": [],
+    "story": "At 17:19, an RDP logon was observed. At 17:24, rdp logon followed by privileged group change (possible takeover). This activity aligns with Initial Access behavior."
+  },
+  {
+    "correlation_id": "e353a2e912eb",
+    "header": {
+      "correlation_id": "e353a2e912eb",
+      "input_name": "out/attack_chain_events.jsonl",
+      "title": "New privileged account followed by log clearing (possible account abuse)",
+      "severity": "critical",
+      "timestamp": "2026-07-16T17:26:54Z",
+      "score": 150,
+      "details": {
+        "recommended_actions": [
+          "Validate user access with HR/IT: alice, svc-backup-admin",
+          "Identify impacted endpoint(s): WS-ENG-01",
+          "Confirm source IP reputation/ownership: 198.51.100.77",
+          "Validate whether the new account creation was authorized and tied to an approved change request.",
+          "Disable or lock the newly created account if it is not approved and review who created it.",
+          "Review the privileged group membership change for approval and business justification.",
+          "Remove the user from privileged groups if the change is unauthorized and investigate the initiating actor.",
+          "Investigate why Windows Security logs were cleared and preserve alternate telemetry sources immediately.",
+          "Review suspicious activity immediately before and after log clearing, including authentication, persistence, and administrative actions.",
+          "Treat this sequence as a high-confidence malicious chain involving account creation, privilege escalation, and defense evasion.",
+          "Disable the account, revoke privileged access, and isolate the host if activity is unauthorized.",
+          "Preserve forensic evidence before additional logs or artifacts are destroyed and hunt for persistence such as tasks, services, or remote access.",
+          "If activity is unauthorized, initiate containment on impacted hosts and reset affected credentials."
+        ],
+        "case_risk": {
+          "base_score": 375,
+          "boost": 50,
+          "case_score": 400,
+          "case_severity": "critical",
+          "case_threat_level": "critical",
+          "reasons": [
+            "Correlation present (+30)",
+            "Multi-tactic activity (+20): Persistence, Privilege Escalation, Defense Evasion"
+          ],
+          "tactics": [
+            "Persistence",
+            "Privilege Escalation",
+            "Defense Evasion"
+          ],
+          "alert_count": 4
+        },
+        "attack_flow": [
+          {
+            "rule_id": "SOCF-007",
+            "label": "Remote Access",
+            "timestamp": "2026-07-16T17:23:54Z",
+            "severity": "high",
+            "mitre_ids": [
+              "Create Account"
+            ]
+          },
+          {
+            "rule_id": "SOCF-008",
+            "label": "Privilege Escalation",
+            "timestamp": "2026-07-16T17:24:54Z",
+            "severity": "high",
+            "mitre_ids": [
+              "Account Manipulation"
+            ]
+          },
+          {
+            "rule_id": "SOCF-009",
+            "label": "Audit logs cleared",
+            "timestamp": "2026-07-16T17:26:54Z",
+            "severity": "high",
+            "mitre_ids": [
+              "Indicator Removal on Host"
+            ]
+          },
+          {
+            "rule_id": "SOCF-CORR-005",
+            "label": "Privilege Escalation",
+            "timestamp": "2026-07-16T17:26:54Z",
+            "severity": "critical",
+            "mitre_ids": [
+              "Create Account",
+              "Account Manipulation",
+              "Indicator Removal on Host"
+            ]
+          }
+        ],
+        "attack_graph": {
+          "nodes": [
+            {
+              "id": "action:Remote Access",
+              "label": "Remote Access",
+              "type": "action"
+            },
+            {
+              "id": "ip:198.51.100.77",
+              "label": "198.51.100.77",
+              "type": "ip"
+            },
+            {
+              "id": "host:WS-ENG-01",
+              "label": "WS-ENG-01",
+              "type": "host"
+            },
+            {
+              "id": "action:Privilege Escalation",
+              "label": "Privilege Escalation",
+              "type": "action"
+            },
+            {
+              "id": "action:Audit logs cleared",
+              "label": "Audit logs cleared",
+              "type": "action"
+            }
+          ],
+          "edges": [
+            {
+              "source": "host:WS-ENG-01",
+              "target": "action:Remote Access"
+            },
+            {
+              "source": "host:WS-ENG-01",
+              "target": "action:Privilege Escalation"
+            },
+            {
+              "source": "host:WS-ENG-01",
+              "target": "action:Audit logs cleared"
+            }
+          ]
+        },
+        "attack_path": [
+          {
+            "id": "ip:198.51.100.77",
+            "label": "198.51.100.77",
+            "type": "ip"
+          }
+        ],
+        "attack_chain": {
+          "tactics": [
+            "Persistence (T1136)",
+            "Privilege Escalation (T1136)",
+            "Persistence (T1098)",
+            "Privilege Escalation (T1098)",
+            "Defense Evasion (T1070)"
+          ],
+          "by_tactic": {
+            "Persistence (T1136)": {
+              "first_seen": "2026-07-16T17:23:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-007",
+                  "title": "New user account created",
+                  "timestamp": "2026-07-16T17:23:54Z"
+                },
+                {
+                  "rule_id": "SOCF-CORR-005",
+                  "title": "New privileged account followed by log clearing (possible account abuse)",
+                  "timestamp": "2026-07-16T17:26:54Z"
+                }
+              ],
+              "description": "The activity suggests a mechanism intended to survive reboots or maintain access."
+            },
+            "Privilege Escalation (T1136)": {
+              "first_seen": "2026-07-16T17:23:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-007",
+                  "title": "New user account created",
+                  "timestamp": "2026-07-16T17:23:54Z"
+                }
+              ],
+              "description": "The activity may indicate an attempt to gain elevated rights or broader permissions."
+            },
+            "Persistence (T1098)": {
+              "first_seen": "2026-07-16T17:24:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-008",
+                  "title": "User added to privileged group",
+                  "timestamp": "2026-07-16T17:24:54Z"
+                }
+              ],
+              "description": "The activity suggests a mechanism intended to survive reboots or maintain access."
+            },
+            "Privilege Escalation (T1098)": {
+              "first_seen": "2026-07-16T17:24:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-008",
+                  "title": "User added to privileged group",
+                  "timestamp": "2026-07-16T17:24:54Z"
+                },
+                {
+                  "rule_id": "SOCF-CORR-005",
+                  "title": "New privileged account followed by log clearing (possible account abuse)",
+                  "timestamp": "2026-07-16T17:26:54Z"
+                }
+              ],
+              "description": "The activity may indicate an attempt to gain elevated rights or broader permissions."
+            },
+            "Defense Evasion (T1070)": {
+              "first_seen": "2026-07-16T17:26:54Z",
+              "events": [
+                {
+                  "rule_id": "SOCF-009",
+                  "title": "Audit logs cleared",
+                  "timestamp": "2026-07-16T17:26:54Z"
+                },
+                {
+                  "rule_id": "SOCF-CORR-005",
+                  "title": "New privileged account followed by log clearing (possible account abuse)",
+                  "timestamp": "2026-07-16T17:26:54Z"
+                }
+              ],
+              "description": "The activity may reflect attempts to avoid detection or bypass protections."
+            }
+          }
+        },
+        "iocs": {
+          "ips": [
+            "198.51.100.77"
+          ],
+          "hosts": [
+            "WS-ENG-01"
+          ],
+          "users": []
+        },
+        "timeline": [
+          {
+            "timestamp": "2026-07-16T17:23:54Z",
+            "rule_id": "SOCF-007",
+            "title": "New user account created",
+            "severity": "high"
+          },
+          {
+            "timestamp": "2026-07-16T17:24:54Z",
+            "rule_id": "SOCF-008",
+            "title": "User added to privileged group",
+            "severity": "high"
+          },
+          {
+            "timestamp": "2026-07-16T17:26:54Z",
+            "rule_id": "SOCF-009",
+            "title": "Audit logs cleared",
+            "severity": "high"
+          },
+          {
+            "timestamp": "2026-07-16T17:26:54Z",
+            "rule_id": "SOCF-CORR-005",
+            "title": "New privileged account followed by log clearing (possible account abuse)",
+            "severity": "critical"
+          }
+        ],
+        "analyst_summary": "This case contains multiple related alerts that warrant review and correlation. A correlation rule fired, increasing confidence that these events are related. (e.g., host WS-ENG-01, ip 198.51.100.77) Review the timeline progression, validate user/host context, and pivot to endpoint telemetry for confirmation."
+      },
+      "case_id": "CASE-18FA7129",
+      "status": "New",
+      "risk_score": 400
+    },
+    "timeline": [
+      {
+        "timestamp": "2026-07-16T17:23:54Z",
+        "rule_id": "SOCF-007",
+        "title": "New user account created",
+        "severity": "high"
+      },
+      {
+        "timestamp": "2026-07-16T17:24:54Z",
+        "rule_id": "SOCF-008",
+        "title": "User added to privileged group",
+        "severity": "high"
+      },
+      {
+        "timestamp": "2026-07-16T17:26:54Z",
+        "rule_id": "SOCF-009",
+        "title": "Audit logs cleared",
+        "severity": "high"
+      },
+      {
+        "timestamp": "2026-07-16T17:26:54Z",
+        "rule_id": "SOCF-CORR-005",
+        "title": "New privileged account followed by log clearing (possible account abuse)",
+        "severity": "critical"
+      }
+    ],
+    "attack_flow": [
+      {
+        "rule_id": "SOCF-007",
+        "label": "Remote Access",
+        "timestamp": "2026-07-16T17:23:54Z",
+        "severity": "high",
+        "mitre_ids": [
+          "Create Account"
+        ]
+      },
+      {
+        "rule_id": "SOCF-008",
+        "label": "Privilege Escalation",
+        "timestamp": "2026-07-16T17:24:54Z",
+        "severity": "high",
+        "mitre_ids": [
+          "Account Manipulation"
+        ]
+      },
+      {
+        "rule_id": "SOCF-009",
+        "label": "Audit logs cleared",
+        "timestamp": "2026-07-16T17:26:54Z",
+        "severity": "high",
+        "mitre_ids": [
+          "Indicator Removal on Host"
+        ]
+      },
+      {
+        "rule_id": "SOCF-CORR-005",
+        "label": "Privilege Escalation",
+        "timestamp": "2026-07-16T17:26:54Z",
+        "severity": "critical",
+        "mitre_ids": [
+          "Create Account",
+          "Account Manipulation",
+          "Indicator Removal on Host"
+        ]
+      }
+    ],
+    "attack_graph": {
+      "nodes": [
+        {
+          "id": "action:Remote Access",
+          "label": "Remote Access",
+          "type": "action"
+        },
+        {
+          "id": "ip:198.51.100.77",
+          "label": "198.51.100.77",
+          "type": "ip"
+        },
+        {
+          "id": "host:WS-ENG-01",
+          "label": "WS-ENG-01",
+          "type": "host"
+        },
+        {
+          "id": "action:Privilege Escalation",
+          "label": "Privilege Escalation",
+          "type": "action"
+        },
+        {
+          "id": "action:Audit logs cleared",
+          "label": "Audit logs cleared",
+          "type": "action"
+        }
+      ],
+      "edges": [
+        {
+          "source": "host:WS-ENG-01",
+          "target": "action:Remote Access"
+        },
+        {
+          "source": "host:WS-ENG-01",
+          "target": "action:Privilege Escalation"
+        },
+        {
+          "source": "host:WS-ENG-01",
+          "target": "action:Audit logs cleared"
+        }
+      ]
+    },
+    "attack_path": [
+      {
+        "id": "ip:198.51.100.77",
+        "label": "198.51.100.77",
+        "type": "ip"
+      }
+    ],
+    "attack_chain": {
+      "tactics": [
+        "Persistence (T1136)",
+        "Privilege Escalation (T1136)",
+        "Persistence (T1098)",
+        "Privilege Escalation (T1098)",
+        "Defense Evasion (T1070)"
+      ],
+      "by_tactic": {
+        "Persistence (T1136)": {
+          "first_seen": "2026-07-16T17:23:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-007",
+              "title": "New user account created",
+              "timestamp": "2026-07-16T17:23:54Z"
+            },
+            {
+              "rule_id": "SOCF-CORR-005",
+              "title": "New privileged account followed by log clearing (possible account abuse)",
+              "timestamp": "2026-07-16T17:26:54Z"
+            }
+          ],
+          "description": "The activity suggests a mechanism intended to survive reboots or maintain access."
+        },
+        "Privilege Escalation (T1136)": {
+          "first_seen": "2026-07-16T17:23:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-007",
+              "title": "New user account created",
+              "timestamp": "2026-07-16T17:23:54Z"
+            }
+          ],
+          "description": "The activity may indicate an attempt to gain elevated rights or broader permissions."
+        },
+        "Persistence (T1098)": {
+          "first_seen": "2026-07-16T17:24:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-008",
+              "title": "User added to privileged group",
+              "timestamp": "2026-07-16T17:24:54Z"
+            }
+          ],
+          "description": "The activity suggests a mechanism intended to survive reboots or maintain access."
+        },
+        "Privilege Escalation (T1098)": {
+          "first_seen": "2026-07-16T17:24:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-008",
+              "title": "User added to privileged group",
+              "timestamp": "2026-07-16T17:24:54Z"
+            },
+            {
+              "rule_id": "SOCF-CORR-005",
+              "title": "New privileged account followed by log clearing (possible account abuse)",
+              "timestamp": "2026-07-16T17:26:54Z"
+            }
+          ],
+          "description": "The activity may indicate an attempt to gain elevated rights or broader permissions."
+        },
+        "Defense Evasion (T1070)": {
+          "first_seen": "2026-07-16T17:26:54Z",
+          "events": [
+            {
+              "rule_id": "SOCF-009",
+              "title": "Audit logs cleared",
+              "timestamp": "2026-07-16T17:26:54Z"
+            },
+            {
+              "rule_id": "SOCF-CORR-005",
+              "title": "New privileged account followed by log clearing (possible account abuse)",
+              "timestamp": "2026-07-16T17:26:54Z"
+            }
+          ],
+          "description": "The activity may reflect attempts to avoid detection or bypass protections."
+        }
+      }
+    },
+    "iocs": {
+      "ips": [
+        "198.51.100.77"
+      ],
+      "hosts": [
+        "WS-ENG-01"
+      ],
+      "users": []
+    },
+    "evidence": [
+      {
+        "timestamp": "2026-07-16T17:23:54Z",
+        "rule_id": "SOCF-007",
+        "title": "New user account created",
+        "severity": "high",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "username",
+            "svc-backup-admin"
+          ],
+          [
+            "ip",
+            "198.51.100.77"
+          ]
+        ]
+      },
+      {
+        "timestamp": "2026-07-16T17:24:54Z",
+        "rule_id": "SOCF-008",
+        "title": "User added to privileged group",
+        "severity": "high",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "username",
+            "svc-backup-admin"
+          ],
+          [
+            "ip",
+            "198.51.100.77"
+          ]
+        ]
+      },
+      {
+        "timestamp": "2026-07-16T17:26:54Z",
+        "rule_id": "SOCF-009",
+        "title": "Audit logs cleared",
+        "severity": "high",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "ip",
+            "198.51.100.77"
+          ]
+        ]
+      },
+      {
+        "timestamp": "2026-07-16T17:26:54Z",
+        "rule_id": "SOCF-CORR-005",
+        "title": "New privileged account followed by log clearing (possible account abuse)",
+        "severity": "critical",
+        "fields": [
+          [
+            "host",
+            "WS-ENG-01"
+          ],
+          [
+            "username",
+            "svc-backup-admin"
+          ]
+        ]
+      }
+    ],
+    "alerts": [
+      {
+        "rule_id": "SOCF-007",
+        "severity": "high",
+        "title": "New user account created",
+        "timestamp": "2026-07-16T17:23:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "ip": "198.51.100.77",
+          "actor": "alice",
+          "target_user": "svc-backup-admin",
+          "message": "A user account was created. Subject: alice. New Account: svc-backup-admin.",
+          "suspicious": true,
+          "modifier_reasons": [
+            "Suspicious account naming pattern"
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Create Account",
+            "id": "T1136"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Create Account",
+            "id": "T1136"
+          }
+        ],
+        "score": 70,
+        "status": "new",
+        "correlation_id": "e353a2e912eb",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-008",
+        "severity": "high",
+        "title": "User added to privileged group",
+        "timestamp": "2026-07-16T17:24:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "ip": "198.51.100.77",
+          "actor": "alice",
+          "target_user": "svc-backup-admin",
+          "group_name": "Administrators",
+          "message": "A member was added to a security-enabled local group. Subject: alice. Member: svc-backup-admin. Group: Administrators.",
+          "suspicious": true
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          }
+        ],
+        "score": 75,
+        "status": "new",
+        "correlation_id": "e353a2e912eb",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-009",
+        "severity": "high",
+        "title": "Audit logs cleared",
+        "timestamp": "2026-07-16T17:26:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "ip": "198.51.100.77",
+          "actor": "svc-backup-admin",
+          "message": "The audit log was cleared. Subject: svc-backup-admin. Host: WS-ENG-01.",
+          "suspicious": true
+        },
+        "mitre": [
+          {
+            "tactic": "Defense Evasion",
+            "technique": "Indicator Removal on Host",
+            "id": "T1070"
+          }
+        ],
+        "score": 80,
+        "status": "new",
+        "correlation_id": "e353a2e912eb",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-CORR-005",
+        "severity": "critical",
+        "title": "New privileged account followed by log clearing (possible account abuse)",
+        "timestamp": "2026-07-16T17:26:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "target_user": "svc-backup-admin",
+          "actor": "svc-backup-admin",
+          "window_minutes": 15,
+          "evidence": [
+            {
+              "rule_id": "SOCF-007",
+              "timestamp": "2026-07-16T17:23:54Z"
+            },
+            {
+              "rule_id": "SOCF-008",
+              "timestamp": "2026-07-16T17:24:54Z"
+            },
+            {
+              "rule_id": "SOCF-009",
+              "timestamp": "2026-07-16T17:26:54Z"
+            }
+          ],
+          "source_rule_ids": [
+            "SOCF-007",
+            "SOCF-008",
+            "SOCF-009"
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Create Account",
+            "id": "T1136"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          },
+          {
+            "tactic": "Defense Evasion",
+            "technique": "Indicator Removal on Host",
+            "id": "T1070"
+          }
+        ],
+        "score": 150,
+        "status": "new",
+        "correlation_id": "e353a2e912eb"
+      }
+    ],
+    "case_id": "CASE-18FA7129",
+    "id": "CASE-18FA7129",
+    "title": "New privileged account followed by log clearing (possible account abuse)",
+    "status": "New",
+    "created_at": "2026-07-16T17:26:54Z",
+    "severity": "critical",
+    "risk_score": 400,
+    "summary": "This case contains multiple related alerts that warrant review and correlation. A correlation rule fired, increasing confidence that these events are related. (e.g., host WS-ENG-01, ip 198.51.100.77) Review the timeline progression, validate user/host context, and pivot to endpoint telemetry for confirmation.",
+    "indicators": {
+      "ips": [
+        "198.51.100.77"
+      ],
+      "hosts": [
+        "WS-ENG-01"
+      ],
+      "users": []
+    },
+    "mitre": [
+      "Persistence",
+      "Privilege Escalation",
+      "Defense Evasion"
+    ],
+    "items": [
+      {
+        "rule_id": "SOCF-007",
+        "severity": "high",
+        "title": "New user account created",
+        "timestamp": "2026-07-16T17:23:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "ip": "198.51.100.77",
+          "actor": "alice",
+          "target_user": "svc-backup-admin",
+          "message": "A user account was created. Subject: alice. New Account: svc-backup-admin.",
+          "suspicious": true,
+          "modifier_reasons": [
+            "Suspicious account naming pattern"
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Create Account",
+            "id": "T1136"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Create Account",
+            "id": "T1136"
+          }
+        ],
+        "score": 70,
+        "status": "new",
+        "correlation_id": "e353a2e912eb",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-008",
+        "severity": "high",
+        "title": "User added to privileged group",
+        "timestamp": "2026-07-16T17:24:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "ip": "198.51.100.77",
+          "actor": "alice",
+          "target_user": "svc-backup-admin",
+          "group_name": "Administrators",
+          "message": "A member was added to a security-enabled local group. Subject: alice. Member: svc-backup-admin. Group: Administrators.",
+          "suspicious": true
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          }
+        ],
+        "score": 75,
+        "status": "new",
+        "correlation_id": "e353a2e912eb",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-009",
+        "severity": "high",
+        "title": "Audit logs cleared",
+        "timestamp": "2026-07-16T17:26:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "ip": "198.51.100.77",
+          "actor": "svc-backup-admin",
+          "message": "The audit log was cleared. Subject: svc-backup-admin. Host: WS-ENG-01.",
+          "suspicious": true
+        },
+        "mitre": [
+          {
+            "tactic": "Defense Evasion",
+            "technique": "Indicator Removal on Host",
+            "id": "T1070"
+          }
+        ],
+        "score": 80,
+        "status": "new",
+        "correlation_id": "e353a2e912eb",
+        "rule": {
+          "description": "",
+          "author": "",
+          "created": "",
+          "logsource": "",
+          "tags": []
+        }
+      },
+      {
+        "rule_id": "SOCF-CORR-005",
+        "severity": "critical",
+        "title": "New privileged account followed by log clearing (possible account abuse)",
+        "timestamp": "2026-07-16T17:26:54Z",
+        "details": {
+          "host": "WS-ENG-01",
+          "target_user": "svc-backup-admin",
+          "actor": "svc-backup-admin",
+          "window_minutes": 15,
+          "evidence": [
+            {
+              "rule_id": "SOCF-007",
+              "timestamp": "2026-07-16T17:23:54Z"
+            },
+            {
+              "rule_id": "SOCF-008",
+              "timestamp": "2026-07-16T17:24:54Z"
+            },
+            {
+              "rule_id": "SOCF-009",
+              "timestamp": "2026-07-16T17:26:54Z"
+            }
+          ],
+          "source_rule_ids": [
+            "SOCF-007",
+            "SOCF-008",
+            "SOCF-009"
+          ]
+        },
+        "mitre": [
+          {
+            "tactic": "Persistence",
+            "technique": "Create Account",
+            "id": "T1136"
+          },
+          {
+            "tactic": "Privilege Escalation",
+            "technique": "Account Manipulation",
+            "id": "T1098"
+          },
+          {
+            "tactic": "Defense Evasion",
+            "technique": "Indicator Removal on Host",
+            "id": "T1070"
+          }
+        ],
+        "score": 150,
+        "status": "new",
+        "correlation_id": "e353a2e912eb"
+      }
+    ],
+    "owner": "Unassigned",
+    "updated_at": "2026-07-16T17:26:54Z",
+    "notes": [],
+    "status_history": [
+      {
+        "status": "New",
+        "changed_at": "2026-07-16T17:26:54Z",
+        "changed_by": "analyst",
+        "reason": "Case created"
+      }
+    ],
+    "related_hunts": [],
+    "story": "At 17:23, a new user account was created. At 17:24, a privileged group change was detected. At 17:26, audit logs were cleared. At 17:26, new privileged account followed by log clearing (possible account abuse). This activity aligns with Persistence, Privilege Escalation, and Defense Evasion behavior."
+  }
+]

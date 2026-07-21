@@ -1,0 +1,3192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SOC-Forge Report</title>
+  <style>
+    :root{
+      --bg:#0b0f14; --panel:#0f1621; --panel2:#0b121b;
+      --text:#e6edf3; --muted:#98a2b3; --border:rgba(255,255,255,0.10);
+
+      --critical:#b56cff;
+      --high:#ff6b6b;
+      --medium:#f7c948;
+      --low:#4dd4ac;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:24px;
+      background:var(--bg);
+      color:var(--text);
+      font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      line-height:1.35;
+    }
+    .container{max-width:1100px;margin:0 auto;}
+    .header{
+      display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
+      padding:18px 18px;
+      border:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border-radius:16px;
+    }
+    .title{font-size:20px;font-weight:800;margin:0;}
+    .meta{color:var(--muted);font-size:12px;margin-top:6px;}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;}
+    .stat{
+      border:1px solid var(--border); background:var(--panel);
+      border-radius:14px; padding:12px;
+    }
+    .stat .k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.03em;}
+    .stat .v{font-size:18px;font-weight:900;margin-top:4px;}
+
+    .filters{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 8px;}
+    .btn{
+      cursor:pointer; user-select:none;
+      background:rgba(255,255,255,0.06);
+      border:1px solid var(--border);
+      padding:8px 12px; border-radius:999px;
+      color:var(--text); font-size:12px; font-weight:800;
+    }
+    .btn.active{outline:2px solid rgba(255,255,255,0.18);}
+
+    .chain { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; align-items:center; }
+    .chain .node {
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.04);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:900;
+      color:var(--text);
+    }
+    .chain .arrow { color:var(--muted); font-weight:900; }
+
+    .evidence-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mitre-panel {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid #2a2f3a;
+      border-radius: 10px;
+      background: #11151c;
+    }
+
+    .mitre-row {
+      display: grid;
+      grid-template-columns: 180px 1fr 50px;
+      gap: 10px;
+      align-items: center;
+      margin: 8px 0;
+    }
+
+    .mitre-label {
+      font-weight: 700;
+      color: #d7dde8;
+    }
+
+    .mitre-bar-wrap {
+      width: 100%;
+      background: #1c2330;
+      border-radius: 999px;
+      height: 14px;
+      overflow: hidden;
+    }
+
+    .mitre-bar {
+      height: 14px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #4da3ff, #7cc4ff);
+    }
+
+    .mitre-count {
+      text-align: right;
+      color: #9fb3c8;
+      font-weight: 700;
+    }
+
+    .muted {
+      color: #93a1b2;
+    }
+
+    .attack-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .flow-step {
+      min-width: 180px;
+      max-width: 240px;
+      padding: 10px 12px;
+      border: 1px solid #2a2f3a;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .flow-label {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .flow-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.9rem;
+    }
+
+    .flow-arrow {
+      font-size: 1.4rem;
+      font-weight: 700;
+      opacity: 0.7;
+    }
+
+    .evidence-item {
+      border: 1px solid #2a2f3a;
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .evidence-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .evidence-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .kv {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid #2a2f3a;
+      font-size: 0.9rem;
+    }
+
+    .k {
+      font-weight: 600;
+      opacity: 0.85;
+    }
+
+    .v {
+      opacity: 0.95;
+    }
+
+    .checklist {
+      list-style: none;
+      padding-left: 0;
+      margin: 0.25rem 0 0;
+    }
+    .checklist li {
+      margin: 0.35rem 0;
+    }
+    .checklist input[type="checkbox"] {
+      margin-right: 0.5rem;
+      transform: translateY(1px);
+    }
+
+    .flow-mitre {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .mitre-tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #355c7d;
+      background: rgba(53, 92, 125, 0.18);
+      font-size: 0.82rem;
+    }
+
+    .attack-graph {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .graph-node {
+      min-width: 140px;
+      max-width: 220px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #2a2f3a;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .graph-node-type {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      opacity: 0.75;
+      margin-bottom: 6px;
+    }
+
+    .graph-node-label {
+      font-size: 0.95rem;
+    }
+
+    .graph-ip {
+      border-color: #355c7d;
+    }
+
+    .graph-user {
+      border-color: #6c5b7b;
+    }
+
+    .graph-host {
+      border-color: #2a9d8f;
+    }
+
+    .graph-action {
+      border-color: #e9c46a;
+    }
+
+    .graph-arrow {
+      font-size: 1.3rem;
+      font-weight: 700;
+      opacity: 0.7;
+    }
+
+    .graph-node.ip {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .graph-node.user {
+      border-color: #a855f7;
+      box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .graph-node.host {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .graph-node.action {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .case-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      border: 1px solid #2b3545;
+      background: #18202b;
+      color: #dbe7f3;
+    }
+
+    .badge-low {
+      border-color: #22c55e;
+      color: #86efac;
+    }
+
+    .badge-medium {
+      border-color: #f59e0b;
+      color: #fcd34d;
+    }
+
+    .badge-high {
+      border-color: #ef4444;
+      color: #fca5a5;
+    }
+
+    .badge-critical {
+      border-color: #ff4d6d;
+      color: #ff9fb3;
+    }
+
+    .investigation-graph {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .graph-node {
+      min-width: 240px;
+      max-width: 420px;
+      text-align: center;
+      padding: 12px 16px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #18202b 0%, #141b24 100%);
+      border: 1px solid #2b3545;
+      color: #e6edf7;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    }
+
+    .graph-node-kind {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8fa7c0;
+      margin-bottom: 5px;
+      font-weight: 800;
+    }
+
+    .graph-node-value {
+      font-size: 15px;
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+
+    .graph-arrow {
+      color: #7cc4ff;
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+      opacity: 0.9;
+    }
+
+    .hunt-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      background: #4c1d95;
+      color: #ffffff;
+      border: 1px solid #8b5cf6;
+    }
+    
+    .card{
+      margin-top:12px;
+      border:1px solid var(--border);
+      background:var(--panel);
+      border-radius:16px;
+      overflow:hidden;
+    }
+    .card-head{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--panel2);}
+    .card-head .h{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+    .card-head .h .left{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    .card-head .h .right{color:var(--muted);font-size:12px;display:flex;gap:10px;flex-wrap:wrap;}
+    .card-body{padding:14px 16px;}
+
+    .badge{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+    }
+    .badge.critical{border-color:rgba(181,108,255,0.65);color:#f0ddff;}
+    .badge.high{border-color:rgba(255,107,107,0.65);color:#ffd2d2;}
+    .badge.medium{border-color:rgba(247,201,72,0.65);color:#fff0b8;}
+    .badge.low{border-color:rgba(77,212,172,0.65);color:#c9fff0;}
+
+    table{width:100%;border-collapse:collapse;margin-top:8px;}
+    th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px;}
+    th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.03em;}
+    .muted{color:var(--muted);}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;}
+    .hidden{display:none;}
+    details{margin-top:10px;}
+    details summary{cursor:pointer;color:var(--muted);font-weight:800;}
+    .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center;}
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+
+  <div class="header">
+    <div>
+      <div class="title">SOC-Forge Report</div>
+      <div class="meta">
+        Input: <span class="mono">attack_chain_events.jsonl</span> &middot; Generated: 2026-07-16 17:42:56 UTC &middot; Version: 0.5.0
+      </div>
+    </div>
+    <div class="meta">
+      Total Alerts: <strong>9</strong>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="stat"><div class="k">Critical</div><div class="v">4</div></div>
+    <div class="stat"><div class="k">High</div><div class="v">4</div></div>
+    <div class="stat"><div class="k">Medium</div><div class="v">1</div></div>
+    <div class="stat"><div class="k">Low</div><div class="v">0</div></div>
+  </div>
+
+  <div class="filters">
+    <div class="btn active" data-level="all" onclick="setFilter('all')">All</div>
+    <div class="btn" data-level="critical" onclick="setFilter('critical')">Critical</div>
+    <div class="btn" data-level="high" onclick="setFilter('high')">High</div>
+    <div class="btn" data-level="medium" onclick="setFilter('medium')">Medium</div>
+    <div class="btn" data-level="low" onclick="setFilter('low')">Low</div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>MITRE Coverage</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      
+        <table>
+          <thead>
+            <tr><th>Tactic</th><th>Rule Count</th></tr>
+          </thead>
+          <tbody>
+            
+              <tr><td>Persistence</td><td>5</td></tr>
+            
+              <tr><td>Credential Access</td><td>2</td></tr>
+            
+              <tr><td>Privilege Escalation</td><td>2</td></tr>
+            
+              <tr><td>Defense Evasion</td><td>1</td></tr>
+            
+              <tr><td>Lateral Movement</td><td>1</td></tr>
+            
+          </tbody>
+        </table>
+      
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>Risk Overview</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div style="font-size:1.25rem; font-weight:900;">
+        CRITICAL (104)
+      </div>
+      <div class="muted" style="margin-top:6px;">
+        Alerts: 9 |
+        Hunts: 1 |
+        Correlations: 4
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>Correlation Summary</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      
+        <p><strong>Correlated alerts:</strong> 4</p>
+        <table>
+          <thead>
+            <tr><th>Correlation Rule</th><th>Count</th></tr>
+          </thead>
+          <tbody>
+            
+              <tr><td class="mono muted">SOCF-CORR-002</td><td>1</td></tr>
+            
+              <tr><td class="mono muted">SOCF-CORR-003</td><td>1</td></tr>
+            
+              <tr><td class="mono muted">SOCF-CORR-004</td><td>1</td></tr>
+            
+              <tr><td class="mono muted">SOCF-CORR-005</td><td>1</td></tr>
+            
+          </tbody>
+        </table>
+      
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>Threat Hunting Findings</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="muted" style="margin-bottom:10px;">
+        Hunt count: 1
+      </div>
+
+      
+        
+          <div class="card" style="margin-top:12px; border-left: 6px solid #7c3aed; padding:12px;">
+            <div style="font-weight:900; font-size:1.05rem;">Suspicious Command Execution</div>
+            <div class="muted" style="margin-top:4px;">Suspicious command observed on WS-ENG-01 by alice</div>
+
+            <div style="margin-top:8px;">
+              <span class="hunt-badge">HUNT-001</span>
+              <span class="hunt-badge">HIGH</span>
+              <span class="hunt-badge">execution</span>
+              <span class="hunt-badge">confidence: high</span>
+            </div>
+
+            
+              <table style="margin-top:10px;">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  
+                    <tr>
+                      <td>username</td>
+                      <td>
+                        
+                          alice
+                        
+                      </td>
+                    </tr>
+                  
+                    <tr>
+                      <td>host</td>
+                      <td>
+                        
+                          WS-ENG-01
+                        
+                      </td>
+                    </tr>
+                  
+                    <tr>
+                      <td>command_line</td>
+                      <td>
+                        
+                          A scheduled task was created. Task Name: WindowsUpdateCheck. Author: alice. Command: powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=.
+                        
+                      </td>
+                    </tr>
+                  
+                    <tr>
+                      <td>matched_terms</td>
+                      <td>
+                        
+                          powershell -enc
+                        
+                      </td>
+                    </tr>
+                  
+                </tbody>
+              </table>
+            
+          </div>
+        
+      
+    </div>
+  </div>
+
+  
+
+    
+      <div class="card">
+        <div class="card-head">
+          <div class="h">
+            <div class="left"><strong>Cases</strong></div>
+            <div class="right"><span class="muted">Grouped by correlation_id</span></div>
+          </div>
+        </div>
+        <div class="card-body">
+
+
+          
+            
+            
+            
+
+            <div class="case-meta">
+            <span class="badge badge-critical">
+              CRITICAL
+            </span>
+            <span class="badge">Score: 245</span>
+            <span class="badge">Case: 044596ac3ae5</span>
+            <span class="badge">Alerts: 2</span>
+          </div>
+
+            
+            
+              <div class="case-section">
+                <h3>Recommended Actions</h3>
+                <ul class="checklist">
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Validate user access with HR/IT: alice</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Identify impacted endpoint(s): WS-ENG-01</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Confirm source IP reputation/ownership: 198.51.100.77</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Inspect the scheduled task name, trigger, author, and full command line to determine whether persistence was established.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Capture the task XML or task definition from the endpoint and review adjacent administrative activity.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Treat the RDP plus scheduled task sequence as possible hands-on-keyboard persistence and validate the task immediately.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Review whether the same user, host, and source IP appear in other nearby alerts or endpoint telemetry.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>If activity is unauthorized, initiate containment on impacted hosts and reset affected credentials.</span>
+                      </label>
+                    </li>
+                  
+                </ul>
+              </div>
+            
+
+            
+            
+              <div class="card" style="margin-top:14px;">
+                <div style="font-weight:900; font-size:1.05rem;">Attack Reconstruction</div>
+
+                <div style="margin-top:8px;">
+                  <strong>Summary:</strong> Likely malicious activity centered on Persistence.
+                </div>
+
+                <div class="muted" style="margin-top:4px;">
+                  Confidence:
+                  98.0%
+                </div>
+
+                
+                
+                  <ol style="margin-top:12px; padding-left:20px;">
+                    
+                      <li style="margin-bottom:12px;">
+                        <div>
+                          <strong>Persistence</strong>
+                          - Scheduled task created
+                          
+                        </div>
+
+                        <div class="muted" style="margin-top:3px;">
+                          2026-07-16T17:24:56Z
+                          
+                            &middot; T1053.005
+                          
+                          
+                            &middot; confidence 98.0%
+                          
+                        </div>
+
+                        
+                        
+                          <div style="margin-top:6px;">
+                            
+                            
+                            
+                              <code>WS-ENG-01</code>
+                            
+                          </div>
+                        
+
+                        
+                        
+                      </li>
+                    
+                  </ol>
+                
+
+                
+                
+
+                
+                
+                  <div style="margin-top:10px;">
+                    <div style="font-weight:700;">Key Entities</div>
+                    <div class="muted" style="margin-top:4px;">
+                      
+                      
+                      
+                        <strong>Hosts:</strong> WS-ENG-01
+                      
+                    </div>
+                  </div>
+                
+
+                
+                
+                  <div style="margin-top:10px;">
+                    <div style="font-weight:700;">Observed Gaps</div>
+                    <ul style="margin-top:4px;">
+                      
+                        <li>Execution activity was not directly observed before persistence-related behavior.</li>
+                      
+                    </ul>
+                  </div>
+                
+
+                
+                
+              </div>
+            
+
+            
+            
+
+            <div class="card case-card" style="margin:10px 0;">
+              <div class="card-head">
+                <div class="h">
+                  <div class="left">
+                    <span class="badge high">high</span>
+                    <strong>RDP logon followed by scheduled task creation (possible persistence)</strong>
+                  </div>
+                  <div class="right">
+                    <span>Case: <span class="mono">044596ac3ae5</span></span>
+                    <span>Time: <span class="mono">2026-07-16T17:24:56Z</span></span>
+                    <span>Score: <span class="mono">245</span></span>
+                    <span>Threat: <span class="badge critical">critical</span></span>
+                  </div>
+                </div>
+              </div>
+
+              
+                
+
+                
+                  
+                
+
+                <div class="card" style="
+                  margin-top:12px;
+                  padding:14px;
+                  border-left: 6px solid #2563eb;
+                  background: rgba(255,255,255,0.02);
+                ">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:900; font-size:1.05rem;">
+                      Investigation Story
+                    </div>
+                    <div class="badge">LOW</div>
+                  </div>
+
+                  <div class="muted" style="margin-top:10px; line-height:1.7; font-size:0.95rem;">
+                    At 17:24, a scheduled task was created. At 17:24, rdp logon followed by scheduled task creation (possible persistence). This activity aligns with Execution behavior.
+                  </div>
+                </div>
+              
+
+              <div class="card-body">
+                
+                
+                
+                
+                  <div style="margin-top:10px;">
+                    <div class="muted" style="font-weight:900;">Attack Chain</div>
+
+                    <div class="chain">
+                      
+                        <span class="node">Persistence (T1053)</span>
+                        <span class="arrow">-></span>
+                      
+                        <span class="node">Lateral Movement (T1021)</span>
+                        
+                      
+                    </div>
+
+                    <details>
+                      <summary>Why these stages?</summary>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tactic</th>
+                            <th>First Seen</th>
+                            <th>Description</th>
+                            <th>Evidence</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Persistence (T1053)</strong></td>
+                              <td class="mono muted">2026-07-16T17:24:56Z</td>
+                              <td class="muted">The activity suggests a mechanism intended to survive reboots or maintain access.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:24:56Z</span> -
+                                        <span class="mono">SOCF-005</span> -
+                                        Scheduled task created
+                                      </li>
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:24:56Z</span> -
+                                        <span class="mono">SOCF-CORR-002</span> -
+                                        RDP logon followed by scheduled task creation (possible persistence)
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Lateral Movement (T1021)</strong></td>
+                              <td class="mono muted">2026-07-16T17:24:56Z</td>
+                              <td class="muted">The activity suggests movement from one host or account context to another.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:24:56Z</span> -
+                                        <span class="mono">SOCF-CORR-002</span> -
+                                        RDP logon followed by scheduled task creation (possible persistence)
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                        </tbody>
+                      </table>
+                    </details>
+                  </div>
+                
+                
+                  <div class="case-section">
+                    <h3>Attack Flow</h3>
+                    <div class="attack-flow">
+                      
+                        <div class="flow-step">
+                          <div class="flow-label">Persistence</div>
+
+                          
+                            <div class="flow-mitre">
+                              
+                                <span class="mitre-tag mono">Scheduled Task/Job</span>
+                              
+                            </div>
+                          
+
+                          <div class="flow-meta">
+                            <span class="badge critical">critical</span>
+                            <span class="mono">2026-07-16T17:24:56Z</span>
+                          </div>
+                        </div>
+
+                        
+                          <div class="flow-arrow">-></div>
+                        
+                      
+                        <div class="flow-step">
+                          <div class="flow-label">Remote Access</div>
+
+                          
+                            <div class="flow-mitre">
+                              
+                                <span class="mitre-tag mono">Scheduled Task/Job</span>
+                              
+                                <span class="mitre-tag mono">Remote Services</span>
+                              
+                            </div>
+                          
+
+                          <div class="flow-meta">
+                            <span class="badge high">high</span>
+                            <span class="mono">2026-07-16T17:24:56Z</span>
+                          </div>
+                        </div>
+
+                        
+                      
+                    </div>
+                  </div>
+                
+
+                
+                  <div class="mitre-panel">
+                    <div style="font-weight:900; font-size:18px;">MITRE Coverage</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Tactic distribution across matched detections in this investigation.
+                    </div>
+
+                    
+
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Persistence</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 100%;"></div>
+                        </div>
+                        <div class="mitre-count">5</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Credential Access</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 40%;"></div>
+                        </div>
+                        <div class="mitre-count">2</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Privilege Escalation</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 40%;"></div>
+                        </div>
+                        <div class="mitre-count">2</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Defense Evasion</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 20%;"></div>
+                        </div>
+                        <div class="mitre-count">1</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Lateral Movement</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 20%;"></div>
+                        </div>
+                        <div class="mitre-count">1</div>
+                      </div>
+                    
+                  </div>
+                
+
+
+                
+
+                
+                  <div class="panel">
+                    <div style="font-weight:900; font-size:18px;">Attack Graph</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Relationship path between source, identity, host, and attacker actions.
+                    </div>
+
+                    <div class="investigation-graph">
+                      
+                        <div class="graph-node ip">
+                          <div class="graph-node-kind">IP</div>
+                          <div class="graph-node-value">198.51.100.77</div>
+                        </div>
+                        
+                          <div class="graph-arrow">v</div>
+                        
+                      
+                        <div class="graph-node user">
+                          <div class="graph-node-kind">USER</div>
+                          <div class="graph-node-value">alice</div>
+                        </div>
+                        
+                          <div class="graph-arrow">v</div>
+                        
+                      
+                        <div class="graph-node host">
+                          <div class="graph-node-kind">HOST</div>
+                          <div class="graph-node-value">WS-ENG-01</div>
+                        </div>
+                        
+                          <div class="graph-arrow">v</div>
+                        
+                      
+                        <div class="graph-node action">
+                          <div class="graph-node-kind">ACTION</div>
+                          <div class="graph-node-value">Persistence</div>
+                        </div>
+                        
+                      
+                    </div>
+                  </div>
+                
+
+
+
+                
+                
+                
+                  <div style="margin-bottom:10px;">
+                    <div class="muted" style="font-weight:900;">Analyst Summary</div>
+                    <div style="margin-top:6px;">This case shows RDP interactive access followed by scheduled task activity, which is consistent with post-compromise persistence and operator automation. A correlation rule fired, increasing confidence that these events are related. (e.g., user alice, host WS-ENG-01, ip 198.51.100.77) Validate whether the task is authorized, confirm the source of the RDP session, and review endpoint telemetry around the first RDP logon time.</div>
+                  </div>
+                
+
+                
+                
+                <div style="margin-top:10px;">
+                  <div class="muted" style="font-weight:900;">Indicators (IOCs)</div>
+                  <table>
+                    <thead><tr><th>Type</th><th>Values</th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td class="muted">IPs</td>
+                        <td class="mono muted">
+                          
+                          198.51.100.77
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Hosts</td>
+                        <td class="mono muted">
+                          
+                          WS-ENG-01
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Users</td>
+                        <td class="mono muted">
+                          
+                          alice
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                
+                
+                
+                  <details>
+                    <summary>Timeline (2 events)</summary>
+                    <table>
+                      <thead><tr><th>Timestamp</th><th>Rule</th><th>Title</th><th>Severity</th></tr></thead>
+                      <tbody>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:24:56Z</td>
+                            <td class="mono muted">SOCF-005</td>
+                            <td>Scheduled task created</td>
+                            <td><span class="badge critical">critical</span></td>
+                          </tr>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:24:56Z</td>
+                            <td class="mono muted">SOCF-CORR-002</td>
+                            <td>RDP logon followed by scheduled task creation (possible persistence)</td>
+                            <td><span class="badge high">high</span></td>
+                          </tr>
+                        
+                      </tbody>
+                    </table>
+                  </details>
+                
+
+                
+                
+                  <div class="case-section">
+                    <h3>Evidence</h3>
+                    <div class="evidence-list">
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:24:56Z</span>
+                            <span class="badge critical">critical</span>
+                            <strong>SOCF-005</strong>
+                            <span>Scheduled task created</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">task_name</span>
+                                  <span class="v mono">WindowsUpdateCheck</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:24:56Z</span>
+                            <span class="badge high">high</span>
+                            <strong>SOCF-CORR-002</strong>
+                            <span>RDP logon followed by scheduled task creation (possible persistence)</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">username</span>
+                                  <span class="v mono">alice</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">ip</span>
+                                  <span class="v mono">198.51.100.77</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                    </div>
+                  </div>
+                
+
+                
+                
+                  <details>
+                    <summary>Case scoring reasons</summary>
+                    <ul>
+                      
+                        <li class="muted">Correlation present (+30)</li>
+                      
+                        <li class="muted">Multi-tactic activity (+10): Persistence, Lateral Movement</li>
+                      
+                    </ul>
+                  </details>
+                
+
+                <div class="muted" style="margin-top:10px;font-weight:900;">Alerts in this case</div>
+                <table>
+                  <thead>
+                    <tr><th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th></tr>
+                  </thead>
+                  <tbody>
+                    
+                      <tr data-sev="critical">
+                        <td class="mono muted">2026-07-16T17:24:56Z</td>
+                        <td><span class="badge critical">critical</span></td>
+                        <td class="mono muted">SOCF-005</td>
+                        <td>Scheduled task created</td>
+                        <td class="mono muted"><strong>95</strong></td>
+                      </tr>
+                    
+                      <tr data-sev="high">
+                        <td class="mono muted">2026-07-16T17:24:56Z</td>
+                        <td><span class="badge high">high</span></td>
+                        <td class="mono muted">SOCF-CORR-002</td>
+                        <td>RDP logon followed by scheduled task creation (possible persistence)</td>
+                        <td class="mono muted"><strong>110</strong></td>
+                      </tr>
+                    
+                  </tbody>
+                </table>
+
+              </div>
+            </div>
+          
+            
+            
+            
+
+            <div class="case-meta">
+            <span class="badge badge-critical">
+              CRITICAL
+            </span>
+            <span class="badge">Score: 170</span>
+            <span class="badge">Case: 076a09c83b53</span>
+            <span class="badge">Alerts: 1</span>
+          </div>
+
+            
+            
+              <div class="case-section">
+                <h3>Recommended Actions</h3>
+                <ul class="checklist">
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Validate user access with HR/IT: svc-backup-admin</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Identify impacted endpoint(s): WS-ENG-01</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Disable the newly created account immediately if the account and privilege change were not explicitly approved.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Remove the account from privileged groups and review all logons or administrative actions involving that account.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>If activity is unauthorized, initiate containment on impacted hosts and reset affected credentials.</span>
+                      </label>
+                    </li>
+                  
+                </ul>
+              </div>
+            
+
+            
+            
+              <div class="card" style="margin-top:14px;">
+                <div style="font-weight:900; font-size:1.05rem;">Attack Reconstruction</div>
+
+                <div style="margin-top:8px;">
+                  <strong>Summary:</strong> No meaningful attack path could be reconstructed.
+                </div>
+
+                <div class="muted" style="margin-top:4px;">
+                  Confidence:
+                  0%
+                </div>
+
+                
+                
+                  <div class="muted" style="margin-top:8px;">No attack path steps were reconstructed.</div>
+                
+
+                
+                
+
+                
+                
+                  <div style="margin-top:10px;">
+                    <div style="font-weight:700;">Key Entities</div>
+                    <div class="muted" style="margin-top:4px;">
+                      
+                      
+                      
+                    </div>
+                  </div>
+                
+
+                
+                
+
+                
+                
+              </div>
+            
+
+            
+            
+
+            <div class="card case-card" style="margin:10px 0;">
+              <div class="card-head">
+                <div class="h">
+                  <div class="left">
+                    <span class="badge critical">critical</span>
+                    <strong>New account followed by privileged group assignment</strong>
+                  </div>
+                  <div class="right">
+                    <span>Case: <span class="mono">076a09c83b53</span></span>
+                    <span>Time: <span class="mono">2026-07-16T17:27:56Z</span></span>
+                    <span>Score: <span class="mono">170</span></span>
+                    <span>Threat: <span class="badge critical">critical</span></span>
+                  </div>
+                </div>
+              </div>
+
+              
+                
+
+                
+                  
+                
+
+                <div class="card" style="
+                  margin-top:12px;
+                  padding:14px;
+                  border-left: 6px solid #2563eb;
+                  background: rgba(255,255,255,0.02);
+                ">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:900; font-size:1.05rem;">
+                      Investigation Story
+                    </div>
+                    <div class="badge">LOW</div>
+                  </div>
+
+                  <div class="muted" style="margin-top:10px; line-height:1.7; font-size:0.95rem;">
+                    At 17:27, new account followed by privileged group assignment.
+                  </div>
+                </div>
+              
+
+              <div class="card-body">
+                
+                
+                
+                
+                  <div style="margin-top:10px;">
+                    <div class="muted" style="font-weight:900;">Attack Chain</div>
+
+                    <div class="chain">
+                      
+                        <span class="node">Persistence (T1136)</span>
+                        <span class="arrow">-></span>
+                      
+                        <span class="node">Privilege Escalation (T1098)</span>
+                        
+                      
+                    </div>
+
+                    <details>
+                      <summary>Why these stages?</summary>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tactic</th>
+                            <th>First Seen</th>
+                            <th>Description</th>
+                            <th>Evidence</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Persistence (T1136)</strong></td>
+                              <td class="mono muted">2026-07-16T17:27:56Z</td>
+                              <td class="muted">The activity suggests a mechanism intended to survive reboots or maintain access.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:27:56Z</span> -
+                                        <span class="mono">SOCF-CORR-004</span> -
+                                        New account followed by privileged group assignment
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Privilege Escalation (T1098)</strong></td>
+                              <td class="mono muted">2026-07-16T17:27:56Z</td>
+                              <td class="muted">The activity may indicate an attempt to gain elevated rights or broader permissions.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:27:56Z</span> -
+                                        <span class="mono">SOCF-CORR-004</span> -
+                                        New account followed by privileged group assignment
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                        </tbody>
+                      </table>
+                    </details>
+                  </div>
+                
+                
+                  <div class="case-section">
+                    <h3>Attack Flow</h3>
+                    <div class="attack-flow">
+                      
+                        <div class="flow-step">
+                          <div class="flow-label">Privilege Escalation</div>
+
+                          
+                            <div class="flow-mitre">
+                              
+                                <span class="mitre-tag mono">Create Account</span>
+                              
+                                <span class="mitre-tag mono">Account Manipulation</span>
+                              
+                            </div>
+                          
+
+                          <div class="flow-meta">
+                            <span class="badge critical">critical</span>
+                            <span class="mono">2026-07-16T17:27:56Z</span>
+                          </div>
+                        </div>
+
+                        
+                      
+                    </div>
+                  </div>
+                
+
+                
+                  <div class="mitre-panel">
+                    <div style="font-weight:900; font-size:18px;">MITRE Coverage</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Tactic distribution across matched detections in this investigation.
+                    </div>
+
+                    
+
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Persistence</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 100%;"></div>
+                        </div>
+                        <div class="mitre-count">5</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Credential Access</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 40%;"></div>
+                        </div>
+                        <div class="mitre-count">2</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Privilege Escalation</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 40%;"></div>
+                        </div>
+                        <div class="mitre-count">2</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Defense Evasion</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 20%;"></div>
+                        </div>
+                        <div class="mitre-count">1</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Lateral Movement</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 20%;"></div>
+                        </div>
+                        <div class="mitre-count">1</div>
+                      </div>
+                    
+                  </div>
+                
+
+
+                
+
+                
+                  <div class="panel">
+                    <div style="font-weight:900; font-size:18px;">Attack Graph</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Relationship path between source, identity, host, and attacker actions.
+                    </div>
+
+                    <div class="investigation-graph">
+                      
+                        <div class="graph-node host">
+                          <div class="graph-node-kind">HOST</div>
+                          <div class="graph-node-value">WS-ENG-01</div>
+                        </div>
+                        
+                          <div class="graph-arrow">v</div>
+                        
+                      
+                        <div class="graph-node action">
+                          <div class="graph-node-kind">ACTION</div>
+                          <div class="graph-node-value">Privilege Escalation</div>
+                        </div>
+                        
+                      
+                    </div>
+                  </div>
+                
+
+
+
+                
+                
+                
+                  <div style="margin-bottom:10px;">
+                    <div class="muted" style="font-weight:900;">Analyst Summary</div>
+                    <div style="margin-top:6px;">This case contains multiple related alerts that warrant review and correlation. A correlation rule fired, increasing confidence that these events are related. (e.g., host WS-ENG-01) Review the timeline progression, validate user/host context, and pivot to endpoint telemetry for confirmation.</div>
+                  </div>
+                
+
+                
+                
+                <div style="margin-top:10px;">
+                  <div class="muted" style="font-weight:900;">Indicators (IOCs)</div>
+                  <table>
+                    <thead><tr><th>Type</th><th>Values</th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td class="muted">IPs</td>
+                        <td class="mono muted">
+                          
+                          None observed
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Hosts</td>
+                        <td class="mono muted">
+                          
+                          WS-ENG-01
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Users</td>
+                        <td class="mono muted">
+                          
+                          None observed
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                
+                
+                
+                  <details>
+                    <summary>Timeline (1 events)</summary>
+                    <table>
+                      <thead><tr><th>Timestamp</th><th>Rule</th><th>Title</th><th>Severity</th></tr></thead>
+                      <tbody>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:27:56Z</td>
+                            <td class="mono muted">SOCF-CORR-004</td>
+                            <td>New account followed by privileged group assignment</td>
+                            <td><span class="badge critical">critical</span></td>
+                          </tr>
+                        
+                      </tbody>
+                    </table>
+                  </details>
+                
+
+                
+                
+                  <div class="case-section">
+                    <h3>Evidence</h3>
+                    <div class="evidence-list">
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:27:56Z</span>
+                            <span class="badge critical">critical</span>
+                            <strong>SOCF-CORR-004</strong>
+                            <span>New account followed by privileged group assignment</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">username</span>
+                                  <span class="v mono">svc-backup-admin</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                    </div>
+                  </div>
+                
+
+                
+                
+                  <details>
+                    <summary>Case scoring reasons</summary>
+                    <ul>
+                      
+                        <li class="muted">Correlation present (+30)</li>
+                      
+                        <li class="muted">Multi-tactic activity (+10): Persistence, Privilege Escalation</li>
+                      
+                    </ul>
+                  </details>
+                
+
+                <div class="muted" style="margin-top:10px;font-weight:900;">Alerts in this case</div>
+                <table>
+                  <thead>
+                    <tr><th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th></tr>
+                  </thead>
+                  <tbody>
+                    
+                      <tr data-sev="critical">
+                        <td class="mono muted">2026-07-16T17:27:56Z</td>
+                        <td><span class="badge critical">critical</span></td>
+                        <td class="mono muted">SOCF-CORR-004</td>
+                        <td>New account followed by privileged group assignment</td>
+                        <td class="mono muted"><strong>130</strong></td>
+                      </tr>
+                    
+                  </tbody>
+                </table>
+
+              </div>
+            </div>
+          
+            
+            
+            
+
+            <div class="case-meta">
+            <span class="badge badge-critical">
+              CRITICAL
+            </span>
+            <span class="badge">Score: 225</span>
+            <span class="badge">Case: 3221f258a60b</span>
+            <span class="badge">Alerts: 2</span>
+          </div>
+
+            
+            
+              <div class="case-section">
+                <h3>Recommended Actions</h3>
+                <ul class="checklist">
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Validate user access with HR/IT: alice</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Identify impacted endpoint(s): WS-ENG-01</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Confirm source IP reputation/ownership: 198.51.100.77</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Review the source of the RDP session and confirm whether remote access was expected.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Inspect endpoint telemetry around the first RDP logon for process execution, network activity, and privilege changes.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Treat the RDP session followed by privileged group change as possible account takeover or privilege escalation.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Review authentication context, administrative actions, and any additional persistence or lateral movement from the same host.</span>
+                      </label>
+                    </li>
+                  
+                </ul>
+              </div>
+            
+
+            
+            
+              <div class="card" style="margin-top:14px;">
+                <div style="font-weight:900; font-size:1.05rem;">Attack Reconstruction</div>
+
+                <div style="margin-top:8px;">
+                  <strong>Summary:</strong> Likely malicious activity centered on Initial Access.
+                </div>
+
+                <div class="muted" style="margin-top:4px;">
+                  Confidence:
+                  83.0%
+                </div>
+
+                
+                
+                  <ol style="margin-top:12px; padding-left:20px;">
+                    
+                      <li style="margin-bottom:12px;">
+                        <div>
+                          <strong>Initial Access</strong>
+                          - RDP logon detected (LogonType 10)
+                          
+                        </div>
+
+                        <div class="muted" style="margin-top:3px;">
+                          2026-07-16T17:22:56Z
+                          
+                            &middot; T1021.001
+                          
+                          
+                            &middot; confidence 82.0%
+                          
+                        </div>
+
+                        
+                        
+                          <div style="margin-top:6px;">
+                            
+                            
+                              <code>alice</code>
+                            
+                            
+                              <code>WS-ENG-01</code>
+                            
+                          </div>
+                        
+
+                        
+                        
+                      </li>
+                    
+                  </ol>
+                
+
+                
+                
+
+                
+                
+                  <div style="margin-top:10px;">
+                    <div style="font-weight:700;">Key Entities</div>
+                    <div class="muted" style="margin-top:4px;">
+                      
+                      
+                        <strong>Users:</strong> alice<br>
+                      
+                      
+                        <strong>Hosts:</strong> WS-ENG-01
+                      
+                    </div>
+                  </div>
+                
+
+                
+                
+
+                
+                
+              </div>
+            
+
+            
+            
+
+            <div class="card case-card" style="margin:10px 0;">
+              <div class="card-head">
+                <div class="h">
+                  <div class="left">
+                    <span class="badge critical">critical</span>
+                    <strong>RDP logon followed by privileged group change (possible takeover)</strong>
+                  </div>
+                  <div class="right">
+                    <span>Case: <span class="mono">3221f258a60b</span></span>
+                    <span>Time: <span class="mono">2026-07-16T17:27:56Z</span></span>
+                    <span>Score: <span class="mono">225</span></span>
+                    <span>Threat: <span class="badge critical">critical</span></span>
+                  </div>
+                </div>
+              </div>
+
+              
+                
+
+                
+                  
+                
+
+                <div class="card" style="
+                  margin-top:12px;
+                  padding:14px;
+                  border-left: 6px solid #2563eb;
+                  background: rgba(255,255,255,0.02);
+                ">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:900; font-size:1.05rem;">
+                      Investigation Story
+                    </div>
+                    <div class="badge">LOW</div>
+                  </div>
+
+                  <div class="muted" style="margin-top:10px; line-height:1.7; font-size:0.95rem;">
+                    At 17:22, an RDP logon was observed. At 17:27, rdp logon followed by privileged group change (possible takeover). This activity aligns with Initial Access behavior.
+                  </div>
+                </div>
+              
+
+              <div class="card-body">
+                
+                
+                
+                
+                  <div style="margin-top:10px;">
+                    <div class="muted" style="font-weight:900;">Attack Chain</div>
+
+                    <div class="chain">
+                      
+                        <span class="node">Lateral Movement (T1021)</span>
+                        <span class="arrow">-></span>
+                      
+                        <span class="node">Privilege Escalation (T1098)</span>
+                        
+                      
+                    </div>
+
+                    <details>
+                      <summary>Why these stages?</summary>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tactic</th>
+                            <th>First Seen</th>
+                            <th>Description</th>
+                            <th>Evidence</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Lateral Movement (T1021)</strong></td>
+                              <td class="mono muted">2026-07-16T17:22:56Z</td>
+                              <td class="muted">The activity suggests movement from one host or account context to another.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:22:56Z</span> -
+                                        <span class="mono">SOCF-006</span> -
+                                        RDP logon detected (LogonType 10)
+                                      </li>
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:27:56Z</span> -
+                                        <span class="mono">SOCF-CORR-003</span> -
+                                        RDP logon followed by privileged group change (possible takeover)
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Privilege Escalation (T1098)</strong></td>
+                              <td class="mono muted">2026-07-16T17:27:56Z</td>
+                              <td class="muted">The activity may indicate an attempt to gain elevated rights or broader permissions.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:27:56Z</span> -
+                                        <span class="mono">SOCF-CORR-003</span> -
+                                        RDP logon followed by privileged group change (possible takeover)
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                        </tbody>
+                      </table>
+                    </details>
+                  </div>
+                
+                
+                  <div class="case-section">
+                    <h3>Attack Flow</h3>
+                    <div class="attack-flow">
+                      
+                        <div class="flow-step">
+                          <div class="flow-label">Remote Access</div>
+
+                          
+                            <div class="flow-mitre">
+                              
+                                <span class="mitre-tag mono">Remote Services</span>
+                              
+                                <span class="mitre-tag mono">Account Manipulation</span>
+                              
+                            </div>
+                          
+
+                          <div class="flow-meta">
+                            <span class="badge medium">medium</span>
+                            <span class="mono">2026-07-16T17:22:56Z</span>
+                          </div>
+                        </div>
+
+                        
+                      
+                    </div>
+                  </div>
+                
+
+                
+                  <div class="mitre-panel">
+                    <div style="font-weight:900; font-size:18px;">MITRE Coverage</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Tactic distribution across matched detections in this investigation.
+                    </div>
+
+                    
+
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Persistence</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 100%;"></div>
+                        </div>
+                        <div class="mitre-count">5</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Credential Access</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 40%;"></div>
+                        </div>
+                        <div class="mitre-count">2</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Privilege Escalation</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 40%;"></div>
+                        </div>
+                        <div class="mitre-count">2</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Defense Evasion</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 20%;"></div>
+                        </div>
+                        <div class="mitre-count">1</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Lateral Movement</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 20%;"></div>
+                        </div>
+                        <div class="mitre-count">1</div>
+                      </div>
+                    
+                  </div>
+                
+
+
+                
+
+                
+                  <div class="panel">
+                    <div style="font-weight:900; font-size:18px;">Attack Graph</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Relationship path between source, identity, host, and attacker actions.
+                    </div>
+
+                    <div class="investigation-graph">
+                      
+                        <div class="graph-node ip">
+                          <div class="graph-node-kind">IP</div>
+                          <div class="graph-node-value">198.51.100.77</div>
+                        </div>
+                        
+                          <div class="graph-arrow">v</div>
+                        
+                      
+                        <div class="graph-node user">
+                          <div class="graph-node-kind">USER</div>
+                          <div class="graph-node-value">alice</div>
+                        </div>
+                        
+                          <div class="graph-arrow">v</div>
+                        
+                      
+                        <div class="graph-node host">
+                          <div class="graph-node-kind">HOST</div>
+                          <div class="graph-node-value">WS-ENG-01</div>
+                        </div>
+                        
+                          <div class="graph-arrow">v</div>
+                        
+                      
+                        <div class="graph-node action">
+                          <div class="graph-node-kind">ACTION</div>
+                          <div class="graph-node-value">Remote Access</div>
+                        </div>
+                        
+                      
+                    </div>
+                  </div>
+                
+
+
+
+                
+                
+                
+                  <div style="margin-bottom:10px;">
+                    <div class="muted" style="font-weight:900;">Analyst Summary</div>
+                    <div style="margin-top:6px;">This case includes RDP logon activity that may indicate lateral movement or remote access. A correlation rule fired, increasing confidence that these events are related. (e.g., user alice, host WS-ENG-01, ip 198.51.100.77) Validate source IP and user, confirm business justification, and correlate with endpoint process execution.</div>
+                  </div>
+                
+
+                
+                
+                <div style="margin-top:10px;">
+                  <div class="muted" style="font-weight:900;">Indicators (IOCs)</div>
+                  <table>
+                    <thead><tr><th>Type</th><th>Values</th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td class="muted">IPs</td>
+                        <td class="mono muted">
+                          
+                          198.51.100.77
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Hosts</td>
+                        <td class="mono muted">
+                          
+                          WS-ENG-01
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Users</td>
+                        <td class="mono muted">
+                          
+                          alice
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                
+                
+                
+                  <details>
+                    <summary>Timeline (2 events)</summary>
+                    <table>
+                      <thead><tr><th>Timestamp</th><th>Rule</th><th>Title</th><th>Severity</th></tr></thead>
+                      <tbody>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:22:56Z</td>
+                            <td class="mono muted">SOCF-006</td>
+                            <td>RDP logon detected (LogonType 10)</td>
+                            <td><span class="badge medium">medium</span></td>
+                          </tr>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:27:56Z</td>
+                            <td class="mono muted">SOCF-CORR-003</td>
+                            <td>RDP logon followed by privileged group change (possible takeover)</td>
+                            <td><span class="badge critical">critical</span></td>
+                          </tr>
+                        
+                      </tbody>
+                    </table>
+                  </details>
+                
+
+                
+                
+                  <div class="case-section">
+                    <h3>Evidence</h3>
+                    <div class="evidence-list">
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:22:56Z</span>
+                            <span class="badge medium">medium</span>
+                            <strong>SOCF-006</strong>
+                            <span>RDP logon detected (LogonType 10)</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">username</span>
+                                  <span class="v mono">alice</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">ip</span>
+                                  <span class="v mono">198.51.100.77</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:27:56Z</span>
+                            <span class="badge critical">critical</span>
+                            <strong>SOCF-CORR-003</strong>
+                            <span>RDP logon followed by privileged group change (possible takeover)</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">username</span>
+                                  <span class="v mono">alice</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">ip</span>
+                                  <span class="v mono">198.51.100.77</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                    </div>
+                  </div>
+                
+
+                
+                
+                  <details>
+                    <summary>Case scoring reasons</summary>
+                    <ul>
+                      
+                        <li class="muted">Correlation present (+30)</li>
+                      
+                        <li class="muted">Multi-tactic activity (+10): Lateral Movement, Privilege Escalation</li>
+                      
+                    </ul>
+                  </details>
+                
+
+                <div class="muted" style="margin-top:10px;font-weight:900;">Alerts in this case</div>
+                <table>
+                  <thead>
+                    <tr><th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th></tr>
+                  </thead>
+                  <tbody>
+                    
+                      <tr data-sev="medium">
+                        <td class="mono muted">2026-07-16T17:22:56Z</td>
+                        <td><span class="badge medium">medium</span></td>
+                        <td class="mono muted">SOCF-006</td>
+                        <td>RDP logon detected (LogonType 10)</td>
+                        <td class="mono muted"><strong>55</strong></td>
+                      </tr>
+                    
+                      <tr data-sev="critical">
+                        <td class="mono muted">2026-07-16T17:27:56Z</td>
+                        <td><span class="badge critical">critical</span></td>
+                        <td class="mono muted">SOCF-CORR-003</td>
+                        <td>RDP logon followed by privileged group change (possible takeover)</td>
+                        <td class="mono muted"><strong>130</strong></td>
+                      </tr>
+                    
+                  </tbody>
+                </table>
+
+              </div>
+            </div>
+          
+            
+            
+            
+
+            <div class="case-meta">
+            <span class="badge badge-critical">
+              CRITICAL
+            </span>
+            <span class="badge">Score: 400</span>
+            <span class="badge">Case: e353a2e912eb</span>
+            <span class="badge">Alerts: 4</span>
+          </div>
+
+            
+            
+              <div class="case-section">
+                <h3>Recommended Actions</h3>
+                <ul class="checklist">
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Validate user access with HR/IT: alice, svc-backup-admin</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Identify impacted endpoint(s): WS-ENG-01</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Confirm source IP reputation/ownership: 198.51.100.77</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Validate whether the new account creation was authorized and tied to an approved change request.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Disable or lock the newly created account if it is not approved and review who created it.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Review the privileged group membership change for approval and business justification.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Remove the user from privileged groups if the change is unauthorized and investigate the initiating actor.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Investigate why Windows Security logs were cleared and preserve alternate telemetry sources immediately.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Review suspicious activity immediately before and after log clearing, including authentication, persistence, and administrative actions.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Treat this sequence as a high-confidence malicious chain involving account creation, privilege escalation, and defense evasion.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Disable the account, revoke privileged access, and isolate the host if activity is unauthorized.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>Preserve forensic evidence before additional logs or artifacts are destroyed and hunt for persistence such as tasks, services, or remote access.</span>
+                      </label>
+                    </li>
+                  
+                    <li>
+                      <label>
+                        <input type="checkbox" />
+                        <span>If activity is unauthorized, initiate containment on impacted hosts and reset affected credentials.</span>
+                      </label>
+                    </li>
+                  
+                </ul>
+              </div>
+            
+
+            
+            
+              <div class="card" style="margin-top:14px;">
+                <div style="font-weight:900; font-size:1.05rem;">Attack Reconstruction</div>
+
+                <div style="margin-top:8px;">
+                  <strong>Summary:</strong> No meaningful attack path could be reconstructed.
+                </div>
+
+                <div class="muted" style="margin-top:4px;">
+                  Confidence:
+                  0%
+                </div>
+
+                
+                
+                  <div class="muted" style="margin-top:8px;">No attack path steps were reconstructed.</div>
+                
+
+                
+                
+
+                
+                
+                  <div style="margin-top:10px;">
+                    <div style="font-weight:700;">Key Entities</div>
+                    <div class="muted" style="margin-top:4px;">
+                      
+                      
+                      
+                    </div>
+                  </div>
+                
+
+                
+                
+
+                
+                
+              </div>
+            
+
+            
+            
+
+            <div class="card case-card" style="margin:10px 0;">
+              <div class="card-head">
+                <div class="h">
+                  <div class="left">
+                    <span class="badge critical">critical</span>
+                    <strong>New privileged account followed by log clearing (possible account abuse)</strong>
+                  </div>
+                  <div class="right">
+                    <span>Case: <span class="mono">e353a2e912eb</span></span>
+                    <span>Time: <span class="mono">2026-07-16T17:29:56Z</span></span>
+                    <span>Score: <span class="mono">400</span></span>
+                    <span>Threat: <span class="badge critical">critical</span></span>
+                  </div>
+                </div>
+              </div>
+
+              
+                
+
+                
+                  
+                
+
+                <div class="card" style="
+                  margin-top:12px;
+                  padding:14px;
+                  border-left: 6px solid #2563eb;
+                  background: rgba(255,255,255,0.02);
+                ">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight:900; font-size:1.05rem;">
+                      Investigation Story
+                    </div>
+                    <div class="badge">LOW</div>
+                  </div>
+
+                  <div class="muted" style="margin-top:10px; line-height:1.7; font-size:0.95rem;">
+                    At 17:26, a new user account was created. At 17:27, a privileged group change was detected. At 17:29, audit logs were cleared. At 17:29, new privileged account followed by log clearing (possible account abuse). This activity aligns with Persistence, Privilege Escalation, and Defense Evasion behavior.
+                  </div>
+                </div>
+              
+
+              <div class="card-body">
+                
+                
+                
+                
+                  <div style="margin-top:10px;">
+                    <div class="muted" style="font-weight:900;">Attack Chain</div>
+
+                    <div class="chain">
+                      
+                        <span class="node">Persistence (T1136)</span>
+                        <span class="arrow">-></span>
+                      
+                        <span class="node">Privilege Escalation (T1136)</span>
+                        <span class="arrow">-></span>
+                      
+                        <span class="node">Persistence (T1098)</span>
+                        <span class="arrow">-></span>
+                      
+                        <span class="node">Privilege Escalation (T1098)</span>
+                        <span class="arrow">-></span>
+                      
+                        <span class="node">Defense Evasion (T1070)</span>
+                        
+                      
+                    </div>
+
+                    <details>
+                      <summary>Why these stages?</summary>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Tactic</th>
+                            <th>First Seen</th>
+                            <th>Description</th>
+                            <th>Evidence</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Persistence (T1136)</strong></td>
+                              <td class="mono muted">2026-07-16T17:26:56Z</td>
+                              <td class="muted">The activity suggests a mechanism intended to survive reboots or maintain access.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:26:56Z</span> -
+                                        <span class="mono">SOCF-007</span> -
+                                        New user account created
+                                      </li>
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:29:56Z</span> -
+                                        <span class="mono">SOCF-CORR-005</span> -
+                                        New privileged account followed by log clearing (possible account abuse)
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Privilege Escalation (T1136)</strong></td>
+                              <td class="mono muted">2026-07-16T17:26:56Z</td>
+                              <td class="muted">The activity may indicate an attempt to gain elevated rights or broader permissions.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:26:56Z</span> -
+                                        <span class="mono">SOCF-007</span> -
+                                        New user account created
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Persistence (T1098)</strong></td>
+                              <td class="mono muted">2026-07-16T17:27:56Z</td>
+                              <td class="muted">The activity suggests a mechanism intended to survive reboots or maintain access.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:27:56Z</span> -
+                                        <span class="mono">SOCF-008</span> -
+                                        User added to privileged group
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Privilege Escalation (T1098)</strong></td>
+                              <td class="mono muted">2026-07-16T17:27:56Z</td>
+                              <td class="muted">The activity may indicate an attempt to gain elevated rights or broader permissions.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:27:56Z</span> -
+                                        <span class="mono">SOCF-008</span> -
+                                        User added to privileged group
+                                      </li>
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:29:56Z</span> -
+                                        <span class="mono">SOCF-CORR-005</span> -
+                                        New privileged account followed by log clearing (possible account abuse)
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                            
+                            <tr>
+                              <td class="muted"><strong>Defense Evasion (T1070)</strong></td>
+                              <td class="mono muted">2026-07-16T17:29:56Z</td>
+                              <td class="muted">The activity may reflect attempts to avoid detection or bypass protections.</td>
+                              <td>
+                                
+                                
+                                  <ul style="margin:0; padding-left:18px;">
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:29:56Z</span> -
+                                        <span class="mono">SOCF-009</span> -
+                                        Audit logs cleared
+                                      </li>
+                                    
+                                      <li class="muted">
+                                        <span class="mono">2026-07-16T17:29:56Z</span> -
+                                        <span class="mono">SOCF-CORR-005</span> -
+                                        New privileged account followed by log clearing (possible account abuse)
+                                      </li>
+                                    
+                                  </ul>
+                                
+                              </td>
+                            </tr>
+                          
+                        </tbody>
+                      </table>
+                    </details>
+                  </div>
+                
+                
+                  <div class="case-section">
+                    <h3>Attack Flow</h3>
+                    <div class="attack-flow">
+                      
+                        <div class="flow-step">
+                          <div class="flow-label">Remote Access</div>
+
+                          
+                            <div class="flow-mitre">
+                              
+                                <span class="mitre-tag mono">Create Account</span>
+                              
+                            </div>
+                          
+
+                          <div class="flow-meta">
+                            <span class="badge high">high</span>
+                            <span class="mono">2026-07-16T17:26:56Z</span>
+                          </div>
+                        </div>
+
+                        
+                          <div class="flow-arrow">-></div>
+                        
+                      
+                        <div class="flow-step">
+                          <div class="flow-label">Privilege Escalation</div>
+
+                          
+                            <div class="flow-mitre">
+                              
+                                <span class="mitre-tag mono">Account Manipulation</span>
+                              
+                            </div>
+                          
+
+                          <div class="flow-meta">
+                            <span class="badge high">high</span>
+                            <span class="mono">2026-07-16T17:27:56Z</span>
+                          </div>
+                        </div>
+
+                        
+                          <div class="flow-arrow">-></div>
+                        
+                      
+                        <div class="flow-step">
+                          <div class="flow-label">Audit logs cleared</div>
+
+                          
+                            <div class="flow-mitre">
+                              
+                                <span class="mitre-tag mono">Indicator Removal on Host</span>
+                              
+                            </div>
+                          
+
+                          <div class="flow-meta">
+                            <span class="badge high">high</span>
+                            <span class="mono">2026-07-16T17:29:56Z</span>
+                          </div>
+                        </div>
+
+                        
+                          <div class="flow-arrow">-></div>
+                        
+                      
+                        <div class="flow-step">
+                          <div class="flow-label">Privilege Escalation</div>
+
+                          
+                            <div class="flow-mitre">
+                              
+                                <span class="mitre-tag mono">Create Account</span>
+                              
+                                <span class="mitre-tag mono">Account Manipulation</span>
+                              
+                                <span class="mitre-tag mono">Indicator Removal on Host</span>
+                              
+                            </div>
+                          
+
+                          <div class="flow-meta">
+                            <span class="badge critical">critical</span>
+                            <span class="mono">2026-07-16T17:29:56Z</span>
+                          </div>
+                        </div>
+
+                        
+                      
+                    </div>
+                  </div>
+                
+
+                
+                  <div class="mitre-panel">
+                    <div style="font-weight:900; font-size:18px;">MITRE Coverage</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Tactic distribution across matched detections in this investigation.
+                    </div>
+
+                    
+
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Persistence</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 100%;"></div>
+                        </div>
+                        <div class="mitre-count">5</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Credential Access</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 40%;"></div>
+                        </div>
+                        <div class="mitre-count">2</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Privilege Escalation</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 40%;"></div>
+                        </div>
+                        <div class="mitre-count">2</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Defense Evasion</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 20%;"></div>
+                        </div>
+                        <div class="mitre-count">1</div>
+                      </div>
+                    
+                      
+                      <div class="mitre-row">
+                        <div class="mitre-label">Lateral Movement</div>
+                        <div class="mitre-bar-wrap">
+                          <div class="mitre-bar" style="width: 20%;"></div>
+                        </div>
+                        <div class="mitre-count">1</div>
+                      </div>
+                    
+                  </div>
+                
+
+
+                
+
+                
+                  <div class="panel">
+                    <div style="font-weight:900; font-size:18px;">Attack Graph</div>
+                    <div class="muted" style="margin-top:4px;">
+                      Relationship path between source, identity, host, and attacker actions.
+                    </div>
+
+                    <div class="investigation-graph">
+                      
+                        <div class="graph-node ip">
+                          <div class="graph-node-kind">IP</div>
+                          <div class="graph-node-value">198.51.100.77</div>
+                        </div>
+                        
+                      
+                    </div>
+                  </div>
+                
+
+
+
+                
+                
+                
+                  <div style="margin-bottom:10px;">
+                    <div class="muted" style="font-weight:900;">Analyst Summary</div>
+                    <div style="margin-top:6px;">This case contains multiple related alerts that warrant review and correlation. A correlation rule fired, increasing confidence that these events are related. (e.g., host WS-ENG-01, ip 198.51.100.77) Review the timeline progression, validate user/host context, and pivot to endpoint telemetry for confirmation.</div>
+                  </div>
+                
+
+                
+                
+                <div style="margin-top:10px;">
+                  <div class="muted" style="font-weight:900;">Indicators (IOCs)</div>
+                  <table>
+                    <thead><tr><th>Type</th><th>Values</th></tr></thead>
+                    <tbody>
+                      <tr>
+                        <td class="muted">IPs</td>
+                        <td class="mono muted">
+                          
+                          198.51.100.77
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Hosts</td>
+                        <td class="mono muted">
+                          
+                          WS-ENG-01
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="muted">Users</td>
+                        <td class="mono muted">
+                          
+                          None observed
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                
+                
+                
+                  <details>
+                    <summary>Timeline (4 events)</summary>
+                    <table>
+                      <thead><tr><th>Timestamp</th><th>Rule</th><th>Title</th><th>Severity</th></tr></thead>
+                      <tbody>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:26:56Z</td>
+                            <td class="mono muted">SOCF-007</td>
+                            <td>New user account created</td>
+                            <td><span class="badge high">high</span></td>
+                          </tr>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:27:56Z</td>
+                            <td class="mono muted">SOCF-008</td>
+                            <td>User added to privileged group</td>
+                            <td><span class="badge high">high</span></td>
+                          </tr>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:29:56Z</td>
+                            <td class="mono muted">SOCF-009</td>
+                            <td>Audit logs cleared</td>
+                            <td><span class="badge high">high</span></td>
+                          </tr>
+                        
+                          <tr>
+                            <td class="mono muted">2026-07-16T17:29:56Z</td>
+                            <td class="mono muted">SOCF-CORR-005</td>
+                            <td>New privileged account followed by log clearing (possible account abuse)</td>
+                            <td><span class="badge critical">critical</span></td>
+                          </tr>
+                        
+                      </tbody>
+                    </table>
+                  </details>
+                
+
+                
+                
+                  <div class="case-section">
+                    <h3>Evidence</h3>
+                    <div class="evidence-list">
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:26:56Z</span>
+                            <span class="badge high">high</span>
+                            <strong>SOCF-007</strong>
+                            <span>New user account created</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">username</span>
+                                  <span class="v mono">svc-backup-admin</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">ip</span>
+                                  <span class="v mono">198.51.100.77</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:27:56Z</span>
+                            <span class="badge high">high</span>
+                            <strong>SOCF-008</strong>
+                            <span>User added to privileged group</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">username</span>
+                                  <span class="v mono">svc-backup-admin</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">ip</span>
+                                  <span class="v mono">198.51.100.77</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:29:56Z</span>
+                            <span class="badge high">high</span>
+                            <strong>SOCF-009</strong>
+                            <span>Audit logs cleared</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">ip</span>
+                                  <span class="v mono">198.51.100.77</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                        <div class="evidence-item">
+                          <div class="evidence-head">
+                            <span class="mono">2026-07-16T17:29:56Z</span>
+                            <span class="badge critical">critical</span>
+                            <strong>SOCF-CORR-005</strong>
+                            <span>New privileged account followed by log clearing (possible account abuse)</span>
+                          </div>
+
+                          
+                            <div class="evidence-fields">
+                              
+                                <span class="kv">
+                                  <span class="k">host</span>
+                                  <span class="v mono">WS-ENG-01</span>
+                                </span>
+                              
+                                <span class="kv">
+                                  <span class="k">username</span>
+                                  <span class="v mono">svc-backup-admin</span>
+                                </span>
+                              
+                            </div>
+                          
+                        </div>
+                      
+                    </div>
+                  </div>
+                
+
+                
+                
+                  <details>
+                    <summary>Case scoring reasons</summary>
+                    <ul>
+                      
+                        <li class="muted">Correlation present (+30)</li>
+                      
+                        <li class="muted">Multi-tactic activity (+20): Persistence, Privilege Escalation, Defense Evasion</li>
+                      
+                    </ul>
+                  </details>
+                
+
+                <div class="muted" style="margin-top:10px;font-weight:900;">Alerts in this case</div>
+                <table>
+                  <thead>
+                    <tr><th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th></tr>
+                  </thead>
+                  <tbody>
+                    
+                      <tr data-sev="high">
+                        <td class="mono muted">2026-07-16T17:26:56Z</td>
+                        <td><span class="badge high">high</span></td>
+                        <td class="mono muted">SOCF-007</td>
+                        <td>New user account created</td>
+                        <td class="mono muted"><strong>70</strong></td>
+                      </tr>
+                    
+                      <tr data-sev="high">
+                        <td class="mono muted">2026-07-16T17:27:56Z</td>
+                        <td><span class="badge high">high</span></td>
+                        <td class="mono muted">SOCF-008</td>
+                        <td>User added to privileged group</td>
+                        <td class="mono muted"><strong>75</strong></td>
+                      </tr>
+                    
+                      <tr data-sev="high">
+                        <td class="mono muted">2026-07-16T17:29:56Z</td>
+                        <td><span class="badge high">high</span></td>
+                        <td class="mono muted">SOCF-009</td>
+                        <td>Audit logs cleared</td>
+                        <td class="mono muted"><strong>80</strong></td>
+                      </tr>
+                    
+                      <tr data-sev="critical">
+                        <td class="mono muted">2026-07-16T17:29:56Z</td>
+                        <td><span class="badge critical">critical</span></td>
+                        <td class="mono muted">SOCF-CORR-005</td>
+                        <td>New privileged account followed by log clearing (possible account abuse)</td>
+                        <td class="mono muted"><strong>150</strong></td>
+                      </tr>
+                    
+                  </tbody>
+                </table>
+
+              </div>
+            </div>
+          
+
+        </div>
+      </div>
+    
+
+    
+
+  
+
+  <div class="footer">SOC-Forge &middot; Case-based report view</div>
+
+</div>
+
+<script>
+  function setFilter(level) {
+    document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
+    const btn = document.querySelector(`.btn[data-level="${level}"]`);
+    if (btn) btn.classList.add("active");
+
+    // Filter rows
+    document.querySelectorAll("tr[data-sev]").forEach(tr => {
+      const sev = (tr.getAttribute("data-sev") || "").toLowerCase();
+      const show = (level === "all" || sev === level);
+      tr.classList.toggle("hidden", !show);
+    });
+
+    // Show/hide case cards based on visible rows
+    document.querySelectorAll(".case-card").forEach(card => {
+      if (level === "all") {
+        card.classList.remove("hidden");
+        return;
+      }
+      const visibleRows = card.querySelectorAll("tr[data-sev]:not(.hidden)");
+      card.classList.toggle("hidden", visibleRows.length === 0);
+    });
+
+    // Same for standalone card
+    document.querySelectorAll(".standalone-card").forEach(card => {
+      if (level === "all") {
+        card.classList.remove("hidden");
+        return;
+      }
+      const visibleRows = card.querySelectorAll("tr[data-sev]:not(.hidden)");
+      card.classList.toggle("hidden", visibleRows.length === 0);
+    });
+  }
+
+  setFilter("all");
+</script>
+
+</body>
+</html>

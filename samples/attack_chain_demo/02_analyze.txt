@@ -1,0 +1,58 @@
+
+HUNT RESULTS
+------------
+Suspicious Command Execution [high]
+  Suspicious command observed on WS-ENG-01 by alice
+
+RISK SUMMARY
+------------
+Overall Risk: CRITICAL (104)
+Alerts: 9
+Hunts: 1
+Correlations: 4
+[soc-forge] Cases exported → samples/attack_chain_demo/cases.json
+                                SOC-Forge Alerts                                
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Severity ┃ Rule          ┃ Title          ┃ Time (UTC)     ┃ Key Detail      ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ critical │ SOCF-005      │ Scheduled task │ 2026-07-16T17… │ host=WS-ENG-01  │
+│          │               │ created        │                │                 │
+│ critical │ SOCF-CORR-003 │ RDP logon      │ 2026-07-16T17… │ ip=198.51.100.… │
+│          │               │ followed by    │                │                 │
+│          │               │ privileged     │                │                 │
+│          │               │ group change   │                │                 │
+│          │               │ (possible      │                │                 │
+│          │               │ takeover)      │                │                 │
+│ critical │ SOCF-CORR-004 │ New account    │ 2026-07-16T17… │ host=WS-ENG-01  │
+│          │               │ followed by    │                │                 │
+│          │               │ privileged     │                │                 │
+│          │               │ group          │                │                 │
+│          │               │ assignment     │                │                 │
+│ critical │ SOCF-CORR-005 │ New privileged │ 2026-07-16T17… │ host=WS-ENG-01  │
+│          │               │ account        │                │                 │
+│          │               │ followed by    │                │                 │
+│          │               │ log clearing   │                │                 │
+│          │               │ (possible      │                │                 │
+│          │               │ account abuse) │                │                 │
+│ high     │ SOCF-CORR-002 │ RDP logon      │ 2026-07-16T17… │ ip=198.51.100.… │
+│          │               │ followed by    │                │                 │
+│          │               │ scheduled task │                │                 │
+│          │               │ creation       │                │                 │
+│          │               │ (possible      │                │                 │
+│          │               │ persistence)   │                │                 │
+│ high     │ SOCF-007      │ New user       │ 2026-07-16T17… │ ip=198.51.100.… │
+│          │               │ account        │                │                 │
+│          │               │ created        │                │                 │
+│ high     │ SOCF-008      │ User added to  │ 2026-07-16T17… │ ip=198.51.100.… │
+│          │               │ privileged     │                │                 │
+│          │               │ group          │                │                 │
+│ high     │ SOCF-009      │ Audit logs     │ 2026-07-16T17… │ ip=198.51.100.… │
+│          │               │ cleared        │                │                 │
+│ medium   │ SOCF-006      │ RDP logon      │ 2026-07-16T17… │ ip=198.51.100.… │
+│          │               │ detected       │                │                 │
+│          │               │ (LogonType 10) │                │                 │
+└──────────┴───────────────┴────────────────┴────────────────┴─────────────────┘
+
+Saved alerts to: samples/attack_chain_demo/alerts.json
+Saved HTML report to: samples/attack_chain_demo/report.html
+Correlated alerts: 4

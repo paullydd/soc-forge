@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SOC-Forge Analyst Web UI</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mark">SF</div>
+        <div>
+          <div class="brand-title">SOC-Forge</div>
+          <div class="brand-subtitle">Analyst Web UI</div>
+        </div>
+      </div>
+      <nav class="nav-tabs" aria-label="Views">
+        <button class="nav-tab active" data-view="overview">Overview</button>
+        <button class="nav-tab" data-view="cases">Cases</button>
+        <button class="nav-tab" data-view="graph">Graph</button>
+        <button class="nav-tab" data-view="scorecard">Scorecard</button>
+        <button class="nav-tab" data-view="alerts">Alerts</button>
+        <button class="nav-tab" data-view="hunts">Hunts</button>
+      </nav>
+      <div class="sidebar-block">
+        <div class="sidebar-label">Artifacts</div>
+        <a href="/artifact?file=report.html" target="_blank" rel="noreferrer">Open HTML report</a>
+        <a href="/artifact?file=cases.json" target="_blank" rel="noreferrer">Cases JSON</a>
+        <a href="/artifact?file=alerts.json" target="_blank" rel="noreferrer">Alerts JSON</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Investigation Workspace</h1>
+          <p>Review generated SOC-Forge cases, alerts, case quality, and evidence from local artifacts.</p>
+        </div>
+        <div class="toolbar">
+          <div class="scenario-control" aria-label="Demo scenario">
+            <select id="scenarioSelect">
+              <option value="detection_lab">Detection Lab</option>
+              <option value="attack_chain">Attack Chain</option>
+            </select>
+            <button id="runScenarioButton" type="button">Run Demo</button>
+            <button id="startDemoButton" type="button" class="primary-button">Start Demo</button>
+          </div>
+          <input id="searchInput" type="search" placeholder="Search cases, rules, entities" aria-label="Search" />
+          <button id="refreshButton" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <section id="demoGuide" class="demo-guide" hidden>
+        <div class="demo-guide-head">
+          <div>
+            <div class="demo-eyebrow">Guided Demo</div>
+            <h2 id="demoGuideTitle">SOC-Forge walkthrough</h2>
+          </div>
+          <div class="demo-guide-actions">
+            <button id="nextDemoStepButton" type="button" class="primary-button">Next</button>
+            <button id="closeDemoButton" type="button">Close</button>
+          </div>
+        </div>
+        <div id="demoSteps" class="demo-steps"></div>
+      </section>
+
+      <section id="overviewView" class="view active">
+        <div class="metrics" id="metrics"></div>
+        <div class="two-column">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Highest Risk Case</h2>
+            </div>
+            <div id="topCase"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Rule Activity</h2>
+            </div>
+            <div id="ruleCounts" class="bar-list"></div>
+          </section>
+        </div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>MITRE Tactics</h2>
+          </div>
+          <div id="tacticCounts" class="bar-list compact"></div>
+        </section>
+      </section>
+
+      <section id="casesView" class="view">
+        <div class="split-layout">
+          <section class="panel list-panel">
+            <div class="panel-head">
+              <h2>Cases</h2>
+              <select id="caseSort" aria-label="Sort cases">
+                <option value="risk">Risk</option>
+                <option value="quality">Quality</option>
+                <option value="time">Time</option>
+              </select>
+            </div>
+            <div id="caseList" class="case-list"></div>
+          </section>
+          <section class="panel detail-panel">
+            <div id="caseDetail" class="empty-state">Select a case to review its brief, evidence, timeline, and guidance.</div>
+          </section>
+        </div>
+      </section>
+
+      <section id="graphView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Investigation Graph</h2>
+            <select id="graphCaseSelect" aria-label="Graph case"></select>
+          </div>
+          <div id="graphWorkspace"></div>
+        </section>
+      </section>
+
+      <section id="scorecardView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Detection Engineering Scorecard</h2>
+          </div>
+          <div id="scorecardWorkspace"></div>
+        </section>
+      </section>
+
+      <section id="alertsView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Alerts</h2>
+          </div>
+          <div id="alertsTable"></div>
+        </section>
+      </section>
+
+      <section id="huntsView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Hunt Findings</h2>
+          </div>
+          <div id="huntsList"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

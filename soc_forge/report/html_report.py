@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from collections import defaultdict
@@ -10,10 +11,29 @@ from jinja2 import Template
 from soc_forge import __version__
 from soc_forge.scoring.risk import score_case
 from soc_forge.cases.recommended_actions import build_recommended_actions
+from soc_forge.cases.quality import build_case_quality_profile
+from soc_forge.models import normalize_case
 
 # -------------------------
 # Phase 9 Helpers
 # -------------------------
+
+
+def _is_known_value(value: Any) -> bool:
+    return value is not None and str(value).strip().lower() not in {"", "unknown", "none", "n/a"}
+
+
+def _extract_ips_from_message(message: Any) -> List[str]:
+    if not message:
+        return []
+    return re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", str(message))
+
+
+def _first_known(*values: Any) -> Any:
+    for value in values:
+        if _is_known_value(value):
+            return value
+    return None
 def build_case_risk_fallback(items_sorted: List[Dict[str, Any]]) -> Dict[str, Any]:
     sev_order = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 
@@ -103,13 +123,15 @@ def build_attack_graph(items_sorted: list[dict]) -> dict:
         details = it.get("details", {}) or {}
         event = it.get("event", {}) or {}
 
-        ip = (
-            it.get("src_ip")
-            or it.get("ip")
-            or details.get("src_ip")
-            or details.get("ip")
-            or event.get("src_ip")
-            or event.get("ip")
+        message_ips = _extract_ips_from_message(details.get("message") or event.get("message"))
+        ip = _first_known(
+            it.get("src_ip"),
+            it.get("ip"),
+            details.get("src_ip"),
+            details.get("ip"),
+            event.get("src_ip"),
+            event.get("ip"),
+            message_ips[0] if message_ips else None,
         )
         user = (
             it.get("username")
@@ -137,15 +159,15 @@ def build_attack_graph(items_sorted: list[dict]) -> dict:
         user_id = None
         host_id = None
 
-        if ip:
+        if _is_known_value(ip):
             ip_id = f"ip:{ip}"
             add_node(ip_id, str(ip), "ip")
 
-        if user:
+        if _is_known_value(user):
             user_id = f"user:{user}"
             add_node(user_id, str(user), "user")
 
-        if host:
+        if _is_known_value(host):
             host_id = f"host:{host}"
             add_node(host_id, str(host), "host")
 
@@ -1062,6 +1084,74 @@ HTML_TEMPLATE = Template(
     .hidden{display:none;}
     details{margin-top:10px;}
     details summary{cursor:pointer;color:var(--muted);font-weight:800;}
+    .executive-snapshot{
+      display:grid;
+      grid-template-columns:minmax(0,1.15fr) minmax(280px,0.85fr);
+      gap:14px;
+      margin-top:14px;
+    }
+    .snapshot-panel{
+      border:1px solid var(--border);
+      background:var(--panel);
+      border-radius:16px;
+      padding:16px;
+    }
+    .snapshot-title{
+      font-size:18px;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+    .snapshot-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(90px,1fr));
+      gap:8px;
+      margin-top:12px;
+    }
+    .snapshot-metric{
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.03);
+      border-radius:12px;
+      padding:10px;
+    }
+    .snapshot-metric .k{
+      font-size:11px;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:0.04em;
+      font-weight:800;
+    }
+    .snapshot-metric .v{
+      font-size:20px;
+      font-weight:900;
+      margin-top:4px;
+    }
+    .snapshot-list{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+    .appendix{
+      margin-top:14px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.025);
+      border-radius:16px;
+      padding:12px 14px;
+    }
+    .appendix > summary{
+      cursor:pointer;
+      color:var(--text);
+      font-weight:900;
+    }
+    .appendix-note{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+    }
+    @media (max-width: 900px){
+      .executive-snapshot{grid-template-columns:1fr;}
+      .snapshot-grid{grid-template-columns:1fr;}
+    }
     .footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center;}
   </style>
 </head>
@@ -1072,9 +1162,9 @@ HTML_TEMPLATE = Template(
 
   <div class="header">
     <div>
-      <div class="title">SOC-Forge Report</div>
+      <div class="title">SOC-Forge Incident Report</div>
       <div class="meta">
-        Input: <span class="mono">{{ input_name }}</span> • Generated: {{ generated_at }} • Version: {{ version }}
+        Input: <span class="mono">{{ input_name }}</span> &middot; Generated: {{ generated_at }} &middot; Version: {{ version }}
       </div>
     </div>
     <div class="meta">
@@ -1082,142 +1172,53 @@ HTML_TEMPLATE = Template(
     </div>
   </div>
 
-  <div class="cards">
-    <div class="stat"><div class="k">Critical</div><div class="v">{{ stats.critical }}</div></div>
-    <div class="stat"><div class="k">High</div><div class="v">{{ stats.high }}</div></div>
-    <div class="stat"><div class="k">Medium</div><div class="v">{{ stats.medium }}</div></div>
-    <div class="stat"><div class="k">Low</div><div class="v">{{ stats.low }}</div></div>
-  </div>
+  {% set top_case = cases[0] if cases and cases|length > 0 else none %}
+  {% set top_header = top_case.header if top_case else {} %}
+  {% set top_details = top_header.get('details', {}) if top_header else {} %}
+  {% set top_quality = top_details.get('case_quality', {}) %}
+  {% set top_risk = top_details.get('case_risk', {}) %}
+  {% set top_iocs = top_details.get('iocs', {}) %}
 
-  <div class="filters">
-    <div class="btn active" data-level="all" onclick="setFilter('all')">All</div>
-    <div class="btn" data-level="critical" onclick="setFilter('critical')">Critical</div>
-    <div class="btn" data-level="high" onclick="setFilter('high')">High</div>
-    <div class="btn" data-level="medium" onclick="setFilter('medium')">Medium</div>
-    <div class="btn" data-level="low" onclick="setFilter('low')">Low</div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">
-      <div class="h">
-        <div class="left"><strong>MITRE Coverage</strong></div>
-      </div>
-    </div>
-    <div class="card-body">
-      {% if mitre_coverage and mitre_coverage|length > 0 %}
-        <table>
-          <thead>
-            <tr><th>Tactic</th><th>Rule Count</th></tr>
-          </thead>
-          <tbody>
-            {% for tactic, count in mitre_coverage %}
-              <tr><td>{{ tactic }}</td><td>{{ count }}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <p class="muted">No MITRE tactics found in loaded rules.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">
-      <div class="h">
-        <div class="left"><strong>Risk Overview</strong></div>
-      </div>
-    </div>
-    <div class="card-body">
-      <div style="font-size:1.25rem; font-weight:900;">
+  <div class="executive-snapshot">
+    <section class="snapshot-panel">
+      <div class="snapshot-title">Executive Snapshot</div>
+      <div style="font-size:1.45rem; font-weight:900;">
         {{ risk_summary.level|upper }} ({{ risk_summary.overall_score }})
       </div>
-      <div class="muted" style="margin-top:6px;">
-        Alerts: {{ risk_summary.alerts }} |
-        Hunts: {{ risk_summary.hunts }} |
-        Correlations: {{ risk_summary.correlations }}
+      <p class="muted">
+        {% if top_quality.get('executive_summary') %}
+          {{ top_quality.get('executive_summary') }}
+        {% elif top_case %}
+          Highest risk case: {{ top_header.get('title', 'Untitled case') }}.
+        {% else %}
+          No correlated case was generated for this report.
+        {% endif %}
+      </p>
+      <div class="snapshot-grid">
+        <div class="snapshot-metric"><div class="k">Alerts</div><div class="v">{{ risk_summary.alerts }}</div></div>
+        <div class="snapshot-metric"><div class="k">Correlations</div><div class="v">{{ risk_summary.correlations }}</div></div>
+        <div class="snapshot-metric"><div class="k">Hunts</div><div class="v">{{ risk_summary.hunts }}</div></div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="card">
-    <div class="card-head">
-      <div class="h">
-        <div class="left"><strong>Correlation Summary</strong></div>
-      </div>
-    </div>
-    <div class="card-body">
-      {% if corr_summary.total > 0 %}
-        <p><strong>Correlated alerts:</strong> {{ corr_summary.total }}</p>
-        <table>
-          <thead>
-            <tr><th>Correlation Rule</th><th>Count</th></tr>
-          </thead>
-          <tbody>
-            {% for rid, count in corr_summary.by_rule %}
-              <tr><td class="mono muted">{{ rid }}</td><td>{{ count }}</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+    <section class="snapshot-panel">
+      <div class="snapshot-title">What To Review First</div>
+      {% if top_case %}
+        <div><strong>{{ top_header.get('title', 'Untitled case') }}</strong></div>
+        <div class="case-meta">
+          <span class="badge {{ top_risk.get('case_threat_level', top_header.get('severity', 'low'))|lower }}">{{ top_risk.get('case_threat_level', top_header.get('severity', 'low')) }}</span>
+          <span class="badge">Score {{ top_risk.get('case_score', top_header.get('score', 0)) }}</span>
+          <span class="badge">Alerts {{ top_risk.get('alert_count', top_case.alerts|length) }}</span>
+        </div>
+        <div class="snapshot-list">
+          {% for ip in top_iocs.get('ips', [])[:3] %}<span class="badge mono">IP {{ ip }}</span>{% endfor %}
+          {% for host in top_iocs.get('hosts', [])[:3] %}<span class="badge mono">Host {{ host }}</span>{% endfor %}
+          {% for user in top_iocs.get('users', [])[:3] %}<span class="badge mono">User {{ user }}</span>{% endfor %}
+        </div>
       {% else %}
-        <p class="muted">No correlated alerts in this run.</p>
+        <p class="muted">Start with standalone alerts and MITRE coverage in the appendix.</p>
       {% endif %}
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">
-      <div class="h">
-        <div class="left"><strong>Threat Hunting Findings</strong></div>
-      </div>
-    </div>
-    <div class="card-body">
-      <div class="muted" style="margin-bottom:10px;">
-        Hunt count: {{ hunt_findings|length }}
-      </div>
-
-      {% if hunt_findings and hunt_findings|length > 0 %}
-        {% for h in hunt_findings %}
-          <div class="card" style="margin-top:12px; border-left: 6px solid #7c3aed; padding:12px;">
-            <div style="font-weight:900; font-size:1.05rem;">{{ h.title }}</div>
-            <div class="muted" style="margin-top:4px;">{{ h.summary }}</div>
-
-            <div style="margin-top:8px;">
-              <span class="hunt-badge">{{ h.hunt_id }}</span>
-              <span class="hunt-badge">{{ h.severity|upper }}</span>
-              <span class="hunt-badge">{{ h.category }}</span>
-              <span class="hunt-badge">confidence: {{ h.confidence }}</span>
-            </div>
-
-            {% if h.entities %}
-              <table style="margin-top:10px;">
-                <thead>
-                  <tr>
-                    <th>Entity</th>
-                    <th>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for key, value in h.entities.items() %}
-                    <tr>
-                      <td>{{ key }}</td>
-                      <td>
-                        {% if value is iterable and value is not string and value is not mapping %}
-                          {{ value|join(', ') }}
-                        {% else %}
-                          {{ value }}
-                        {% endif %}
-                      </td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            {% endif %}
-          </div>
-        {% endfor %}
-      {% else %}
-        <p class="muted">No threat hunting findings.</p>
-      {% endif %}
-    </div>
+    </section>
   </div>
 
   {% if stats.total == 0 %}
@@ -1233,7 +1234,7 @@ HTML_TEMPLATE = Template(
       <div class="card">
         <div class="card-head">
           <div class="h">
-            <div class="left"><strong>Cases</strong></div>
+            <div class="left"><strong>Case Narrative</strong></div>
             <div class="right"><span class="muted">Grouped by correlation_id</span></div>
           </div>
         </div>
@@ -1292,7 +1293,7 @@ HTML_TEMPLATE = Template(
                       <li style="margin-bottom:12px;">
                         <div>
                           <strong>{{ step.get('stage', 'Unknown Stage') }}</strong>
-                          — {{ step.get('title', 'Unknown activity') }}
+                          - {{ step.get('title', 'Unknown activity') }}
                           {% if step.get('inferred') %}
                             <span class="badge" style="margin-left:8px;">Inferred</span>
                           {% endif %}
@@ -1301,10 +1302,10 @@ HTML_TEMPLATE = Template(
                         <div class="muted" style="margin-top:3px;">
                           {{ step.get('timestamp') or 'No timestamp' }}
                           {% if step.get('technique') %}
-                            · {{ step.get('technique') }}
+                            &middot; {{ step.get('technique') }}
                           {% endif %}
                           {% if step.get('confidence') is not none %}
-                            · confidence {{ ((step.get('confidence', 0) or 0) * 100) | round(0) }}%
+                            &middot; confidence {{ ((step.get('confidence', 0) or 0) * 100) | round(0) }}%
                           {% endif %}
                         </div>
 
@@ -1471,7 +1472,7 @@ HTML_TEMPLATE = Template(
                 ">
                   <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div style="font-weight:900; font-size:1.05rem;">
-                      🧠 Investigation Story
+                      Investigation Story
                     </div>
                     <div class="badge">{{ risk_level|upper }}</div>
                   </div>
@@ -1493,7 +1494,7 @@ HTML_TEMPLATE = Template(
                     <div class="chain">
                       {% for t in tactics %}
                         <span class="node">{{ t }}</span>
-                        {% if not loop.last %}<span class="arrow">→</span>{% endif %}
+                        {% if not loop.last %}<span class="arrow">-></span>{% endif %}
                       {% endfor %}
                     </div>
 
@@ -1521,8 +1522,8 @@ HTML_TEMPLATE = Template(
                                   <ul style="margin:0; padding-left:18px;">
                                     {% for e in events %}
                                       <li class="muted">
-                                        <span class="mono">{{ e.get('timestamp', '') }}</span> —
-                                        <span class="mono">{{ e.get('rule_id', '') }}</span> —
+                                        <span class="mono">{{ e.get('timestamp', '') }}</span> -
+                                        <span class="mono">{{ e.get('rule_id', '') }}</span> -
                                         {{ e.get('title', '') }}
                                       </li>
                                     {% endfor %}
@@ -1561,7 +1562,7 @@ HTML_TEMPLATE = Template(
                         </div>
 
                         {% if not loop.last %}
-                          <div class="flow-arrow">→</div>
+                          <div class="flow-arrow">-></div>
                         {% endif %}
                       {% endfor %}
                     </div>
@@ -1607,7 +1608,7 @@ HTML_TEMPLATE = Template(
                           <div class="graph-node-value">{{ node.label }}</div>
                         </div>
                         {% if not loop.last %}
-                          <div class="graph-arrow">↓</div>
+                          <div class="graph-arrow">v</div>
                         {% endif %}
                       {% endfor %}
                     </div>
@@ -1622,6 +1623,48 @@ HTML_TEMPLATE = Template(
                   <div style="margin-bottom:10px;">
                     <div class="muted" style="font-weight:900;">Analyst Summary</div>
                     <div style="margin-top:6px;">{{ analyst_summary }}</div>
+                  </div>
+                {% endif %}
+
+                {% set case_quality = (h.get('details', {}) or {}).get('case_quality', {}) %}
+                {% if case_quality %}
+                  <div class="case-section" style="margin-top:12px;">
+                    <h3>Case Quality Brief</h3>
+                    {% if case_quality.get('executive_summary') %}
+                      <div style="margin-top:6px; line-height:1.65;">{{ case_quality.get('executive_summary') }}</div>
+                    {% endif %}
+                    <div class="case-meta">
+                      <span class="badge">Quality {{ case_quality.get('quality_score', 0) }}/100</span>
+                    </div>
+
+                    {% if case_quality.get('key_findings') %}
+                      <div style="margin-top:10px; font-weight:900;">Key Findings</div>
+                      <ul style="margin-top:6px;">
+                        {% for finding in case_quality.get('key_findings', []) %}
+                          <li class="muted">{{ finding }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+
+                    {% if case_quality.get('containment_guidance') %}
+                      <div style="margin-top:10px; font-weight:900;">Containment Guidance</div>
+                      <ul style="margin-top:6px;">
+                        {% for action in case_quality.get('containment_guidance', []) %}
+                          <li class="muted">{{ action }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+
+                    {% if case_quality.get('quality_gaps') %}
+                      <details>
+                        <summary>Case quality gaps</summary>
+                        <ul>
+                          {% for gap in case_quality.get('quality_gaps', []) %}
+                            <li class="muted">{{ gap }}</li>
+                          {% endfor %}
+                        </ul>
+                      </details>
+                    {% endif %}
                   </div>
                 {% endif %}
 
@@ -1777,7 +1820,150 @@ HTML_TEMPLATE = Template(
 
   {% endif %}
 
-  <div class="footer">SOC-Forge • Case-based report view</div>
+  <details class="appendix">
+    <summary>Appendix: metrics, MITRE coverage, correlations, and hunt findings</summary>
+    <div class="appendix-note">Supporting detail is still available here without crowding the incident narrative.</div>
+
+  <div class="cards">
+    <div class="stat"><div class="k">Critical</div><div class="v">{{ stats.critical }}</div></div>
+    <div class="stat"><div class="k">High</div><div class="v">{{ stats.high }}</div></div>
+    <div class="stat"><div class="k">Medium</div><div class="v">{{ stats.medium }}</div></div>
+    <div class="stat"><div class="k">Low</div><div class="v">{{ stats.low }}</div></div>
+  </div>
+
+  <div class="filters">
+    <div class="btn active" data-level="all" onclick="setFilter('all')">All</div>
+    <div class="btn" data-level="critical" onclick="setFilter('critical')">Critical</div>
+    <div class="btn" data-level="high" onclick="setFilter('high')">High</div>
+    <div class="btn" data-level="medium" onclick="setFilter('medium')">Medium</div>
+    <div class="btn" data-level="low" onclick="setFilter('low')">Low</div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>MITRE Coverage</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if mitre_coverage and mitre_coverage|length > 0 %}
+        <table>
+          <thead>
+            <tr><th>Tactic</th><th>Rule Count</th></tr>
+          </thead>
+          <tbody>
+            {% for tactic, count in mitre_coverage %}
+              <tr><td>{{ tactic }}</td><td>{{ count }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">No MITRE tactics found in loaded rules.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>Risk Overview</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div style="font-size:1.25rem; font-weight:900;">
+        {{ risk_summary.level|upper }} ({{ risk_summary.overall_score }})
+      </div>
+      <div class="muted" style="margin-top:6px;">
+        Alerts: {{ risk_summary.alerts }} |
+        Hunts: {{ risk_summary.hunts }} |
+        Correlations: {{ risk_summary.correlations }}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>Correlation Summary</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if corr_summary.total > 0 %}
+        <p><strong>Correlated alerts:</strong> {{ corr_summary.total }}</p>
+        <table>
+          <thead>
+            <tr><th>Correlation Rule</th><th>Count</th></tr>
+          </thead>
+          <tbody>
+            {% for rid, count in corr_summary.by_rule %}
+              <tr><td class="mono muted">{{ rid }}</td><td>{{ count }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">No correlated alerts in this run.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="h">
+        <div class="left"><strong>Threat Hunting Findings</strong></div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="muted" style="margin-bottom:10px;">
+        Hunt count: {{ hunt_findings|length }}
+      </div>
+
+      {% if hunt_findings and hunt_findings|length > 0 %}
+        {% for h in hunt_findings %}
+          <div class="card" style="margin-top:12px; border-left: 6px solid #7c3aed; padding:12px;">
+            <div style="font-weight:900; font-size:1.05rem;">{{ h.title }}</div>
+            <div class="muted" style="margin-top:4px;">{{ h.summary }}</div>
+
+            <div style="margin-top:8px;">
+              <span class="hunt-badge">{{ h.hunt_id }}</span>
+              <span class="hunt-badge">{{ h.severity|upper }}</span>
+              <span class="hunt-badge">{{ h.category }}</span>
+              <span class="hunt-badge">confidence: {{ h.confidence }}</span>
+            </div>
+
+            {% if h.entities %}
+              <table style="margin-top:10px;">
+                <thead>
+                  <tr>
+                    <th>Entity</th>
+                    <th>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for key, value in h.entities.items() %}
+                    <tr>
+                      <td>{{ key }}</td>
+                      <td>
+                        {% if value is iterable and value is not string and value is not mapping %}
+                          {{ value|join(', ') }}
+                        {% else %}
+                          {{ value }}
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="muted">No threat hunting findings.</p>
+      {% endif %}
+    </div>
+  </div>
+  </details>
+
+  <div class="footer">SOC-Forge &middot; Incident report view</div>
 
 </div>
 
@@ -1849,11 +2035,9 @@ def build_case_iocs(items_sorted: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     users: List[str] = []
 
     def add_unique(bucket: List[str], value: Any) -> None:
-        if value is None:
+        if not _is_known_value(value):
             return
         s = str(value).strip()
-        if not s:
-            return
         if s not in bucket:
             bucket.append(s)
 
@@ -1867,6 +2051,8 @@ def build_case_iocs(items_sorted: List[Dict[str, Any]]) -> Dict[str, List[str]]:
         add_unique(ips, details.get("ip"))
         add_unique(ips, event.get("src_ip"))
         add_unique(ips, event.get("ip"))
+        for ip in _extract_ips_from_message(details.get("message") or event.get("message")):
+            add_unique(ips, ip)
 
         add_unique(hosts, it.get("host"))
         add_unique(hosts, details.get("host"))
@@ -1913,6 +2099,14 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
        
 
         analyst_summary = build_analyst_summary(items_sorted)
+        recommended_actions = build_recommended_actions(items_sorted)
+        case_quality = build_case_quality_profile(
+            items_sorted,
+            case_risk=case_risk,
+            iocs=iocs,
+            recommended_actions=recommended_actions,
+            story=analyst_summary,
+        )
 
         timeline = [
             {
@@ -1932,7 +2126,8 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
             "timestamp": header_alert.get("timestamp", ""),
             "score": int(header_alert.get("score", 0) or 0),
             "details": {
-                "recommended_actions": build_recommended_actions(items_sorted),
+                "recommended_actions": recommended_actions,
+                "case_quality": case_quality,
                 "case_risk": case_risk,
                 "attack_flow": attack_flow,
                 "attack_graph": attack_graph,
@@ -1970,13 +2165,16 @@ def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str,
                 "attack_chain": attack_chain,
                 "iocs": iocs,
                 "evidence": evidence,
+                "case_quality": case_quality,
+                "executive_summary": case_quality.get("executive_summary", ""),
+                "containment_guidance": case_quality.get("containment_guidance", []),
                 "alerts": items_sorted,
             }
         )
 
 
     cases.sort(key=lambda c: c["correlation_id"])
-    return cases
+    return [normalize_case(case, index) for index, case in enumerate(cases, start=1)]
 
 def write_html_report(
     alerts: List[Dict[str, Any]],
@@ -2088,7 +2286,7 @@ def write_html_report(
             "correlations": 0,
         },
         version=__version__,
-        generated_at=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

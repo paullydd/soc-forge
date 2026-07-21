@@ -147,6 +147,8 @@ MITRE_MAP = {
     "SOCF-007": ["Persistence"],
     "SOCF-008": ["Privilege Escalation"],
     "SOCF-009": ["Defense Evasion"],
+    "SOCF-011": ["Execution", "Defense Evasion"],
+    "SOCF-012": ["Execution", "Defense Evasion"],
     "SOCF_CORR_001": ["Credential Access"],
     "SOCF_CORR_002": ["Execution", "Lateral Movement"],
     "SOCF_CORR_003": ["Privilege Escalation", "Lateral Movement"],

@@ -1,0 +1,58 @@
+version: 1
+rules:
+  - id: SOCF-015
+    enabled: true
+    title: Browser credential store access
+    description: Detects suspicious access to browser credential stores such as Login Data, Cookies, or Web Data files.
+    author: SOC-Forge
+    created: "2026-07-17"
+    logsource: windows-file
+    tags:
+      - windows
+      - credential-access
+      - browser-credentials
+    severity: high
+    score: 80
+    mitre:
+      - tactic: Credential Access
+        technique: Credentials from Web Browsers
+        id: T1555.003
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4663
+            - field: event_id
+              op: eq
+              value: 11
+            - field: event_id
+              op: eq
+              value: 15
+        - any:
+            - field: file_path
+              op: regex
+              value: '(?i)\\(Chrome|Edge|Brave|Firefox)\\.*\\(Login Data|Cookies|Web Data|key4\.db|logins\.json)$'
+            - field: target_filename
+              op: regex
+              value: '(?i)\\(Chrome|Edge|Brave|Firefox)\\.*\\(Login Data|Cookies|Web Data|key4\.db|logins\.json)$'
+            - field: message
+              op: regex
+              value: '(?i)(Login Data|Cookies|Web Data|key4\.db|logins\.json)'
+        - any:
+            - field: process_name
+              op: regex
+              value: '(?i)\b(powershell|cmd|python|rundll32|sqlite3|7z|rar|copy|xcopy|robocopy)(\.exe)?\b'
+            - field: message
+              op: regex
+              value: '(?i)\b(powershell|cmd|python|rundll32|sqlite3|7z|rar|copy|xcopy|robocopy)(\.exe)?\b'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        process_name: "${process_name}"
+        file_path: "${file_path}"
+        target_filename: "${target_filename}"
+        message: "${message}"
+        suspicious: true
