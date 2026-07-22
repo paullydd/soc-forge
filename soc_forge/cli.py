@@ -1,7 +1,6 @@
 import argparse
 import json
-from collections import defaultdict, deque, Counter
-from datetime import datetime, timedelta, timezone
+from collections import Counter
 from pathlib import Path
 
 from soc_forge.correlate.rules import correlate_alerts
@@ -16,6 +15,7 @@ from soc_forge.rules.quality import evaluate_rule_quality_from_paths, format_rul
 from soc_forge.report.html_report import write_html_report, build_cases
 from soc_forge.export.cases_export import export_cases_json
 from soc_forge.reconstruct.engine import reconstruct_case
+from soc_forge.rules.legacy import detect_bruteforce
 from soc_forge.simulator import generate_scenario, write_events_jsonl
 from soc_forge.intelligence import attach_case_stories, build_risk_summary
 from typing import Any, List
@@ -26,12 +26,6 @@ from rich.table import Table
 console = Console()
 
 # ---------- Helpers ----------
-def parse_ts(ts: str) -> datetime:
-    # Accepts ISO timestamps with Z or offset
-    if ts.endswith("Z"):
-        ts = ts[:-1] + "+00:00"
-    return datetime.fromisoformat(ts).astimezone(timezone.utc)
-
 def read_jsonl(path: Path):
     with path.open("r", encoding="utf-8") as f:
         for line in f:
@@ -39,47 +33,6 @@ def read_jsonl(path: Path):
             if not line:
                 continue
             yield json.loads(line)
-
-# ---------- Detectors ----------
-def detect_bruteforce(events, threshold=8, window_minutes=10, severity="high", score=60):
-    """
-    Rule: >= threshold failed logons (4625) from same IP in window
-    """
-    window = timedelta(minutes=window_minutes)
-    buckets = defaultdict(deque)  # ip -> deque[timestamps]
-    alerts = []
-
-    for ev in events:
-        if ev.get("event_id") != 4625:
-            continue
-        ip = ev.get("ip") or "unknown"
-        ts = parse_ts(ev["timestamp"])
-
-        dq = buckets[ip]
-        dq.append(ts)
-
-        # pop old
-        while dq and (ts - dq[0]) > window:
-            dq.popleft()
-
-        if len(dq) == threshold:
-            alerts.append(Alert(
-                rule_id="SOCF-001",
-                severity=severity,
-                title="Possible brute-force login attempts",
-                timestamp=ts.isoformat().replace("+00:00", "Z"),
-                details={
-                    "ip": ip,
-                    "count_in_window": len(dq),
-                    "window_minutes": window_minutes,
-                    "example_username": ev.get("username"),
-                    "host": ev.get("host"),
-                },
-                mitre=[{"tactic":"Credential Access","technique":"Brute Force","id":"T1110"}],
-                score=score,
-            ))
-    return alerts
-
 
 # ---------- Output ----------
 def write_alerts(path: Path, alerts):

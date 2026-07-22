@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from urllib.parse import parse_qs, unquote, urlparse
 
-from soc_forge.cli import detect_bruteforce
+from soc_forge.rules.legacy import detect_bruteforce
 from soc_forge.config import load_config
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.export.cases_export import export_cases_json
