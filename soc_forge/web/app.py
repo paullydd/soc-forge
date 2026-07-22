@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import ipaddress
 from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -285,6 +286,12 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_json_error(self, message: str, status: int) -> None:
+        self.send_json({"error": message}, status=status)
+
+    def request_content_type(self) -> str:
+        return str(self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+
     def send_file(self, path: Path, content_type: str | None = None) -> None:
         if not path.exists() or not path.is_file():
             self.send_error(404, "File not found")
@@ -317,17 +324,27 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         path = unquote(parsed.path)
 
         if path == "/api/scenario":
+            if self.request_content_type() != "application/json":
+                self.send_json_error("Content-Type must be application/json", status=415)
+                return
+
             try:
                 length = int(self.headers.get("Content-Length") or 0)
                 raw_body = self.rfile.read(length).decode("utf-8") if length else "{}"
                 payload = json.loads(raw_body or "{}")
                 scenario = str(payload.get("scenario") or "")
                 workspace = run_demo_scenario(scenario, self.out_dir)
+            except json.JSONDecodeError as exc:
+                print(f"[soc-forge-web] Invalid JSON for /api/scenario: {exc}")
+                self.send_json_error("Invalid JSON request body", status=400)
+                return
             except ValueError as exc:
-                self.send_json({"error": str(exc), "scenarios": WEB_SCENARIOS}, status=400)
+                print(f"[soc-forge-web] Invalid scenario request: {exc}")
+                self.send_json({"error": "Invalid scenario", "scenarios": WEB_SCENARIOS}, status=400)
                 return
             except Exception as exc:
-                self.send_json({"error": f"Unable to run scenario: {exc}"}, status=500)
+                print(f"[soc-forge-web] Unable to run scenario: {type(exc).__name__}: {exc}")
+                self.send_json_error("Unable to run scenario", status=500)
                 return
 
             self.send_json({"scenario": scenario, "workspace": workspace})
@@ -389,6 +406,20 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Not found")
 
 
+def is_loopback_host(host: str) -> bool:
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return host.lower() == "localhost"
+
+
+def warn_if_non_loopback(host: str) -> None:
+    if is_loopback_host(host):
+        return
+    print("WARNING: SOC-Forge web UI has no authentication.")
+    print("Binding to a non-loopback host may expose investigation data and generated artifacts.")
+
+
 def make_server(host: str, port: int, out_dir: Path) -> ThreadingHTTPServer:
     class Handler(SocForgeWebHandler):
         pass
@@ -405,6 +436,7 @@ def main() -> int:
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir).resolve()
+    warn_if_non_loopback(args.host)
     server = make_server(args.host, args.port, out_dir)
     print(f"SOC-Forge web UI running at http://{args.host}:{args.port}")
     print(f"Reading artifacts from: {out_dir}")

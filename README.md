@@ -106,6 +106,8 @@ python3 -m soc_forge.web.app --port 8765
 
 Then open `http://127.0.0.1:8765`, choose a scenario, and click `Start Demo`.
 
+Local safety note: SOC-Forge is a local analyst tool and does not include authentication. Generated reports and JSON artifacts may contain sensitive telemetry such as usernames, hosts, IP addresses, command lines, and investigation notes. Review and redact artifacts before sharing them, and avoid binding the web UI to a non-loopback host unless you understand the exposure.
+
 
 ## Portfolio Demo Package
 

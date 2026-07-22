@@ -4,7 +4,8 @@ from http.client import HTTPConnection
 
 import pytest
 
-from soc_forge.web.app import make_server
+import soc_forge.web.app as web_app
+from soc_forge.web.app import make_server, warn_if_non_loopback
 
 
 SCENARIO_EXPECTATIONS = {
@@ -117,17 +118,96 @@ def test_workspace_over_http_is_empty_without_existing_artifacts(web_server):
 @pytest.mark.parametrize(
     "body,expected_error_fragment",
     [
-        (json.dumps({"scenario": "not-a-scenario"}).encode("utf-8"), "Unsupported scenario"),
-        (b"{not-json", "Expecting property name"),
-        (None, "Unsupported scenario"),
+        (json.dumps({"scenario": "not-a-scenario"}).encode("utf-8"), "Invalid scenario"),
+        (b"{not-json", "Invalid JSON request body"),
+        (None, "Invalid scenario"),
     ],
 )
 def test_post_scenario_negative_paths_over_http(web_server, body, expected_error_fragment):
     status, headers, payload = json_request(web_server, "POST", "/api/scenario", raw_body=body)
 
-    assert status in {400, 500}
+    assert status == 400
     assert headers["Content-Type"].startswith("application/json")
     assert expected_error_fragment in payload["error"]
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},
+        {"Content-Type": "text/plain"},
+        {"Content-Type": "application/x-www-form-urlencoded"},
+    ],
+)
+def test_post_scenario_rejects_missing_or_unsupported_content_type(web_server, headers):
+    status, response_headers, data = request(
+        web_server,
+        "POST",
+        "/api/scenario",
+        body=json.dumps({"scenario": "detection_lab"}).encode("utf-8"),
+        headers=headers,
+    )
+    payload = json.loads(data.decode("utf-8"))
+
+    assert status == 415
+    assert response_headers["Content-Type"].startswith("application/json")
+    assert payload == {"error": "Content-Type must be application/json"}
+
+
+def test_malformed_json_error_is_generic_but_diagnostic_is_local(web_server, capsys):
+    status, _headers, payload = json_request(web_server, "POST", "/api/scenario", raw_body=b"{not-json")
+
+    assert status == 400
+    assert payload == {"error": "Invalid JSON request body"}
+    assert "Expecting property name" not in json.dumps(payload)
+    captured = capsys.readouterr()
+    assert "Invalid JSON for /api/scenario" in captured.out
+    assert "Expecting property name" in captured.out
+
+
+def test_non_loopback_warning_is_printed_without_binding_externally(capsys):
+    warn_if_non_loopback("0.0.0.0")
+
+    captured = capsys.readouterr()
+    assert "no authentication" in captured.out
+    assert "may expose investigation data" in captured.out
+
+
+def test_loopback_warning_is_not_printed(capsys):
+    warn_if_non_loopback("127.0.0.1")
+    warn_if_non_loopback("localhost")
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+
+
+def test_internal_scenario_exception_is_generic_to_client(tmp_path, monkeypatch, capsys):
+    def broken_scenario(_scenario, _out_dir):
+        raise RuntimeError("secret filesystem detail /tmp/private-case")
+
+    monkeypatch.setattr(web_app, "run_demo_scenario", broken_scenario)
+    server = make_server("127.0.0.1", 0, tmp_path)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address
+    try:
+        status, _headers, payload = json_request(
+            {"host": host, "port": port, "out_dir": tmp_path},
+            "POST",
+            "/api/scenario",
+            {"scenario": "detection_lab"},
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert status == 500
+    assert payload == {"error": "Unable to run scenario"}
+    assert "secret filesystem detail" not in json.dumps(payload)
+    captured = capsys.readouterr()
+    assert "RuntimeError" in captured.out
+    assert "secret filesystem detail /tmp/private-case" in captured.out
 
 
 def test_unsupported_methods_and_missing_routes_over_http(web_server):
