@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from soc_forge.config import load_config
-from soc_forge.models import alert_to_dict, normalize_alerts
+from soc_forge.models import alert_to_dict
 from soc_forge.pipeline import AnalysisOptions, run_analysis
 from soc_forge import __version__
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
@@ -26,12 +26,6 @@ def read_jsonl(path: Path):
             if not line:
                 continue
             yield json.loads(line)
-
-# ---------- Output ----------
-def write_alerts(path: Path, alerts):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(normalize_alerts(alerts), f, indent=2)
 
 def print_summary(alerts: List[Any]) -> None:
     """

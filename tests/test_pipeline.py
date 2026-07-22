@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from soc_forge.pipeline import AnalysisOptions, AnalysisResult, run_analysis, run_analysis_for_events
 from soc_forge.simulator import generate_scenario, write_events_jsonl
 
@@ -102,6 +104,13 @@ def test_run_analysis_file_input_preserves_cli_style_artifact_paths(tmp_path):
     assert len(result.cases) == 1
     assert result.hunt_findings == []
     assert len(result.reconstructions) == 1
+    assert result.artifacts == {
+        "alerts": alerts_path,
+        "cases": report_path.parent / "cases.json",
+        "hunts": hunts_path,
+        "reconstructions": reconstructions_path,
+        "report": report_path,
+    }
     assert alerts_path.exists()
     assert report_path.exists()
     assert (report_path.parent / "cases.json").exists()
@@ -109,3 +118,50 @@ def test_run_analysis_file_input_preserves_cli_style_artifact_paths(tmp_path):
     assert reconstructions_path.exists()
     assert not (alerts_path.parent / "cases.json").exists()
     assert not (report_path.parent / "reconstructions.json").exists()
+
+
+@pytest.mark.parametrize(
+    "scenario,expected",
+    [
+        ("attack_chain", {"events": 5, "alerts": 10, "correlations": 4, "cases": 5, "hunts": 1}),
+        ("detection_lab", {"events": 6, "alerts": 8, "correlations": 3, "cases": 3, "hunts": 1}),
+    ],
+)
+def test_run_analysis_for_events_artifact_map_matches_serialized_outputs(tmp_path, scenario, expected):
+    events = generate_scenario(scenario)
+    events_path = write_events_jsonl(events, tmp_path / f"{scenario}_events.jsonl")
+
+    result = run_analysis_for_events(
+        AnalysisOptions(
+            events=events,
+            input_name=events_path.name,
+            output_dir=tmp_path,
+            events_path=events_path,
+        )
+    )
+
+    assert result.event_count == expected["events"]
+    assert len(result.alerts) == expected["alerts"]
+    assert result.correlations["total"] == expected["correlations"]
+    assert len(result.cases) == expected["cases"]
+    assert len(result.hunt_findings) == expected["hunts"]
+    assert len(result.reconstructions) == expected["cases"]
+    assert set(result.artifacts) == {"events", "alerts", "cases", "hunts", "reconstructions", "report"}
+
+    for path in result.artifacts.values():
+        assert path.exists(), path
+
+    assert result.artifacts["events"] == events_path
+    serialized_alerts = json.loads(result.artifacts["alerts"].read_text(encoding="utf-8"))
+    serialized_cases = json.loads(result.artifacts["cases"].read_text(encoding="utf-8"))
+    serialized_hunts = json.loads(result.artifacts["hunts"].read_text(encoding="utf-8"))
+    serialized_reconstructions = json.loads(result.artifacts["reconstructions"].read_text(encoding="utf-8"))
+
+    assert serialized_alerts == result.alerts
+    assert serialized_hunts == result.hunt_findings
+    assert serialized_reconstructions == result.reconstructions
+    assert [case["case_id"] for case in serialized_cases] == [case["case_id"] for case in result.cases]
+    assert [case["title"] for case in serialized_cases] == [case["title"] for case in result.cases]
+    assert [case["risk_score"] for case in serialized_cases] == [case["risk_score"] for case in result.cases]
+    assert [len(case.get("evidence", [])) for case in serialized_cases] == [len(case.get("evidence", [])) for case in result.cases]
+    assert result.artifacts["report"].read_text(encoding="utf-8").startswith("<!doctype html>")

@@ -81,21 +81,32 @@ def test_run_demo_scenario_generates_detection_lab_workspace(tmp_path):
 @pytest.mark.parametrize("scenario,expected", sorted(SCENARIO_EXPECTATIONS.items()))
 def test_run_demo_scenario_uses_pipeline_for_supported_scenarios(tmp_path, monkeypatch, scenario, expected):
     calls = []
+    results = []
     real_run_analysis = web_app.run_analysis_for_events
 
     def spy_run_analysis(options):
         calls.append(options)
-        return real_run_analysis(options)
+        result = real_run_analysis(options)
+        results.append(result)
+        return result
 
     monkeypatch.setattr(web_app, "run_analysis_for_events", spy_run_analysis)
 
     workspace = web_app.run_demo_scenario(scenario, tmp_path)
 
     assert len(calls) == 1
+    assert len(results) == 1
     assert calls[0].input_name == f"{scenario}_events.jsonl"
     assert calls[0].output_dir == tmp_path
     assert calls[0].events_path == tmp_path / f"{scenario}_events.jsonl"
     assert len(calls[0].events) == expected["events"]
+    assert set(results[0].artifacts) == {"events", "alerts", "cases", "hunts", "reconstructions", "report"}
+    assert results[0].artifacts["events"] == tmp_path / f"{scenario}_events.jsonl"
+    assert results[0].artifacts["alerts"] == tmp_path / "alerts.json"
+    assert results[0].artifacts["cases"] == tmp_path / "cases.json"
+    assert results[0].artifacts["hunts"] == tmp_path / "hunts.json"
+    assert results[0].artifacts["reconstructions"] == tmp_path / "reconstructions.json"
+    assert results[0].artifacts["report"] == tmp_path / "report.html"
     assert workspace["active_scenario"] == scenario
     assert workspace["scenario_label"] == expected["label"]
     assert workspace["generated_event_count"] == expected["events"]
