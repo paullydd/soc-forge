@@ -2,7 +2,7 @@
 
 SOC-Forge is a Python-based security operations project that demonstrates the core workflow of a small SOC platform: ingest security events, normalize them, run detection rules, correlate alerts, build cases, reconstruct attack activity, and produce analyst-friendly reports.
 
-The current portfolio package is centered on a local analyst web UI with a guided demo path. It also includes a terminal analyst console, checked-in sample artifacts, an HTML incident report, rule quality checks, and a detection engineering scorecard.
+The current portfolio package is centered on a local analyst web UI with a guided demo path. It also includes one shared CLI/web analysis pipeline, an optional terminal analyst console, checked-in sample artifacts, an HTML incident report, rule quality checks, and a detection engineering scorecard.
 
 ## What This Project Demonstrates
 
@@ -74,11 +74,11 @@ The Detection Lab demo is the cleanest web walkthrough because it shows process-
 
 ## Honest Limitations
 
-SOC-Forge is intentionally lightweight. It is not a full SIEM, production case management platform, or enterprise detection engine. Current improvement areas include:
+SOC-Forge is intentionally lightweight. It is not a full SIEM, production case management platform, or enterprise detection engine. Future improvement areas include:
 
-- Custom event upload in the web UI
+- Custom dataset loading in the web UI
 - Saved analyst notes and closure decisions in the web UI
-- Exportable graph images and PDF investigation packages
+- Exportable graph images and additional investigation bundle formats
 - More false-positive guidance and data-source requirements per rule
 - Broader event sources, especially cloud identity and SaaS audit logs
 

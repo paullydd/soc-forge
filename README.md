@@ -23,26 +23,36 @@ The project is designed as a portfolio-ready SOC workflow: it shows detection en
 - Includes process-chain, credential-access, lateral-movement, persistence, and collection detections
 - Scores detection engineering maturity across rule quality, MITRE coverage, evidence context, correlation depth, and demo readiness
 
-## Pipeline
+## Product Positioning
+
+The guided local web demo is the primary portfolio experience. It gives reviewers a fast, visual path through scenario generation, dashboard triage, case review, graph analysis, the detection scorecard, and the HTML incident report.
+
+The terminal analyst console remains an optional deep-dive interface for replay, relationship exploration, lifecycle actions, and case export. The CLI remains the automation, simulation, coverage, and detection-engineering interface.
+
+## Shared Analysis Pipeline
+
+Both the CLI analysis path and the web demo scenario runner now use `soc_forge.pipeline`, so the same detection, correlation, hunt, risk, case, story, reconstruction, artifact, and report behavior powers both presentation layers.
 
 ```text
-Security Events
-  -> Event Normalization
-  -> Detection Rules
-  -> Alert Generation
-  -> Correlation
-  -> Case Building
-  -> Risk Scoring
-  -> IOC Extraction
-  -> Attack Reconstruction
-  -> HTML Report / Investigation Export
+Input file or web scenario events
+  -> Event loading / scenario generation
+  -> Shared analysis pipeline
+  -> YAML detection rules and legacy brute-force compatibility detection
+  -> Correlations
+  -> Hunts
+  -> Risk scoring
+  -> Case construction
+  -> Case stories and attack reconstructions
+  -> JSON artifacts and HTML report rendering
+  -> Web UI or CLI presentation
 ```
 
 ## Main Components
 
 ```text
 soc_forge/
-  cli.py                    Command-line analysis pipeline
+  pipeline.py               Shared analysis pipeline used by CLI and web demos
+  cli.py                    CLI commands for analysis, simulation, coverage, and rule quality
   config.py                 YAML-backed configuration
   models.py                 Shared alert and case normalization helpers
   ingest/                   Event loaders and converters
@@ -67,13 +77,21 @@ Install the project in editable mode:
 pip install -e .
 ```
 
-Run analysis against a JSONL event file:
+Start the recommended local web demo:
+
+```bash
+python3 -m soc_forge.web.app --port 8765
+```
+
+Then open `http://127.0.0.1:8765`, choose `Detection Lab` or `Attack Chain`, and click `Start Demo`. The browser runs the selected scenario through the shared pipeline and refreshes the local artifacts in `out/`.
+
+Run analysis against a JSONL event file from the CLI:
 
 ```bash
 soc-forge --input sample_events.jsonl
 ```
 
-Generate a demo attack scenario and analyze it:
+Generate a demo attack scenario and analyze it from the CLI:
 
 ```bash
 python3 -m soc_forge.cli --simulate mixed --sim-output out/simulated_events.jsonl
@@ -98,15 +116,7 @@ out/reconstructions.json
 out/report.html
 ```
 
-Start the local web UI:
-
-```bash
-python3 -m soc_forge.web.app --port 8765
-```
-
-Then open `http://127.0.0.1:8765`, choose a scenario, and click `Start Demo`.
-
-Local safety note: SOC-Forge is a local analyst tool and does not include authentication. Generated reports and JSON artifacts may contain sensitive telemetry such as usernames, hosts, IP addresses, command lines, and investigation notes. Review and redact artifacts before sharing them, and avoid binding the web UI to a non-loopback host unless you understand the exposure.
+Local safety note: SOC-Forge is a local analyst tool. The web server binds to `127.0.0.1` by default, has no authentication, and prints a warning if you explicitly bind it to a non-loopback host. Generated reports and JSON artifacts may contain sensitive telemetry such as usernames, hosts, IP addresses, command lines, and investigation notes. Review and redact artifacts before sharing them.
 
 
 ## Portfolio Demo Package
@@ -148,17 +158,23 @@ The detection-lab scenario demonstrates process-chain and credential-access dete
 
 ## Demo Walkthrough
 
-For the best portfolio-style demo, run the attack-chain scenario:
+For the primary portfolio demo, start the local web UI and use the guided demo:
 
 ```bash
-python3 -m soc_forge.cli --simulate attack_chain --sim-output out/attack_chain_events.jsonl
-python3 -m soc_forge.cli --input out/attack_chain_events.jsonl --out out/alerts.json --html out/report.html
+python3 -m soc_forge.web.app --port 8765
+```
+
+Open `http://127.0.0.1:8765`, select `Detection Lab`, and click `Start Demo`. The current guided path is `Generate -> Dashboard -> Case -> Graph -> Scorecard -> Report`.
+
+For an optional terminal deep dive, generate or load the attack-chain artifacts, then run:
+
+```bash
 python3 analyst_console.py
 ```
 
-Then open `Investigations -> Investigation Workspace` and inspect replay, timeline, graph, entity profiles, relationship evidence, next actions, and case closure/export.
+Then open `Investigations -> Investigation Workspace` and inspect replay, timeline, entity profiles, relationship evidence, next actions, and case closure/export.
 
-A complete walkthrough lives in [`docs/demo_walkthrough.md`](docs/demo_walkthrough.md). Sample generated artifacts live in [`samples/attack_chain_demo/`](samples/attack_chain_demo/).
+A complete terminal walkthrough lives in [`docs/demo_walkthrough.md`](docs/demo_walkthrough.md). Sample generated artifacts live in [`samples/attack_chain_demo/`](samples/attack_chain_demo/).
 
 ## Rule Coverage
 
@@ -185,6 +201,25 @@ Rules live in `soc_forge/rules` and use a YAML format with:
 - Optional score modifiers
 - Optional emitted detail fields
 
+## Local Web API
+
+The local web server exposes the current workspace and demo controls through these routes:
+
+```text
+GET /api/workspace
+GET /api/summary
+GET /api/cases
+GET /api/alerts
+GET /api/hunts
+GET /api/detection-scorecard
+GET /api/reconstructions
+GET /api/scenarios
+POST /api/scenario
+GET /artifact?file=report.html
+```
+
+`POST /api/scenario` expects `Content-Type: application/json` and supports `detection_lab` and `attack_chain`.
+
 ## Testing
 
 Run the full test suite:
@@ -195,11 +230,13 @@ pytest -q
 
 The suite covers detection rules, config loading, correlation, risk scoring, MITRE coverage, CSV ingestion, case enrichment, attack reconstruction, hunts, simulation, and shared model normalization.
 
-## Current Enhancement Roadmap
+## Future Work
 
-1. Add event upload and custom dataset loading to the web UI so demos can move beyond the built-in scenarios.
+These are intentionally postponed and are not current capabilities:
+
+1. Add custom dataset loading to the web UI after the local demo and pipeline contracts remain stable.
 2. Add saved analyst notes, ownership, and closure decisions to the web UI case workflow.
-3. Add exportable graph images and case PDF bundles for analyst handoff.
+3. Add exportable graph images and case bundle formats after the existing HTML and JSON outputs stay stable.
 4. Expand detection content into cloud identity, SaaS audit logs, and EDR-style process telemetry.
 5. Add rule tuning metadata such as false-positive notes, data-source requirements, severity rationale, and test coverage status.
 

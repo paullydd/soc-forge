@@ -1,6 +1,6 @@
 # SOC-Forge Demo In 5 Minutes
 
-This is the quickest portfolio demo path for SOC-Forge. It uses the local web UI because that path shows the dashboard, generated cases, investigation graph, detection engineering scorecard, and HTML report without jumping between tools.
+This is the quickest portfolio demo path for SOC-Forge. It uses the local web UI because that path runs a scenario through the shared analysis pipeline and shows the dashboard, generated cases, investigation graph, detection engineering scorecard, and HTML report without jumping between tools.
 
 ## 1. Activate The Environment
 

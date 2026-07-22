@@ -1,47 +1,80 @@
 # SOC-Forge Architecture
 
-SOC-Forge is organized as a small SOC investigation pipeline. The design keeps each step understandable: input events become normalized records, rules create alerts, correlation creates cases, and investigation modules turn those cases into analyst-facing context.
+SOC-Forge is organized around one shared local analysis pipeline. Input events can come from a CLI file input or from a web demo scenario, but both paths use the same detection, correlation, hunt, risk, case, reconstruction, artifact, and report behavior.
 
 ## Pipeline View
 
 ```mermaid
 flowchart LR
-    A[Security Events] --> B[Ingest and Normalize]
-    B --> C[Detection Rules]
-    C --> D[Alerts]
-    D --> E[Correlation]
-    E --> F[Cases]
-    F --> G[Risk Scoring]
-    F --> H[Investigation Reconstruction]
-    G --> I[Reports and Exports]
-    H --> I
-    F --> J[Analyst Console]
-    J --> K[Lifecycle Updates]
-    J --> L[Investigation Bundle]
+    A[Input file or scenario events] --> B[Event loading or scenario generation]
+    B --> C[Shared analysis pipeline]
+    C --> D[YAML rules]
+    C --> E[Legacy brute-force compatibility detector]
+    D --> F[Alerts]
+    E --> F
+    F --> G[Correlations]
+    F --> H[Hunts]
+    F --> I[Risk scoring]
+    G --> J[Case construction]
+    I --> J
+    H --> J
+    J --> K[Case stories]
+    J --> L[Attack reconstructions]
+    K --> M[Artifacts and HTML report]
+    L --> M
+    M --> N[Web UI]
+    M --> O[CLI output]
+    M --> P[Terminal analyst console]
+```
+
+## Presentation Layers
+
+```mermaid
+flowchart TB
+    Pipeline[soc_forge.pipeline] --> Artifacts[JSON artifacts and report.html]
+    Web[soc_forge.web.app] --> Pipeline
+    CLI[soc_forge.cli] --> Pipeline
+    Artifacts --> WebUI[Local guided web demo]
+    Artifacts --> Console[Optional terminal analyst console]
+    CLI --> Automation[Simulation, coverage, rule quality, and scripted analysis]
+```
+
+## Data Flow
+
+```text
+Input JSONL or Windows Security CSV
+  -> event dictionaries
+  -> shared analysis pipeline
+  -> YAML rule alerts plus legacy brute-force compatibility alerts
+  -> correlation alerts
+  -> hunt findings
+  -> risk summaries
+  -> cases from soc_forge.cases.builder
+  -> case stories and attack reconstructions
+  -> alerts.json, cases.json, hunts.json, reconstructions.json, report.html
+  -> web UI, CLI summaries, or optional terminal console review
 ```
 
 ## Component Map
 
-```mermaid
-flowchart TB
-    CLI[CLI Pipeline] --> Ingest[Ingest]
-    CLI --> Rules[Rule Engine]
-    CLI --> Correlate[Correlation]
-    CLI --> Hunts[Hunts]
-    CLI --> Report[HTML Report]
-
-    Rules --> AlertModel[Alert Normalization]
-    Correlate --> CaseModel[Case Normalization]
-    CaseModel --> Store[Case Store]
-    CaseModel --> Recon[Reconstruction]
-    CaseModel --> Graph[Investigation Graph]
-
-    Console[Analyst Console] --> Workspace[Investigation Workspace]
-    Workspace --> Replay[Replay]
-    Workspace --> Timeline[Timeline]
-    Workspace --> EntityProfiles[Entity Profiles]
-    Workspace --> Relationships[Relationships]
-    Workspace --> Export[Case Export]
+```text
+soc_forge/pipeline.py             Shared analysis pipeline and artifact writing
+soc_forge/cli.py                  CLI for file analysis, simulation, coverage, and rule quality
+soc_forge/web/app.py              Local web API and scenario runner
+soc_forge/ingest/                 Event loading and conversion
+soc_forge/rules/                  Detection rule content, engine, quality, coverage, and legacy detector
+soc_forge/correlate/              Alert correlation logic
+soc_forge/hunts/                  Hunt analytics
+soc_forge/scoring/                Risk scoring
+soc_forge/cases/                  Case construction, quality, lifecycle, and persistence helpers
+soc_forge/intelligence/           Case story generation
+soc_forge/reconstruct/            Attack reconstruction
+soc_forge/investigations/         Replay, timeline, workspace, and exports
+soc_forge/core/                   Entity intelligence and investigation graph helpers
+soc_forge/ui/investigation/       Optional terminal investigation views
+soc_forge/report/                 HTML report rendering
+soc_forge/simulator/              Demo attack scenario generation
+samples/attack_chain_demo/        Reviewable sample artifacts
 ```
 
 ## Case Lifecycle
@@ -55,36 +88,10 @@ stateDiagram-v2
     Closed --> Exported: export bundle
 ```
 
-## Data Flow
-
-```text
-Input event file
-  -> normalized event dictionaries
-  -> rule alerts
-  -> correlated alerts
-  -> case records
-  -> reconstructions, hunts, risk scores, graph data
-  -> HTML report, JSON artifacts, analyst exports
-```
-
-## Important Directories
-
-```text
-soc_forge/cli.py                  Command-line orchestration
-soc_forge/ingest/                 Event loading and conversion
-soc_forge/rules/                  Detection rule content and engine
-soc_forge/correlate/              Alert correlation logic
-soc_forge/cases/                  Case lifecycle and persistence helpers
-soc_forge/investigations/         Replay, timeline, workspace, and exports
-soc_forge/core/                   Entity intelligence and investigation graph helpers
-soc_forge/ui/investigation/       Console investigation views
-soc_forge/report/                 HTML report generation
-soc_forge/simulator/              Demo attack scenario generation
-samples/attack_chain_demo/        Portfolio sample artifacts
-```
-
 ## Design Notes
 
 SOC-Forge favors readable local artifacts over hidden state. Alerts, cases, reconstructions, hunts, reports, and investigation bundles are written to disk so they can be inspected, tested, and shared.
 
-The analyst console is intentionally terminal-based for now. That keeps the project focused on pipeline quality and investigation behavior before adding a browser UI layer.
+The guided web demo is the primary portfolio experience. The terminal analyst console is still supported as an optional deep-dive workflow for replay, entity relationships, lifecycle actions, and exports. The CLI remains the automation and detection-engineering interface.
+
+SOC-Forge is local-only by design. The web server binds to `127.0.0.1` by default, has no authentication, and warns when explicitly bound to a non-loopback host. Generated artifacts may contain sensitive telemetry and should be reviewed or redacted before sharing.

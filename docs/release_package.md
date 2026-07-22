@@ -80,7 +80,7 @@ docs/screenshots/guided-demo.png
 Use this concise narrative:
 
 ```text
-SOC-Forge starts with raw security events, normalizes them, applies MITRE-mapped YAML detections, correlates related alerts into cases, reconstructs the activity path, scores the case, and produces analyst-ready web, terminal, JSON, and HTML outputs.
+SOC-Forge starts with raw security events or a guided demo scenario, runs them through one shared analysis pipeline, applies MITRE-mapped YAML detections plus legacy compatibility detection, correlates related alerts into cases, reconstructs the activity path, scores the case, and produces analyst-ready web, terminal, JSON, and HTML outputs.
 ```
 
 Then show:
@@ -95,9 +95,11 @@ Then show:
 ## Files That Matter Most
 
 ```text
+soc_forge/pipeline.py            Shared analysis pipeline used by CLI and web demos
 soc_forge/rules/                 Detection content
 soc_forge/rules/quality.py       Rule quality gate
 soc_forge/correlate/rules.py     Correlation logic
+soc_forge/cases/builder.py       Case construction
 soc_forge/report/html_report.py  HTML report generation
 soc_forge/web/app.py             Local web API and scenario runner
 soc_forge/web/static/            Web UI
@@ -130,12 +132,18 @@ python -m soc_forge.web.app --port 8765
 
 ## Positioning
 
-SOC-Forge is best described as a compact SOC investigation platform and detection engineering portfolio project. It is not trying to replace a SIEM. It demonstrates the engineering pieces behind alert generation, correlation, case quality, graph-based investigation, and analyst handoff.
+SOC-Forge is best described as a compact local SOC investigation platform and detection engineering portfolio project. It is not trying to replace a SIEM or operate as a hosted multi-user product. The guided web demo is the primary portfolio experience, the terminal analyst console is an optional deep-dive interface, and the CLI is the automation, simulation, coverage, and detection-engineering interface.
 
-## Next Release Ideas
+## Local Safety
 
-- Web upload for custom JSONL and CSV event sets
+The web server binds to `127.0.0.1` by default and does not include authentication. If it is explicitly bound to a non-loopback host, SOC-Forge prints a warning because the local API and generated artifacts may expose investigation data. Review and redact generated HTML and JSON artifacts before sharing them.
+
+## Future Work
+
+These ideas are postponed future work, not current release capability:
+
+- Custom JSONL and CSV dataset loading in the web UI
 - Saved notes and closure workflow in the web UI
-- Exportable graph images and case PDF bundles
-- Cloud identity and SaaS audit-log detection pack
+- Exportable graph images and additional case bundle formats
+- Cloud identity and SaaS audit-log detection packs
 - Per-rule false-positive notes, severity rationale, and data-source requirements
