@@ -14,7 +14,8 @@ from soc_forge.ingest.windows_security_csv import load_windows_security_csv
 from soc_forge.intelligence import attach_case_stories, build_risk_summary
 from soc_forge.models import normalize_alerts
 from soc_forge.reconstruct.engine import reconstruct_case
-from soc_forge.report.html_report import build_cases, write_html_report
+from soc_forge.cases.builder import build_cases
+from soc_forge.report.html_report import write_html_report
 from soc_forge.rules.coverage import mitre_coverage_by_tactic
 from soc_forge.rules.engine import load_rules, run_rules
 from soc_forge.rules.legacy import detect_bruteforce
