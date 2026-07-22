@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 
 def _iso_z(dt: datetime) -> str:
     """Return ISO-8601 timestamp with Z suffix."""
-    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def generate_brute_force_scenario() -> List[Dict[str, Any]]:
@@ -18,7 +18,7 @@ def generate_brute_force_scenario() -> List[Dict[str, Any]]:
     - one successful logon (4624)
     - same username, source IP, and host
     """
-    base_time = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=10)
+    base_time = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=10)
 
     username = "alice"
     src_ip = "203.0.113.10"
@@ -77,7 +77,7 @@ def generate_password_spray_scenario() -> List[Dict[str, Any]]:
     - one failed attempt per user
     - optional final success for one user
     """
-    base_time = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=10)
+    base_time = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=10)
 
     src_ip = "203.0.113.55"
     host = "DC1"
@@ -143,7 +143,7 @@ def generate_privilege_escalation_scenario() -> List[Dict[str, Any]]:
     - a user is added to the local Administrators group
     - optional follow-up successful logon
     """
-    base_time = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=5)
+    base_time = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=5)
 
     username = "alice"
     actor = "admin01"
@@ -199,7 +199,7 @@ def generate_benign_login_events() -> List[Dict[str, Any]]:
     """
     Generate normal-looking successful login activity across multiple users and hosts.
     """
-    base_time = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=15)
+    base_time = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=15)
 
     users = ["alice", "bob", "carol", "dave", "helpdesk1"]
     hosts = ["WS-01", "WS-02", "WS-03", "APP-01"]
@@ -262,7 +262,7 @@ def generate_attack_chain_scenario() -> List[Dict[str, Any]]:
     - privileged group assignment
     - audit log clearing
     """
-    base_time = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=20)
+    base_time = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=20)
 
     src_ip = "198.51.100.77"
     host = "WS-ENG-01"
@@ -383,7 +383,7 @@ def generate_detection_lab_scenario() -> List[Dict[str, Any]]:
     - browser credential store access
     - benign PowerShell and System32 process noise
     """
-    base_time = datetime.now(UTC).replace(microsecond=0) - timedelta(minutes=8)
+    base_time = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=8)
     host = "WS-LAB-01"
     username = "alice"
     src_ip = "198.51.100.88"

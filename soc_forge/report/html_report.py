@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -2122,7 +2122,7 @@ def write_html_report(
             "correlations": 0,
         },
         version=__version__,
-        generated_at=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
