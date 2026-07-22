@@ -1,6 +1,29 @@
 from pathlib import Path
 
+import pytest
+
+import soc_forge.web.app as web_app
 from soc_forge.web.app import build_detection_scorecard, build_summary, load_workspace, run_demo_scenario, safe_artifact_path
+
+
+SCENARIO_EXPECTATIONS = {
+    "attack_chain": {
+        "label": "Attack Chain",
+        "events": 5,
+        "alerts": 10,
+        "correlations": 4,
+        "cases": 5,
+        "hunts": 1,
+    },
+    "detection_lab": {
+        "label": "Detection Lab",
+        "events": 6,
+        "alerts": 8,
+        "correlations": 3,
+        "cases": 3,
+        "hunts": 1,
+    },
+}
 
 
 def test_build_summary_counts_cases_alerts_and_quality():
@@ -53,6 +76,44 @@ def test_run_demo_scenario_generates_detection_lab_workspace(tmp_path):
     assert (tmp_path / "cases.json").exists()
     assert (tmp_path / "report.html").exists()
 
+
+
+@pytest.mark.parametrize("scenario,expected", sorted(SCENARIO_EXPECTATIONS.items()))
+def test_run_demo_scenario_uses_pipeline_for_supported_scenarios(tmp_path, monkeypatch, scenario, expected):
+    calls = []
+    real_run_analysis = web_app.run_analysis_for_events
+
+    def spy_run_analysis(options):
+        calls.append(options)
+        return real_run_analysis(options)
+
+    monkeypatch.setattr(web_app, "run_analysis_for_events", spy_run_analysis)
+
+    workspace = web_app.run_demo_scenario(scenario, tmp_path)
+
+    assert len(calls) == 1
+    assert calls[0].input_name == f"{scenario}_events.jsonl"
+    assert calls[0].output_dir == tmp_path
+    assert calls[0].events_path == tmp_path / f"{scenario}_events.jsonl"
+    assert len(calls[0].events) == expected["events"]
+    assert workspace["active_scenario"] == scenario
+    assert workspace["scenario_label"] == expected["label"]
+    assert workspace["generated_event_count"] == expected["events"]
+    assert workspace["summary"]["alert_count"] == expected["alerts"]
+    assert workspace["summary"]["correlated_alert_count"] == expected["correlations"]
+    assert workspace["summary"]["case_count"] == expected["cases"]
+    assert workspace["summary"]["hunt_count"] == expected["hunts"]
+    assert len(workspace["cases"]) == expected["cases"]
+    assert len(workspace["alerts"]) == expected["alerts"]
+    assert len(workspace["hunts"]) == expected["hunts"]
+    assert len(workspace["reconstructions"]) == expected["cases"]
+    assert {"summary", "detection_scorecard", "cases", "alerts", "hunts", "reconstructions"}.issubset(workspace)
+    assert (tmp_path / f"{scenario}_events.jsonl").exists()
+    assert (tmp_path / "alerts.json").exists()
+    assert (tmp_path / "cases.json").exists()
+    assert (tmp_path / "hunts.json").exists()
+    assert (tmp_path / "reconstructions.json").exists()
+    assert (tmp_path / "report.html").exists()
 
 
 def test_load_workspace_attaches_web_graph(tmp_path):
