@@ -1,6 +1,6 @@
 import json
 
-from soc_forge.pipeline import AnalysisOptions, AnalysisResult, run_analysis_for_events
+from soc_forge.pipeline import AnalysisOptions, AnalysisResult, run_analysis, run_analysis_for_events
 from soc_forge.simulator import generate_scenario, write_events_jsonl
 
 
@@ -66,3 +66,46 @@ def test_run_analysis_for_events_can_skip_artifact_writes(tmp_path):
     assert result.artifacts == {}
     assert not (tmp_path / "alerts.json").exists()
     assert not (tmp_path / "report.html").exists()
+
+
+def test_run_analysis_file_input_preserves_cli_style_artifact_paths(tmp_path):
+    events_path = write_events_jsonl(generate_scenario("brute_force"), tmp_path / "brute_force_events.jsonl")
+    alerts_path = tmp_path / "json" / "alerts.json"
+    report_path = tmp_path / "html" / "report.html"
+    hunts_path = tmp_path / "out" / "hunts.json"
+    reconstructions_path = alerts_path.parent / "reconstructions.json"
+
+    result = run_analysis(
+        AnalysisOptions(
+            input_path=events_path,
+            input_name=events_path.name,
+            output_dir=report_path.parent,
+            alerts_path=alerts_path,
+            report_path=report_path,
+            cases_output_dir=report_path.parent,
+            hunts_path=hunts_path,
+            reconstructions_path=reconstructions_path,
+            rules_only=True,
+        )
+    )
+
+    assert result.input_path == events_path
+    assert result.input_name == events_path.name
+    assert result.alerts_path == alerts_path
+    assert result.report_path == report_path
+    assert result.cases_output_dir == report_path.parent
+    assert result.hunts_path == hunts_path
+    assert result.reconstructions_path == reconstructions_path
+    assert len(result.alerts) == 10
+    assert len(result.legacy_alerts) == 0
+    assert result.correlations["total"] == 0
+    assert len(result.cases) == 1
+    assert result.hunt_findings == []
+    assert len(result.reconstructions) == 1
+    assert alerts_path.exists()
+    assert report_path.exists()
+    assert (report_path.parent / "cases.json").exists()
+    assert hunts_path.exists()
+    assert reconstructions_path.exists()
+    assert not (alerts_path.parent / "cases.json").exists()
+    assert not (report_path.parent / "reconstructions.json").exists()

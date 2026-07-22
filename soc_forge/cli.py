@@ -1,23 +1,16 @@
 import argparse
 import json
-from collections import Counter
 from pathlib import Path
 
-from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.config import load_config
+from soc_forge.models import alert_to_dict, normalize_alerts
+from soc_forge.pipeline import AnalysisOptions, run_analysis
 from soc_forge import __version__
-from soc_forge.ingest.windows_security_csv import load_windows_security_csv
-from soc_forge.rules.engine import load_rules, run_rules
-from soc_forge.models import Alert, alert_to_dict, normalize_alerts
-from soc_forge.hunts import findings_to_dicts, run_hunts
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
-from soc_forge.rules.quality import evaluate_rule_quality_from_paths, format_rule_quality_report
-from soc_forge.report.html_report import write_html_report, build_cases
-from soc_forge.export.cases_export import export_cases_json
-from soc_forge.reconstruct.engine import reconstruct_case
+from soc_forge.rules.engine import load_rules
 from soc_forge.rules.legacy import detect_bruteforce
+from soc_forge.rules.quality import evaluate_rule_quality_from_paths, format_rule_quality_report
 from soc_forge.simulator import generate_scenario, write_events_jsonl
-from soc_forge.intelligence import attach_case_stories, build_risk_summary
 from typing import Any, List
 
 from rich.console import Console
@@ -145,217 +138,53 @@ def main():
 
     bf_threshold = args.bf_threshold if args.bf_threshold is not None else cfg.bruteforce.threshold
     bf_window = args.bf_window if args.bf_window is not None else cfg.bruteforce.window_minutes
-    
+
     input_path = Path(args.input)
-
-    if input_path.suffix.lower() == ".csv":
-        events = load_windows_security_csv(input_path)
-    elif input_path.suffix.lower() == ".jsonl":
-        events = []
-        with input_path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                events.append(json.loads(line))
-    else:
-        raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl or .csv")
-
-    # -----------------------------
-    # Phase 4: YAML rules execution
-    # -----------------------------
-    rule_paths: list[str] = []
-
-    rule_paths.append("soc_forge/rules")
-
+    rule_paths: list[str] = ["soc_forge/rules"]
     if args.rules:
         rule_paths.extend(args.rules)
 
-    seen = set()
-    rule_paths = [p for p in rule_paths if not (p in seen or seen.add(p))]
-
-    rules = load_rules(rule_paths)
-    yaml_alerts = run_rules(events, rules)
-    coverage_rows = mitre_coverage_by_tactic(rules, enabled_only=True)
-
-    if args.coverage:
-        rows = mitre_coverage_by_tactic(rules, enabled_only=True)
-        print(format_coverage_table(rows))
-        return 0
-
-    # -----------------------------
-    # Legacy detectors
-    # -----------------------------
-    alerts: list[Alert] = []
-    if not args.rules_only:
-        alerts += detect_bruteforce(
-            events,
-            threshold=bf_threshold,
-            window_minutes=bf_window,
-            severity=cfg.bruteforce.severity,
-            score=cfg.bruteforce.score,
+    result = run_analysis(
+        AnalysisOptions(
+            input_path=input_path,
+            input_name=input_path.name,
+            output_dir=Path(out_html).parent,
+            config_path=args.config,
+            rule_paths=rule_paths,
+            rules_only=args.rules_only,
+            alerts_path=Path(out_json),
+            report_path=Path(out_html),
+            cases_output_dir=Path(out_html).parent,
+            hunts_path=Path("out") / "hunts.json",
+            reconstructions_path=Path(out_json).parent / "reconstructions.json",
+            brute_force_threshold=bf_threshold,
+            brute_force_window_minutes=bf_window,
         )
-
-    # Merge legacy + YAML once
-    alert_dicts = normalize_alerts(alerts) + normalize_alerts(yaml_alerts)
-
-    # Correlation
-    alert_dicts = correlate_alerts(
-        alert_dicts,
-        window_minutes=cfg.correlation.window_minutes,
-
-        bruteforce_lockout_enabled=cfg.correlation.bruteforce_lockout_enabled,
-        bruteforce_lockout_severity=cfg.correlation.bruteforce_lockout_severity,
-        bruteforce_lockout_score=cfg.correlation.bruteforce_lockout_score,
-
-        rdp_schtask_enabled=cfg.correlation.rdp_schtask_enabled,
-        rdp_schtask_severity=cfg.correlation.rdp_schtask_severity,
-        rdp_schtask_score=cfg.correlation.rdp_schtask_score,
-
-        rdp_new_admin_enabled=cfg.correlation.rdp_new_admin_enabled,
-        rdp_new_admin_severity=cfg.correlation.rdp_new_admin_severity,
-        rdp_new_admin_score=cfg.correlation.rdp_new_admin_score,
     )
 
-    corr_alerts = [a for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF-CORR")]
-    corr_counts = {}
-    for a in corr_alerts:
-        rid = a.get("rule_id", "SOCF-CORR-UNKNOWN")
-        corr_counts[rid] = corr_counts.get(rid, 0) + 1
-
-    corr_summary = {
-        "total": len(corr_alerts),
-        "by_rule": sorted(corr_counts.items(), key=lambda x: (-x[1], x[0])),
-    }
-
-    # Hunts
-    hunt_findings = run_hunts(events)
-    hunt_findings_json = findings_to_dicts(hunt_findings)
-
-    if hunt_findings:
+    if result.hunt_findings:
         print("\nHUNT RESULTS")
         print("------------")
-        for h in hunt_findings:
-            print(f"{h.title} [{h.severity}]")
-            print(f"  {h.summary}")
+        for h in result.hunt_findings:
+            print(f"{h.get('title')} [{h.get('severity')}]")
+            print(f"  {h.get('summary')}")
     else:
         print("\nHUNT RESULTS")
         print("------------")
         print("No hunt findings.")
 
-    # Risk summary
-    risk_summary = build_risk_summary(
-        alerts=alert_dicts,
-        hunts=hunt_findings_json,
-        correlations=corr_summary,
-    )
-
     print("\nRISK SUMMARY")
     print("------------")
-    print(f"Overall Risk: {risk_summary['level'].upper()} ({risk_summary['overall_score']})")
-    print(f"Alerts: {risk_summary['alerts']}")
-    print(f"Hunts: {risk_summary['hunts']}")
-    print(f"Correlations: {risk_summary['correlations']}")    
+    print(f"Overall Risk: {result.risk_summary['level'].upper()} ({result.risk_summary['overall_score']})")
+    print(f"Alerts: {result.risk_summary['alerts']}")
+    print(f"Hunts: {result.risk_summary['hunts']}")
+    print(f"Correlations: {result.risk_summary['correlations']}")
 
+    print_summary(result.alerts)
 
-    out_path = Path(out_json)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    console.print(f"\nSaved alerts to: [bold]{Path(out_json)}[/bold]")
+    console.print(f"Saved HTML report to: [bold]{Path(out_html)}[/bold]")
+    console.print(f"[bold]Correlated alerts:[/bold] {result.correlations['total']}")
 
-    with out_path.open("w", encoding="utf-8") as f:
-        json.dump(alert_dicts, f, indent=2)
-
-    Path("out").mkdir(exist_ok=True)
-    with open("out/hunts.json", "w", encoding="utf-8") as f:
-        json.dump(hunt_findings_json, f, indent=2)
-
-    html_path = Path(out_html)
-    coverage_rows = mitre_coverage_by_tactic(rules, enabled_only=True)
-   
-    corr_alerts = [a for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF-CORR")]
-    corr_summary = {
-        "total": len(corr_alerts),
-        "by_rule": sorted(Counter(a["rule_id"] for a in corr_alerts).items()),
-    }
-
-    cases = build_cases(alert_dicts, str(input_path))
-    cases = attach_case_stories(cases, hunt_findings_json)
-    export_cases_json(cases, Path(html_path).parent)
-
-    reconstructions = []
-
-    for case in cases:
-        header = case.get("header", {}) or {}
-        items = case.get("items", []) or []
-
-        reconstruction = reconstruct_case(header, items)
-
-        reconstructions.append(
-            {
-                "case_id": reconstruction.case_id,
-                "summary": reconstruction.summary,
-                "confidence": reconstruction.confidence,
-                "attack_path": [
-                    {
-                        "step_no": step.step_no,
-                        "stage": step.stage,
-                        "title": step.title,
-                        "technique": step.technique,
-                        "tactic": step.tactic,
-                        "timestamp": step.timestamp,
-                        "confidence": step.confidence,
-                        "entities": step.entities,
-                        "evidence": [
-                            {
-                                "kind": ev.kind,
-                                "ref": ev.ref,
-                                "timestamp": ev.timestamp,
-                                "rule_id": ev.rule_id,
-                                "event_id": ev.event_id,
-                                "summary": ev.summary,
-                            }
-                            for ev in step.evidence
-                        ],
-                        "notes": step.notes,
-                        "inferred": step.inferred,
-                    }
-                    for step in reconstruction.attack_path
-                ],
-                "relationships": [
-                    {
-                        "from_step": rel.from_step,
-                        "to_step": rel.to_step,
-                        "reason": rel.reason,
-                        "weight": rel.weight,
-                    }
-                    for rel in reconstruction.relationships
-                ],
-                "key_entities": reconstruction.key_entities,
-                "gaps": reconstruction.gaps,
-                "assumptions": reconstruction.assumptions,
-            }
-        )
-
-    recon_path = out_path.parent / "reconstructions.json"
-    recon_path.write_text(json.dumps(reconstructions, indent=2), encoding="utf-8")
-
-
-    write_html_report(
-        alerts=alert_dicts,
-        output_path=html_path,
-        input_name=str(input_path.name),
-        mitre_coverage=coverage_rows,
-        corr_summary=corr_summary,
-        reconstructions=reconstructions,
-        hunt_findings=hunt_findings_json,
-        risk_summary=risk_summary,
-        cases=cases,
-    )
-
-    print_summary(alert_dicts)
-
-    console.print(f"\nSaved alerts to: [bold]{out_path}[/bold]")
-    console.print(f"Saved HTML report to: [bold]{html_path}[/bold]")
-    corr_count = sum(1 for a in alert_dicts if str(a.get("rule_id", "")).startswith("SOCF-CORR"))
-    console.print(f"[bold]Correlated alerts:[/bold] {corr_count}")
 if __name__ == "__main__":
     main()

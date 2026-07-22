@@ -67,6 +67,54 @@ def test_web_detection_lab_demo_outputs_current_workspace_shape(tmp_path):
     assert (tmp_path / "report.html").exists()
 
 
+def test_cli_rules_only_custom_paths_and_write_events_current_behavior(tmp_path, monkeypatch, capsys):
+    _link_package_into_workdir(tmp_path)
+    events_path = write_events_jsonl(generate_scenario("brute_force"), tmp_path / "brute_force_events.jsonl")
+    alerts_path = tmp_path / "json" / "alerts_rules_only.json"
+    report_path = tmp_path / "html" / "report_rules_only.html"
+    normalized_events_path = tmp_path / "normalized_events.json"
+
+    monkeypatch.chdir(tmp_path)
+    argv = [
+        "soc-forge",
+        "--input",
+        str(events_path),
+        "--out",
+        str(alerts_path),
+        "--html",
+        str(report_path),
+        "--rules-only",
+        "--write-events",
+        str(normalized_events_path),
+    ]
+
+    with patch.object(sys, "argv", argv):
+        assert main() is None
+
+    output = capsys.readouterr().out
+    alerts = json.loads(alerts_path.read_text(encoding="utf-8"))
+    cases = json.loads((report_path.parent / "cases.json").read_text(encoding="utf-8"))
+    hunts = json.loads((tmp_path / "out" / "hunts.json").read_text(encoding="utf-8"))
+    reconstructions = json.loads((alerts_path.parent / "reconstructions.json").read_text(encoding="utf-8"))
+
+    assert len(alerts) == 10
+    assert sum(1 for alert in alerts if alert.get("rule_id") == "SOCF-001") == 0
+    assert sum(1 for alert in alerts if str(alert.get("rule_id", "")).startswith("SOCF-CORR")) == 0
+    assert len(cases) == 1
+    assert hunts == []
+    assert len(reconstructions) == len(cases)
+    assert report_path.exists()
+    assert not normalized_events_path.exists()
+    assert not (alerts_path.parent / "cases.json").exists()
+    assert not (report_path.parent / "reconstructions.json").exists()
+    assert "HUNT RESULTS" in output
+    assert "No hunt findings." in output
+    assert "RISK SUMMARY" in output
+    assert "Saved alerts to:" in output
+    assert "Saved HTML report to:" in output
+    assert "Correlated alerts:" in output
+
+
 def test_compatibility_imports_remain_available_for_legacy_entry_points():
     alerts = detect_bruteforce(
         [
