@@ -1,4 +1,4 @@
-from soc_forge.report.html_report import build_attack_flow
+from soc_forge.cases.helpers import build_attack_flow
 
 
 def test_build_attack_flow_includes_mitre_ids():

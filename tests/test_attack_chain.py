@@ -1,4 +1,4 @@
-from soc_forge.report.html_report import build_attack_chain
+from soc_forge.cases.helpers import build_attack_chain
 
 def _a(ts, rid, title):
     return {"timestamp": ts, "rule_id": rid, "title": title, "severity": "low", "details": {}}

@@ -1,4 +1,4 @@
-from soc_forge.report.html_report import build_attack_graph
+from soc_forge.cases.helpers import build_attack_graph
 
 
 def test_build_attack_graph_creates_nodes_and_edges():
@@ -23,7 +23,7 @@ def test_build_attack_graph_creates_nodes_and_edges():
     assert len(graph["edges"]) >= 1
 
 def test_report_attack_graph_extracts_ip_from_message():
-    from soc_forge.report.html_report import build_attack_graph, build_attack_path
+    from soc_forge.cases.helpers import build_attack_graph, build_attack_path
 
     graph = build_attack_graph([
         {

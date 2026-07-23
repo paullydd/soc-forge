@@ -1,4 +1,4 @@
-from soc_forge.report.html_report import build_evidence_fields
+from soc_forge.cases.helpers import build_evidence_fields
 
 
 def test_build_evidence_fields_extracts_key_values():

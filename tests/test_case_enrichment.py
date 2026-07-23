@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from soc_forge.report.html_report import (
+from soc_forge.cases.helpers import (
     build_case_timeline,
     extract_case_iocs,
     build_analyst_summary,
