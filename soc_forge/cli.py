@@ -1,6 +1,6 @@
 import argparse
-import json
 from pathlib import Path
+from typing import Any, List
 
 from soc_forge.config import load_config
 from soc_forge.models import alert_to_dict
@@ -8,10 +8,8 @@ from soc_forge.pipeline import AnalysisOptions, run_analysis
 from soc_forge import __version__
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
 from soc_forge.rules.engine import load_rules
-from soc_forge.rules.legacy import detect_bruteforce
 from soc_forge.rules.quality import evaluate_rule_quality_from_paths, format_rule_quality_report
 from soc_forge.simulator import generate_scenario, write_events_jsonl
-from typing import Any, List
 
 from rich.console import Console
 from rich.table import Table
@@ -19,14 +17,6 @@ from rich.table import Table
 console = Console()
 
 # ---------- Helpers ----------
-def read_jsonl(path: Path):
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            yield json.loads(line)
-
 def print_summary(alerts: List[Any]) -> None:
     """
     Print a Rich table summary for alerts.
@@ -34,8 +24,6 @@ def print_summary(alerts: List[Any]) -> None:
       - Alert dataclass instances (legacy detectors)
       - dict alerts (YAML engine + correlation)
     """
-    console = Console()
-
     table = Table(title="SOC-Forge Alerts", show_lines=False)
     table.add_column("Severity", style="bold")
     table.add_column("Rule", style="cyan")

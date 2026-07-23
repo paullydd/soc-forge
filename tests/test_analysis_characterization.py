@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from soc_forge.cli import detect_bruteforce, main
+from soc_forge.cli import main
+from soc_forge.rules.legacy import detect_bruteforce
 from soc_forge.cases.builder import build_cases
 from soc_forge.simulator import generate_scenario, write_events_jsonl
 from soc_forge.web.app import run_demo_scenario
@@ -117,7 +118,7 @@ def test_cli_rules_only_custom_paths_and_write_events_writes_normalized_events(t
     assert "Correlated alerts:" in output
 
 
-def test_compatibility_imports_remain_available_for_legacy_entry_points():
+def test_core_owner_imports_remain_available_for_legacy_detector_and_case_builder():
     alerts = detect_bruteforce(
         [
             {

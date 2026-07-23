@@ -1,4 +1,4 @@
-from soc_forge.cli import detect_bruteforce
+from soc_forge.rules.legacy import detect_bruteforce
 
 
 def test_bruteforce_triggers_at_threshold():
