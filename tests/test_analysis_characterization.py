@@ -67,7 +67,7 @@ def test_web_detection_lab_demo_outputs_current_workspace_shape(tmp_path):
     assert (tmp_path / "report.html").exists()
 
 
-def test_cli_rules_only_custom_paths_and_write_events_current_behavior(tmp_path, monkeypatch, capsys):
+def test_cli_rules_only_custom_paths_and_write_events_writes_normalized_events(tmp_path, monkeypatch, capsys):
     _link_package_into_workdir(tmp_path)
     events_path = write_events_jsonl(generate_scenario("brute_force"), tmp_path / "brute_force_events.jsonl")
     alerts_path = tmp_path / "json" / "alerts_rules_only.json"
@@ -104,7 +104,9 @@ def test_cli_rules_only_custom_paths_and_write_events_current_behavior(tmp_path,
     assert hunts == []
     assert len(reconstructions) == len(cases)
     assert report_path.exists()
-    assert not normalized_events_path.exists()
+    normalized_events = json.loads(normalized_events_path.read_text(encoding="utf-8"))
+    assert len(normalized_events) == 11
+    assert normalized_events[0]["event_id"] == 4625
     assert not (alerts_path.parent / "cases.json").exists()
     assert not (report_path.parent / "reconstructions.json").exists()
     assert "HUNT RESULTS" in output

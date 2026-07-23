@@ -210,6 +210,55 @@ def test_internal_scenario_exception_is_generic_to_client(tmp_path, monkeypatch,
     assert "secret filesystem detail /tmp/private-case" in captured.out
 
 
+
+
+def test_empty_api_collections_over_http(web_server):
+    for route in ["/api/cases", "/api/alerts", "/api/hunts", "/api/reconstructions"]:
+        status, headers, payload = json_request(web_server, "GET", route)
+
+        assert status == 200
+        assert headers["Content-Type"].startswith("application/json")
+        assert payload == []
+
+    status, headers, scorecard = json_request(web_server, "GET", "/api/detection-scorecard")
+    assert status == 200
+    assert headers["Content-Type"].startswith("application/json")
+    assert scorecard["enabled_rule_count"] >= 19
+    assert scorecard["correlation_alert_count"] == 0
+    assert scorecard["demo_signal_count"] == 0
+
+
+def test_head_requests_return_headers_without_response_body(web_server):
+    for route, content_type in [
+        ("/", "text/html"),
+        ("/index.html", "text/html"),
+        ("/api/workspace", "application/json"),
+        ("/api/detection-scorecard", "application/json"),
+    ]:
+        status, headers, body = request(web_server, "HEAD", route)
+
+        assert status == 200
+        assert headers["Content-Type"].startswith(content_type)
+        assert body == b""
+
+    status, _headers, body = request(web_server, "HEAD", "/artifact?file=report.html")
+    assert status == 404
+    assert body == b""
+
+
+@pytest.mark.parametrize("method", ["PUT", "PATCH", "DELETE"])
+def test_unsupported_scenario_verbs_over_http(web_server, method):
+    status, _headers, body = request(
+        web_server,
+        method,
+        "/api/scenario",
+        body=b"{}",
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert status == 501
+    assert body
+
 def test_unsupported_methods_and_missing_routes_over_http(web_server):
     status, _headers, _body = request(web_server, "GET", "/api/does-not-exist")
     assert status == 404

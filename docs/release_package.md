@@ -39,7 +39,7 @@ Detection Lab -> Start Demo
 The guided path walks through:
 
 ```text
-Dashboard -> Highest-risk case -> Investigation graph -> Detection scorecard -> HTML report
+Generate -> Dashboard -> Case -> Graph -> Scorecard -> Report
 ```
 
 ## Reviewer Checklist
@@ -86,11 +86,12 @@ SOC-Forge starts with raw security events or a guided demo scenario, runs them t
 Then show:
 
 1. `Start Demo` in the web UI
-2. Highest-risk case and case quality brief
-3. Graph primary path and relationship evidence
-4. Detection Engineering Scorecard
-5. HTML report
-6. `pytest -q` test result
+2. Dashboard triage summary
+3. Highest-risk case and case quality brief
+4. Graph primary path and relationship evidence
+5. Detection Engineering Scorecard
+6. HTML report
+7. `pytest -q` test result
 
 ## Files That Matter Most
 

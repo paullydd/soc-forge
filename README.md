@@ -85,10 +85,12 @@ python3 -m soc_forge.web.app --port 8765
 
 Then open `http://127.0.0.1:8765`, choose `Detection Lab` or `Attack Chain`, and click `Start Demo`. The browser runs the selected scenario through the shared pipeline and refreshes the local artifacts in `out/`.
 
-Run analysis against a JSONL event file from the CLI:
+Run analysis against a JSONL or Windows Security CSV event file from the CLI. SOC-Forge auto-detects `.jsonl` and `.csv` by extension; use `--format` only when you need to override that detection.
 
 ```bash
 soc-forge --input sample_events.jsonl
+soc-forge --input security_events.csv --format windows-security-csv
+soc-forge --input sample_events.jsonl --write-events out/normalized_events.json
 ```
 
 Generate a demo attack scenario and analyze it from the CLI:
@@ -114,6 +116,7 @@ out/hunts.json
 out/cases.json
 out/reconstructions.json
 out/report.html
+out/normalized_events.json  # only when --write-events is used
 ```
 
 Local safety note: SOC-Forge is a local analyst tool. The web server binds to `127.0.0.1` by default, has no authentication, and prints a warning if you explicitly bind it to a non-loopback host. Generated reports and JSON artifacts may contain sensitive telemetry such as usernames, hosts, IP addresses, command lines, and investigation notes. Review and redact artifacts before sharing them.
@@ -216,6 +219,11 @@ GET /api/reconstructions
 GET /api/scenarios
 POST /api/scenario
 GET /artifact?file=report.html
+GET /artifact?file=detection_lab_report.html
+GET /artifact?file=cases.json
+GET /artifact?file=alerts.json
+GET /artifact?file=hunts.json
+GET /artifact?file=reconstructions.json
 ```
 
 `POST /api/scenario` expects `Content-Type: application/json` and supports `detection_lab` and `attack_chain`.

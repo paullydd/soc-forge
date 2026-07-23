@@ -86,6 +86,7 @@ GET /api/reconstructions
 GET /api/scenarios
 POST /api/scenario
 GET /artifact?file=report.html
+GET /artifact?file=detection_lab_report.html
 GET /artifact?file=cases.json
 GET /artifact?file=alerts.json
 GET /artifact?file=hunts.json

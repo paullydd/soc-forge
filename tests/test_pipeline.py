@@ -120,6 +120,33 @@ def test_run_analysis_file_input_preserves_cli_style_artifact_paths(tmp_path):
     assert not (report_path.parent / "reconstructions.json").exists()
 
 
+def test_run_analysis_file_input_format_override_loads_windows_security_csv(tmp_path):
+    csv_path = tmp_path / "security.events"
+    csv_path.write_text(
+        "TimeCreated,Id,Computer,User,Message\n"
+        "2026-07-17T18:26:03Z,4625,WS-LAB-01,alice,Source Network Address: 198.51.100.88\n",
+        encoding="utf-8",
+    )
+
+    result = run_analysis(
+        AnalysisOptions(
+            input_path=csv_path,
+            input_format="windows-security-csv",
+            output_dir=tmp_path,
+            write_outputs=False,
+            write_report=False,
+        )
+    )
+
+    assert result.input_path == csv_path
+    assert result.input_name == "security.events"
+    assert result.event_count == 1
+    assert result.events[0]["event_id"] == 4625
+    assert result.events[0]["host"] == "WS-LAB-01"
+    assert result.events[0]["username"] == "alice"
+    assert result.events[0]["ip"] == "198.51.100.88"
+
+
 @pytest.mark.parametrize(
     "scenario,expected",
     [

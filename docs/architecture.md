@@ -43,7 +43,7 @@ flowchart TB
 
 ```text
 Input JSONL or Windows Security CSV
-  -> event dictionaries
+  -> event dictionaries, with optional normalized event export from CLI file analysis
   -> shared analysis pipeline
   -> YAML rule alerts plus legacy brute-force compatibility alerts
   -> correlation alerts
@@ -52,6 +52,7 @@ Input JSONL or Windows Security CSV
   -> cases from soc_forge.cases.builder
   -> case stories and attack reconstructions
   -> alerts.json, cases.json, hunts.json, reconstructions.json, report.html
+  -> optional normalized_events.json when CLI --write-events is used
   -> web UI, CLI summaries, or optional terminal console review
 ```
 

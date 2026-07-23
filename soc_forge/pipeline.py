@@ -33,6 +33,7 @@ class AnalysisOptions:
     write_outputs: bool = True
     write_report: bool = True
     events_path: Path | None = None
+    input_format: str | None = None
     alerts_path: Path | None = None
     report_path: Path | None = None
     cases_output_dir: Path | None = None
@@ -87,13 +88,21 @@ def _read_jsonl(path: Path) -> List[Dict[str, Any]]:
     return events
 
 
-def load_events_from_path(path: str | Path) -> List[Dict[str, Any]]:
+def load_events_from_path(path: str | Path, input_format: str | None = None) -> List[Dict[str, Any]]:
     input_path = Path(path)
-    if input_path.suffix.lower() == ".csv":
+    detected_format = input_format
+    if detected_format is None:
+        suffix = input_path.suffix.lower()
+        if suffix == ".csv":
+            detected_format = "windows-security-csv"
+        elif suffix == ".jsonl":
+            detected_format = "jsonl"
+
+    if detected_format == "windows-security-csv":
         return load_windows_security_csv(input_path)
-    if input_path.suffix.lower() == ".jsonl":
+    if detected_format == "jsonl":
         return _read_jsonl(input_path)
-    raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl or .csv")
+    raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl or .csv, or pass an explicit input_format.")
 
 
 def _dedupe_rule_paths(paths: List[str]) -> List[str]:
@@ -172,6 +181,11 @@ def _write_outputs(result: AnalysisResult) -> None:
         result.reconstructions_path.write_text(json.dumps(result.reconstructions, indent=2), encoding="utf-8")
         artifacts["reconstructions"] = result.reconstructions_path
 
+    if result.events_path and result.input_path is not None:
+        result.events_path.parent.mkdir(parents=True, exist_ok=True)
+        result.events_path.write_text(json.dumps(result.events, indent=2), encoding="utf-8")
+        artifacts["events"] = result.events_path
+
 
 def run_analysis_for_events(options: AnalysisOptions) -> AnalysisResult:
     output_dir = Path(options.output_dir)
@@ -246,7 +260,7 @@ def run_analysis_for_events(options: AnalysisOptions) -> AnalysisResult:
         artifacts={},
     )
 
-    if events_path:
+    if events_path and not (options.write_outputs and result.input_path is not None):
         result.artifacts["events"] = events_path
     if options.write_outputs:
         _write_outputs(result)
@@ -275,7 +289,7 @@ def run_analysis(options: AnalysisOptions) -> AnalysisResult:
         raise ValueError("AnalysisOptions requires events or input_path")
 
     input_path = Path(options.input_path)
-    events = load_events_from_path(input_path)
+    events = load_events_from_path(input_path, input_format=options.input_format)
     return run_analysis_for_events(
         AnalysisOptions(
             events=events,
@@ -288,6 +302,7 @@ def run_analysis(options: AnalysisOptions) -> AnalysisResult:
             write_outputs=options.write_outputs,
             write_report=options.write_report,
             events_path=options.events_path,
+            input_format=options.input_format,
             alerts_path=options.alerts_path,
             report_path=options.report_path,
             cases_output_dir=options.cases_output_dir,

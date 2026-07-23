@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from soc_forge.cases.quality import build_case_quality_profile
 from soc_forge.cases.recommended_actions import build_recommended_actions
 from soc_forge.models import normalize_case
-from soc_forge.report.html_report import (
+from soc_forge.cases.helpers import (
     build_analyst_summary,
     build_attack_chain,
     build_attack_flow,
@@ -15,6 +15,7 @@ from soc_forge.report.html_report import (
     build_attack_path,
     build_case_risk_fallback,
     build_evidence_fields,
+    choose_case_header_alert,
 )
 
 
@@ -28,25 +29,6 @@ def _extract_ips_from_message(message: Any) -> List[str]:
     return re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", str(message))
 
 
-def choose_case_header_alert(items_sorted: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Pick the best alert to represent the case header.
-    Prefer:
-      1. correlation alerts
-      2. highest score
-      3. earliest timestamp
-    """
-    if not items_sorted:
-        return {}
-
-    def sort_key(a: Dict[str, Any]):
-        rule_id = str(a.get("rule_id", ""))
-        is_corr = 1 if "CORR" in rule_id else 0
-        score = int(a.get("score", 0) or 0)
-        ts = str(a.get("timestamp", "") or "")
-        return (-is_corr, -score, ts == "", ts)
-
-    return sorted(items_sorted, key=sort_key)[0]
 
 
 def build_case_iocs(items_sorted: List[Dict[str, Any]]) -> Dict[str, List[str]]:

@@ -45,7 +45,7 @@ The Detection Lab demo is the cleanest web walkthrough because it shows process-
 1. Start the local web UI.
 2. Select `Detection Lab`.
 3. Click `Start Demo`.
-4. Step through Dashboard, Case, Graph, Scorecard, and Report.
+4. Step through Generate, Dashboard, Case, Graph, Scorecard, and Report.
 5. Open `samples/attack_chain_demo/` for checked-in artifacts that can be reviewed without rerunning the simulator.
 6. Run `pytest -q` to confirm the project behavior is covered by tests.
 

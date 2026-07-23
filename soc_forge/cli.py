@@ -81,14 +81,14 @@ def run_simulator(args) -> int:
 def main():
     ap = argparse.ArgumentParser(prog="soc-forge", description="SOC-Forge detection engine with attack simulation")
     ap.add_argument("--version", action="version", version=f"soc-forge {__version__}")
-    ap.add_argument("--input", required=False, help="Path to JSONL events file")
+    ap.add_argument("--input", required=False, help="Path to events file (.jsonl or Windows Security .csv)")
     ap.add_argument("--out", default=None, help="Output alerts.json path (overrides config)")
     ap.add_argument("--bf-threshold", type=int, default=None, help="Bruteforce threshold (overrides config)")
     ap.add_argument("--bf-window", type=int, default=None, help="Bruteforce window minutes (overrides config)")
     ap.add_argument("--config", default="config.yml", help="Path to YAML config (default: config.yml)")
     ap.add_argument("--html", default=None, help="Output HTML report path (overrides config)")
-    ap.add_argument("--format", default="jsonl", choices=["jsonl", "windows-security-csv"], help="Input format")
-    ap.add_argument("--write-events", default=None, help="Write normalized events to this JSON path")
+    ap.add_argument("--format", default=None, choices=["jsonl", "windows-security-csv"], help="Input format override; defaults to auto-detect from file extension")
+    ap.add_argument("--write-events", default=None, help="Write normalized loaded events to this JSON path during --input analysis")
     ap.add_argument("--rules", action="append", help="Rule file or directory (repeatable)")
     ap.add_argument("--rules-only", action="store_true", help="Run YAML rules only (skip built-in detectors)")
     ap.add_argument("--coverage", action="store_true", help="Print MITRE coverage for loaded YAML rules and exit")
@@ -146,6 +146,8 @@ def main():
             config_path=args.config,
             rule_paths=rule_paths,
             rules_only=args.rules_only,
+            events_path=Path(args.write_events) if args.write_events else None,
+            input_format=args.format,
             alerts_path=Path(out_json),
             report_path=Path(out_html),
             cases_output_dir=Path(out_html).parent,
