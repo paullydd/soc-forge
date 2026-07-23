@@ -1,6 +1,6 @@
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.core.investigation_graph import build_investigation_graph, summarize_graph
-from soc_forge.report.html_report import build_cases
+from soc_forge.cases.builder import build_cases
 from soc_forge.rules.engine import load_rules, run_rules
 from soc_forge.simulator.attack_simulator import generate_scenario
 

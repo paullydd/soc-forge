@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from soc_forge.cli import detect_bruteforce, main
-from soc_forge.report.html_report import build_cases
+from soc_forge.cases.builder import build_cases
 from soc_forge.simulator import generate_scenario, write_events_jsonl
 from soc_forge.web.app import run_demo_scenario
 

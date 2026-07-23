@@ -1358,10 +1358,7 @@ HTML_TEMPLATE = Template(
 </html>"""
 )
 
-def build_cases(alerts: List[Dict[str, Any]], input_name: str) -> List[Dict[str, Any]]:
-    from soc_forge.cases.builder import build_cases as _build_cases
 
-    return _build_cases(alerts, input_name)
 def write_html_report(
     alerts: List[Dict[str, Any]],
     output_path: Path,

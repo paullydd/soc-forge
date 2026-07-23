@@ -1,6 +1,5 @@
 from soc_forge.cases.quality import build_case_quality_profile
 from soc_forge.cases.builder import build_cases
-from soc_forge.report.html_report import build_cases as legacy_build_cases
 
 
 def _alert(rule_id, title, ts="2026-07-17T12:00:00Z", score=50, severity="high", details=None):
@@ -50,17 +49,9 @@ def test_build_cases_attaches_case_quality_profile():
     assert case["header"]["details"]["case_quality"]["key_evidence"]
 
 
-def test_build_cases_new_and_legacy_import_paths_match():
-    alerts = [
-        _alert("SOCF-007", "New user account created", score=80),
-        _alert("SOCF-CORR-005", "New privileged account followed by log clearing", score=120),
-    ]
+def test_html_report_no_longer_exports_case_builder():
+    import soc_forge.report.html_report as html_report
+    from soc_forge.cases.builder import build_cases as package_build_cases
 
-    new_cases = build_cases(alerts, "demo.jsonl")
-    legacy_cases = legacy_build_cases(alerts, "demo.jsonl")
-
-    assert new_cases == legacy_cases
-    assert [case["case_id"] for case in new_cases] == [case["case_id"] for case in legacy_cases]
-    assert [case["title"] for case in new_cases] == [case["title"] for case in legacy_cases]
-    assert [case["risk_score"] for case in new_cases] == [case["risk_score"] for case in legacy_cases]
-    assert new_cases[0]["evidence"] == legacy_cases[0]["evidence"]
+    assert package_build_cases is build_cases
+    assert not hasattr(html_report, "build_cases")
