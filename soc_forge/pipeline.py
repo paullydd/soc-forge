@@ -10,7 +10,7 @@ from soc_forge.config import load_config
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.export.cases_export import export_cases_json
 from soc_forge.hunts import findings_to_dicts, run_hunts
-from soc_forge.ingest.windows_security_csv import load_windows_security_csv
+from soc_forge.ingest.windows_security_csv import load_windows_security_csv_with_diagnostics
 from soc_forge.intelligence import attach_case_stories, build_risk_summary
 from soc_forge.models import normalize_alerts
 from soc_forge.reconstruct.engine import reconstruct_case
@@ -42,6 +42,7 @@ class AnalysisOptions:
     case_input_name: str | None = None
     brute_force_threshold: int | None = None
     brute_force_window_minutes: int | None = None
+    ingest_diagnostics: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -67,6 +68,7 @@ class AnalysisResult:
     reconstructions: List[Dict[str, Any]]
     mitre_coverage: List[Any]
     artifacts: Dict[str, Path] = field(default_factory=dict)
+    ingest_diagnostics: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def _correlation_summary(alerts: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -88,8 +90,7 @@ def _read_jsonl(path: Path) -> List[Dict[str, Any]]:
     return events
 
 
-def load_events_from_path(path: str | Path, input_format: str | None = None) -> List[Dict[str, Any]]:
-    input_path = Path(path)
+def _detect_input_format(input_path: Path, input_format: str | None = None) -> str | None:
     detected_format = input_format
     if detected_format is None:
         suffix = input_path.suffix.lower()
@@ -97,12 +98,23 @@ def load_events_from_path(path: str | Path, input_format: str | None = None) -> 
             detected_format = "windows-security-csv"
         elif suffix == ".jsonl":
             detected_format = "jsonl"
+    return detected_format
 
+
+def load_events_with_diagnostics(path: str | Path, input_format: str | None = None) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    input_path = Path(path)
+    detected_format = _detect_input_format(input_path, input_format)
     if detected_format == "windows-security-csv":
-        return load_windows_security_csv(input_path)
+        result = load_windows_security_csv_with_diagnostics(input_path)
+        return result.events, result.diagnostics_as_dicts()
     if detected_format == "jsonl":
-        return _read_jsonl(input_path)
+        return _read_jsonl(input_path), []
     raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl or .csv, or pass an explicit input_format.")
+
+
+def load_events_from_path(path: str | Path, input_format: str | None = None) -> List[Dict[str, Any]]:
+    events, _diagnostics = load_events_with_diagnostics(path, input_format=input_format)
+    return events
 
 
 def _dedupe_rule_paths(paths: List[str]) -> List[str]:
@@ -258,6 +270,7 @@ def run_analysis_for_events(options: AnalysisOptions) -> AnalysisResult:
         reconstructions=reconstructions,
         mitre_coverage=coverage_rows,
         artifacts={},
+        ingest_diagnostics=list(options.ingest_diagnostics),
     )
 
     if events_path and not (options.write_outputs and result.input_path is not None):
@@ -289,30 +302,30 @@ def run_analysis(options: AnalysisOptions) -> AnalysisResult:
         raise ValueError("AnalysisOptions requires events or input_path")
 
     input_path = Path(options.input_path)
-    events = load_events_from_path(input_path, input_format=options.input_format)
-    return run_analysis_for_events(
-        AnalysisOptions(
-            events=events,
-            input_name=options.input_name or input_path.name,
-            input_path=input_path,
-            output_dir=options.output_dir,
-            config_path=options.config_path,
-            rule_paths=options.rule_paths,
-            rules_only=options.rules_only,
-            write_outputs=options.write_outputs,
-            write_report=options.write_report,
-            events_path=options.events_path,
-            input_format=options.input_format,
-            alerts_path=options.alerts_path,
-            report_path=options.report_path,
-            cases_output_dir=options.cases_output_dir,
-            hunts_path=options.hunts_path,
-            reconstructions_path=options.reconstructions_path,
-            case_input_name=options.case_input_name or str(input_path),
-            brute_force_threshold=options.brute_force_threshold,
-            brute_force_window_minutes=options.brute_force_window_minutes,
-        )
+    events, ingest_diagnostics = load_events_with_diagnostics(input_path, input_format=options.input_format)
+    analysis_options = AnalysisOptions(
+        events=events,
+        input_name=options.input_name or input_path.name,
+        input_path=input_path,
+        output_dir=options.output_dir,
+        config_path=options.config_path,
+        rule_paths=options.rule_paths,
+        rules_only=options.rules_only,
+        write_outputs=options.write_outputs,
+        write_report=options.write_report,
+        events_path=options.events_path,
+        input_format=options.input_format,
+        alerts_path=options.alerts_path,
+        report_path=options.report_path,
+        cases_output_dir=options.cases_output_dir,
+        hunts_path=options.hunts_path,
+        reconstructions_path=options.reconstructions_path,
+        case_input_name=options.case_input_name or str(input_path),
+        brute_force_threshold=options.brute_force_threshold,
+        brute_force_window_minutes=options.brute_force_window_minutes,
+        ingest_diagnostics=ingest_diagnostics,
     )
+    return run_analysis_for_events(analysis_options)
 
 
 def run_analysis_for_file(input_path: str | Path, **kwargs: Any) -> AnalysisResult:

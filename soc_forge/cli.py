@@ -58,6 +58,17 @@ def print_summary(alerts: List[Any]) -> None:
         )
 
     console.print(table)
+def print_ingest_diagnostics(diagnostics: List[dict[str, Any]]) -> None:
+    if not diagnostics:
+        return
+    print("\nINGEST DIAGNOSTICS")
+    print("------------------")
+    for diagnostic in diagnostics[:10]:
+        row = f" row={diagnostic['row']}" if diagnostic.get("row") is not None else ""
+        field = f" field={diagnostic['field']}" if diagnostic.get("field") else ""
+        print(f"{diagnostic.get('level', 'info').upper()}:{row}{field} {diagnostic.get('message', '')}")
+    if len(diagnostics) > 10:
+        print(f"... {len(diagnostics) - 10} more diagnostics")
 
 def run_simulator(args) -> int:
     events = generate_scenario(args.simulate)
@@ -145,6 +156,8 @@ def main():
             brute_force_window_minutes=bf_window,
         )
     )
+
+    print_ingest_diagnostics(result.ingest_diagnostics)
 
     if result.hunt_findings:
         print("\nHUNT RESULTS")

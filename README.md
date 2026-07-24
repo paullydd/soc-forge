@@ -87,6 +87,8 @@ Then open `http://127.0.0.1:8765`, choose `Detection Lab` or `Attack Chain`, and
 
 Run analysis against a JSONL or Windows Security CSV event file from the CLI. SOC-Forge auto-detects `.jsonl` and `.csv` by extension; use `--format` only when you need to override that detection.
 
+Windows Security CSV imports accept common exported columns including `TimeCreated` or `Date and Time`, `Id` or `Event ID`, `Computer` or `Host`, `User` or `Username`, and `Message`. During import, SOC-Forge reports non-blocking dataset diagnostics for missing timestamps, missing or invalid event IDs, and missing optional context fields.
+
 ```bash
 soc-forge --input sample_events.jsonl
 soc-forge --input security_events.csv --format windows-security-csv

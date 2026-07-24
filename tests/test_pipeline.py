@@ -147,6 +147,29 @@ def test_run_analysis_file_input_format_override_loads_windows_security_csv(tmp_
     assert result.events[0]["ip"] == "198.51.100.88"
 
 
+def test_run_analysis_file_input_exposes_csv_ingest_diagnostics(tmp_path):
+    csv_path = tmp_path / "security.csv"
+    csv_path.write_text(
+        "TimeCreated,Id,Message\n"
+        ",not-a-number,Missing timestamp and invalid event id\n",
+        encoding="utf-8",
+    )
+
+    result = run_analysis(
+        AnalysisOptions(
+            input_path=csv_path,
+            output_dir=tmp_path,
+            write_outputs=False,
+            write_report=False,
+        )
+    )
+
+    assert result.event_count == 1
+    assert result.ingest_diagnostics
+    assert any(item["level"] == "error" for item in result.ingest_diagnostics)
+    assert any(item.get("field") == "event_id" for item in result.ingest_diagnostics)
+    assert any(item.get("field") == "timestamp" for item in result.ingest_diagnostics)
+
 @pytest.mark.parametrize(
     "scenario,expected",
     [

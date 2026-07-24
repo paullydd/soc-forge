@@ -43,7 +43,8 @@ flowchart TB
 
 ```text
 Input JSONL or Windows Security CSV
-  -> event dictionaries, with optional normalized event export from CLI file analysis
+  -> event dictionaries plus CSV import diagnostics when dataset quality issues are found
+  -> optional normalized event export from CLI file analysis
   -> shared analysis pipeline
   -> YAML rule alerts plus legacy brute-force compatibility alerts
   -> correlation alerts

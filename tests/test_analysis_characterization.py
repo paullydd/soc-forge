@@ -118,6 +118,40 @@ def test_cli_rules_only_custom_paths_and_write_events_writes_normalized_events(t
     assert "Correlated alerts:" in output
 
 
+
+
+def test_cli_prints_csv_ingest_diagnostics(tmp_path, monkeypatch, capsys):
+    _link_package_into_workdir(tmp_path)
+    csv_path = tmp_path / "security.csv"
+    csv_path.write_text(
+        "TimeCreated,Id,Message\n"
+        ",not-a-number,Missing timestamp and invalid event id\n",
+        encoding="utf-8",
+    )
+    alerts_path = tmp_path / "alerts.json"
+    report_path = tmp_path / "report.html"
+
+    monkeypatch.chdir(tmp_path)
+    argv = [
+        "soc-forge",
+        "--input",
+        str(csv_path),
+        "--out",
+        str(alerts_path),
+        "--html",
+        str(report_path),
+        "--rules-only",
+    ]
+
+    with patch.object(sys, "argv", argv):
+        assert main() is None
+
+    output = capsys.readouterr().out
+    assert "INGEST DIAGNOSTICS" in output
+    assert "ERROR:" in output
+    assert "field=event_id" in output
+    assert "field=timestamp" in output
+
 def test_core_owner_imports_remain_available_for_legacy_detector_and_case_builder():
     alerts = detect_bruteforce(
         [
