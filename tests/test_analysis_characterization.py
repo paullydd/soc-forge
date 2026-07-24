@@ -152,6 +152,71 @@ def test_cli_prints_csv_ingest_diagnostics(tmp_path, monkeypatch, capsys):
     assert "field=event_id" in output
     assert "field=timestamp" in output
 
+
+
+def test_cli_accepts_evtx_input_and_writes_existing_outputs(tmp_path, monkeypatch, capsys):
+    _link_package_into_workdir(tmp_path)
+    evtx_path = REPO_ROOT / "tests" / "fixtures" / "evtx" / "issue_38.evtx"
+    alerts_path = tmp_path / "alerts.json"
+    report_path = tmp_path / "report.html"
+
+    monkeypatch.chdir(tmp_path)
+    argv = [
+        "soc-forge",
+        "--input",
+        str(evtx_path),
+        "--out",
+        str(alerts_path),
+        "--html",
+        str(report_path),
+        "--format",
+        "windows-security-evtx",
+        "--rules-only",
+    ]
+
+    with patch.object(sys, "argv", argv):
+        assert main() is None
+
+    output = capsys.readouterr().out
+    alerts = json.loads(alerts_path.read_text(encoding="utf-8"))
+    cases = json.loads((tmp_path / "cases.json").read_text(encoding="utf-8"))
+
+    assert alerts == []
+    assert cases == []
+    assert report_path.exists()
+    assert "Saved alerts to:" in output
+    assert "Saved HTML report to:" in output
+
+
+def test_cli_prints_bounded_evtx_diagnostics_for_malformed_input(tmp_path, monkeypatch, capsys):
+    _link_package_into_workdir(tmp_path)
+    malformed = tmp_path / "bad.evtx"
+    malformed.write_text("not an evtx", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    argv = [
+        "soc-forge",
+        "--input",
+        str(malformed),
+        "--out",
+        str(tmp_path / "alerts.json"),
+        "--html",
+        str(tmp_path / "report.html"),
+    ]
+
+    with patch.object(sys, "argv", argv):
+        assert main() == 1
+
+    output = capsys.readouterr().out
+    assert "INGEST DIAGNOSTICS" in output
+    assert "ERROR:" in output
+    assert "field=evtx" in output
+    assert "Unable to parse EVTX file" in output
+    assert "No normalized EVTX events were loaded" in output
+    assert "Traceback" not in output
+    assert str(malformed) not in output
+
+
 def test_core_owner_imports_remain_available_for_legacy_detector_and_case_builder():
     alerts = detect_bruteforce(
         [

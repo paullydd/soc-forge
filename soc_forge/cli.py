@@ -4,7 +4,7 @@ from typing import Any, List
 
 from soc_forge.config import load_config
 from soc_forge.models import alert_to_dict
-from soc_forge.pipeline import AnalysisOptions, run_analysis
+from soc_forge.pipeline import AnalysisOptions, InputLoadError, run_analysis
 from soc_forge import __version__
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
 from soc_forge.rules.engine import load_rules
@@ -80,13 +80,13 @@ def run_simulator(args) -> int:
 def main():
     ap = argparse.ArgumentParser(prog="soc-forge", description="SOC-Forge detection engine with attack simulation")
     ap.add_argument("--version", action="version", version=f"soc-forge {__version__}")
-    ap.add_argument("--input", required=False, help="Path to events file (.jsonl or Windows Security .csv)")
+    ap.add_argument("--input", required=False, help="Path to events file (.jsonl, Windows Security .csv, or initial Windows .evtx support)")
     ap.add_argument("--out", default=None, help="Output alerts.json path (overrides config)")
     ap.add_argument("--bf-threshold", type=int, default=None, help="Bruteforce threshold (overrides config)")
     ap.add_argument("--bf-window", type=int, default=None, help="Bruteforce window minutes (overrides config)")
     ap.add_argument("--config", default="config.yml", help="Path to YAML config (default: config.yml)")
     ap.add_argument("--html", default=None, help="Output HTML report path (overrides config)")
-    ap.add_argument("--format", default=None, choices=["jsonl", "windows-security-csv"], help="Input format override; defaults to auto-detect from file extension")
+    ap.add_argument("--format", default=None, choices=["jsonl", "windows-security-csv", "windows-security-evtx", "evtx"], help="Input format override; defaults to auto-detect from file extension")
     ap.add_argument("--write-events", default=None, help="Write normalized loaded events to this JSON path during --input analysis")
     ap.add_argument("--rules", action="append", help="Rule file or directory (repeatable)")
     ap.add_argument("--rules-only", action="store_true", help="Run YAML rules only (skip built-in detectors)")
@@ -137,25 +137,33 @@ def main():
     if args.rules:
         rule_paths.extend(args.rules)
 
-    result = run_analysis(
-        AnalysisOptions(
-            input_path=input_path,
-            input_name=input_path.name,
-            output_dir=Path(out_html).parent,
-            config_path=args.config,
-            rule_paths=rule_paths,
-            rules_only=args.rules_only,
-            events_path=Path(args.write_events) if args.write_events else None,
-            input_format=args.format,
-            alerts_path=Path(out_json),
-            report_path=Path(out_html),
-            cases_output_dir=Path(out_html).parent,
-            hunts_path=Path("out") / "hunts.json",
-            reconstructions_path=Path(out_json).parent / "reconstructions.json",
-            brute_force_threshold=bf_threshold,
-            brute_force_window_minutes=bf_window,
+    try:
+        result = run_analysis(
+            AnalysisOptions(
+                input_path=input_path,
+                input_name=input_path.name,
+                output_dir=Path(out_html).parent,
+                config_path=args.config,
+                rule_paths=rule_paths,
+                rules_only=args.rules_only,
+                events_path=Path(args.write_events) if args.write_events else None,
+                input_format=args.format,
+                alerts_path=Path(out_json),
+                report_path=Path(out_html),
+                cases_output_dir=Path(out_html).parent,
+                hunts_path=Path("out") / "hunts.json",
+                reconstructions_path=Path(out_json).parent / "reconstructions.json",
+                brute_force_threshold=bf_threshold,
+                brute_force_window_minutes=bf_window,
+            )
         )
-    )
+    except InputLoadError as exc:
+        print_ingest_diagnostics(exc.diagnostics)
+        print(f"ERROR: {exc}")
+        return 1
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 1
 
     print_ingest_diagnostics(result.ingest_diagnostics)
 

@@ -1,9 +1,149 @@
 import json
+from unittest.mock import patch
 
 import pytest
 
-from soc_forge.pipeline import AnalysisOptions, AnalysisResult, run_analysis, run_analysis_for_events
+from soc_forge.ingest.windows_evtx import WindowsSecurityEvtxResult
+from soc_forge.pipeline import AnalysisOptions, AnalysisResult, InputLoadError, load_events_with_diagnostics, run_analysis, run_analysis_for_events
 from soc_forge.simulator import generate_scenario, write_events_jsonl
+
+
+EVTX_FIXTURE = "tests/fixtures/evtx/issue_38.evtx"
+
+
+def test_load_events_with_diagnostics_auto_detects_evtx_fixture():
+    events, diagnostics = load_events_with_diagnostics(EVTX_FIXTURE)
+
+    assert diagnostics == []
+    assert len(events) == 1
+    assert events[0]["event_id"] == 4672
+    assert events[0]["provider"] == "Microsoft-Windows-Security-Auditing"
+
+
+def test_run_analysis_file_input_explicit_evtx_format_alias_loads_fixture(tmp_path):
+    result = run_analysis(
+        AnalysisOptions(
+            input_path=EVTX_FIXTURE,
+            input_format="evtx",
+            output_dir=tmp_path,
+            write_outputs=False,
+            write_report=False,
+            rules_only=True,
+        )
+    )
+
+    assert result.event_count == 1
+    assert result.ingest_diagnostics == []
+    assert result.events[0]["event_id"] == 4672
+    assert result.alerts == []
+
+
+def test_run_analysis_file_input_explicit_canonical_evtx_format_loads_fixture(tmp_path):
+    result = run_analysis(
+        AnalysisOptions(
+            input_path=EVTX_FIXTURE,
+            input_format="windows-security-evtx",
+            output_dir=tmp_path,
+            write_outputs=False,
+            write_report=False,
+            rules_only=True,
+        )
+    )
+
+    assert result.event_count == 1
+    assert result.events[0]["channel"] == "Security"
+
+
+def test_pipeline_calls_evtx_loader_and_runs_standard_rules(tmp_path):
+    evtx_event = {
+        "timestamp": "2026-07-17T18:26:03Z",
+        "event_id": 4688,
+        "message": "C:\\Users\\alice\\AppData\\Local\\Temp\\payload.exe",
+        "host": "WS-LAB-01",
+        "username": "alice",
+        "process_name": "payload.exe",
+        "command_line": "C:\\Users\\alice\\AppData\\Local\\Temp\\payload.exe",
+        "raw": {"event_data": {"CommandLine": "C:\\Users\\alice\\AppData\\Local\\Temp\\payload.exe"}},
+    }
+    loader_result = WindowsSecurityEvtxResult(
+        events=[evtx_event],
+        diagnostics=[{"level": "info", "message": "diagnostic proof", "field": "provider"}],
+        parsed_record_count=1,
+        skipped_record_count=0,
+    )
+
+    with patch("soc_forge.pipeline.load_windows_security_evtx_with_diagnostics", return_value=loader_result) as loader:
+        result = run_analysis(
+            AnalysisOptions(
+                input_path=tmp_path / "proof.evtx",
+                output_dir=tmp_path,
+                write_outputs=False,
+                write_report=False,
+                rules_only=True,
+            )
+        )
+
+    loader.assert_called_once_with(tmp_path / "proof.evtx")
+    assert result.event_count == 1
+    assert result.ingest_diagnostics == loader_result.diagnostics
+    assert any(alert.get("rule_id") == "SOCF-012" for alert in result.alerts)
+
+
+def test_evtx_loader_diagnostics_propagate_to_input_load_error(tmp_path):
+    malformed = tmp_path / "bad.evtx"
+    malformed.write_text("not an evtx", encoding="utf-8")
+
+    with pytest.raises(InputLoadError) as excinfo:
+        run_analysis(
+            AnalysisOptions(
+                input_path=malformed,
+                output_dir=tmp_path,
+                write_outputs=False,
+                write_report=False,
+            )
+        )
+
+    assert "No normalized EVTX events were loaded" in str(excinfo.value)
+    assert excinfo.value.diagnostics == [{"level": "error", "message": "Unable to parse EVTX file", "field": "evtx"}]
+
+
+def test_missing_evtx_file_uses_loader_diagnostic(tmp_path):
+    missing = tmp_path / "missing.evtx"
+
+    with pytest.raises(InputLoadError) as excinfo:
+        load_events_with_diagnostics(missing)
+
+    assert excinfo.value.diagnostics == [{"level": "error", "message": "EVTX file not found", "field": "input_path"}]
+
+
+def test_evtx_zero_normalized_events_is_not_successful_analysis(tmp_path):
+    loader_result = WindowsSecurityEvtxResult(
+        events=[],
+        diagnostics=[{"level": "warning", "message": "EVTX file contains no records", "field": "records"}],
+        parsed_record_count=0,
+        skipped_record_count=0,
+    )
+
+    with patch("soc_forge.pipeline.load_windows_security_evtx_with_diagnostics", return_value=loader_result):
+        with pytest.raises(InputLoadError) as excinfo:
+            run_analysis(
+                AnalysisOptions(
+                    input_path=tmp_path / "empty.evtx",
+                    output_dir=tmp_path,
+                    write_outputs=False,
+                    write_report=False,
+                )
+            )
+
+    assert "No normalized EVTX events were loaded" in str(excinfo.value)
+    assert excinfo.value.diagnostics == loader_result.diagnostics
+
+def test_unsupported_extension_remains_unsupported(tmp_path):
+    unsupported = tmp_path / "events.txt"
+    unsupported.write_text("{}", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Unsupported input format"):
+        load_events_with_diagnostics(unsupported)
 
 
 def test_run_analysis_for_events_detection_lab_matches_current_artifact_shape(tmp_path):

@@ -42,8 +42,8 @@ flowchart TB
 ## Data Flow
 
 ```text
-Input JSONL or Windows Security CSV
-  -> event dictionaries plus CSV import diagnostics when dataset quality issues are found
+Input JSONL, Windows Security CSV, or local Windows EVTX
+  -> event dictionaries plus CSV/EVTX import diagnostics when dataset quality issues are found
   -> optional normalized event export from CLI file analysis
   -> shared analysis pipeline
   -> YAML rule alerts plus legacy brute-force compatibility alerts
@@ -63,7 +63,7 @@ Input JSONL or Windows Security CSV
 soc_forge/pipeline.py             Shared analysis pipeline and artifact writing
 soc_forge/cli.py                  CLI for file analysis, simulation, coverage, and rule quality
 soc_forge/web/app.py              Local web API and scenario runner
-soc_forge/ingest/                 Event loading and conversion
+soc_forge/ingest/                 Event loading, CSV diagnostics, and initial EVTX normalization
 soc_forge/rules/                  Detection rule content, engine, quality, coverage, and legacy detector
 soc_forge/correlate/              Alert correlation logic
 soc_forge/hunts/                  Hunt analytics
@@ -97,3 +97,5 @@ SOC-Forge favors readable local artifacts over hidden state. Alerts, cases, reco
 The guided web demo is the primary portfolio experience. The terminal analyst console is still supported as an optional deep-dive workflow for replay, entity relationships, lifecycle actions, and exports. The CLI remains the automation and detection-engineering interface.
 
 SOC-Forge is local-only by design. The web server binds to `127.0.0.1` by default, has no authentication, and warns when explicitly bound to a non-loopback host. Generated artifacts may contain sensitive telemetry and should be reviewed or redacted before sharing.
+
+Initial EVTX support stays inside the ingestion layer. The pipeline recognizes `.evtx` or the explicit `windows-security-evtx` format, calls the EVTX loader, and receives the same flat event dictionaries used by JSONL, CSV, simulation, CLI output, reports, and cases. EVTX rendering is intentionally limited: parsed events retain compact System/EventData evidence, not unbounded raw XML or guaranteed localized Windows-rendered messages.

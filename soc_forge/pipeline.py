@@ -10,6 +10,7 @@ from soc_forge.config import load_config
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.export.cases_export import export_cases_json
 from soc_forge.hunts import findings_to_dicts, run_hunts
+from soc_forge.ingest.windows_evtx import load_windows_security_evtx_with_diagnostics
 from soc_forge.ingest.windows_security_csv import load_windows_security_csv_with_diagnostics
 from soc_forge.intelligence import attach_case_stories, build_risk_summary
 from soc_forge.models import normalize_alerts
@@ -19,6 +20,9 @@ from soc_forge.report.html_report import write_html_report
 from soc_forge.rules.coverage import mitre_coverage_by_tactic
 from soc_forge.rules.engine import load_rules, run_rules
 from soc_forge.rules.legacy import detect_bruteforce
+
+CANONICAL_EVTX_FORMAT = "windows-security-evtx"
+EVTX_FORMAT_ALIASES = {"evtx", CANONICAL_EVTX_FORMAT}
 
 
 @dataclass
@@ -90,14 +94,28 @@ def _read_jsonl(path: Path) -> List[Dict[str, Any]]:
     return events
 
 
+class InputLoadError(ValueError):
+    def __init__(self, message: str, diagnostics: List[Dict[str, Any]] | None = None):
+        super().__init__(message)
+        self.diagnostics = diagnostics or []
+
+
+def _normalize_input_format(input_format: str | None) -> str | None:
+    if input_format in EVTX_FORMAT_ALIASES:
+        return CANONICAL_EVTX_FORMAT
+    return input_format
+
+
 def _detect_input_format(input_path: Path, input_format: str | None = None) -> str | None:
-    detected_format = input_format
+    detected_format = _normalize_input_format(input_format)
     if detected_format is None:
         suffix = input_path.suffix.lower()
         if suffix == ".csv":
             detected_format = "windows-security-csv"
         elif suffix == ".jsonl":
             detected_format = "jsonl"
+        elif suffix == ".evtx":
+            detected_format = CANONICAL_EVTX_FORMAT
     return detected_format
 
 
@@ -107,9 +125,14 @@ def load_events_with_diagnostics(path: str | Path, input_format: str | None = No
     if detected_format == "windows-security-csv":
         result = load_windows_security_csv_with_diagnostics(input_path)
         return result.events, result.diagnostics_as_dicts()
+    if detected_format == CANONICAL_EVTX_FORMAT:
+        result = load_windows_security_evtx_with_diagnostics(input_path)
+        if not result.events:
+            raise InputLoadError("No normalized EVTX events were loaded", diagnostics=result.diagnostics)
+        return result.events, result.diagnostics
     if detected_format == "jsonl":
         return _read_jsonl(input_path), []
-    raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl or .csv, or pass an explicit input_format.")
+    raise ValueError(f"Unsupported input format: {input_path.suffix}. Use .jsonl, .csv, or .evtx, or pass an explicit input_format.")
 
 
 def load_events_from_path(path: str | Path, input_format: str | None = None) -> List[Dict[str, Any]]:

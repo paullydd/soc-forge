@@ -6,7 +6,7 @@ The project is designed as a portfolio-ready SOC workflow: it shows detection en
 
 ## What It Does
 
-- Ingests JSONL security events and Windows Security CSV exports
+- Ingests JSONL security events, Windows Security CSV exports, and initial local Windows EVTX files
 - Normalizes event data for analysis
 - Runs YAML-based detection rules with MITRE ATT&CK mappings
 - Runs a built-in brute-force detector for legacy compatibility
@@ -85,13 +85,14 @@ python3 -m soc_forge.web.app --port 8765
 
 Then open `http://127.0.0.1:8765`, choose `Detection Lab` or `Attack Chain`, and click `Start Demo`. The browser runs the selected scenario through the shared pipeline and refreshes the local artifacts in `out/`.
 
-Run analysis against a JSONL or Windows Security CSV event file from the CLI. SOC-Forge auto-detects `.jsonl` and `.csv` by extension; use `--format` only when you need to override that detection.
+Run analysis against a JSONL, Windows Security CSV, or local Windows EVTX event file from the CLI. SOC-Forge auto-detects `.jsonl`, `.csv`, and `.evtx` by extension; use `--format` only when you need to override that detection.
 
-Windows Security CSV imports accept common exported columns including `TimeCreated` or `Date and Time`, `Id` or `Event ID`, `Computer` or `Host`, `User` or `Username`, and `Message`. During import, SOC-Forge reports non-blocking dataset diagnostics for missing timestamps, missing or invalid event IDs, and missing optional context fields.
+Windows Security CSV imports accept common exported columns including `TimeCreated` or `Date and Time`, `Id` or `Event ID`, `Computer` or `Host`, `User` or `Username`, and `Message`. Initial EVTX ingestion uses the explicit format name `windows-security-evtx` and extracts universal System metadata plus compact EventData values into the existing flat event model. During import, SOC-Forge reports bounded dataset diagnostics for missing timestamps, missing or invalid event IDs, malformed EVTX records, and missing optional context fields.
 
 ```bash
 soc-forge --input sample_events.jsonl
 soc-forge --input security_events.csv --format windows-security-csv
+soc-forge --input security.evtx --format windows-security-evtx
 soc-forge --input sample_events.jsonl --write-events out/normalized_events.json
 ```
 
@@ -122,6 +123,8 @@ out/normalized_events.json  # only when --write-events is used
 ```
 
 Local safety note: SOC-Forge is a local analyst tool. The web server binds to `127.0.0.1` by default, has no authentication, and prints a warning if you explicitly bind it to a non-loopback host. Generated reports and JSON artifacts may contain sensitive telemetry such as usernames, hosts, IP addresses, command lines, and investigation notes. Review and redact artifacts before sharing them.
+
+EVTX limitations: this is initial local ingestion support, not complete Windows Event Log compatibility. SOC-Forge does not collect live logs, connect to remote hosts, render every localized Windows message, or support every provider/channel. Normalized EVTX events keep compact parsed `raw` evidence and do not retain unbounded XML by default.
 
 
 ## Portfolio Demo Package
