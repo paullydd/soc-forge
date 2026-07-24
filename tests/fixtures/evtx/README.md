@@ -9,3 +9,9 @@
 - Purpose: Minimal valid EVTX parser proof fixture for SOC-Forge v2.2 Slice 2A.
 - Expected record count: 1
 - Privacy note: This is upstream open-source parser test data, not private SOC-Forge telemetry.
+
+## Normalization scope
+
+Slice 2B uses this fixture only to prove that EVTX XML records can be converted into SOC-Forge's existing flat event dictionary shape. The normalizer extracts universal System metadata and compact EventData values, promotes selected aliases such as identities, IP addresses, process names, command lines, services, tasks, and groups, and keeps unknown EventData inside `raw["event_data"]`.
+
+`python-evtx` exposes XML records but does not guarantee Windows-rendered localized messages. SOC-Forge therefore prefers any rendered message already present in XML and otherwise creates a deterministic fallback summary from provider, Event ID, and selected EventData. Normalized events do not retain raw XML by default; raw evidence is compact parsed metadata only.
