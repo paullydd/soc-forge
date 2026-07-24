@@ -126,6 +126,22 @@ Local safety note: SOC-Forge is a local analyst tool. The web server binds to `1
 
 EVTX limitations: this is initial local ingestion support, not complete Windows Event Log compatibility. SOC-Forge does not collect live logs, connect to remote hosts, render every localized Windows message, or support every provider/channel. Normalized EVTX events keep compact parsed `raw` evidence and do not retain unbounded XML by default.
 
+### Real EVTX Telemetry Demo
+
+SOC-Forge includes a small public Windows System-channel EVTX fixture for initial Windows EVTX ingestion and investigation support. Run it with the normal CLI path:
+
+```bash
+python3 -m soc_forge.cli \
+  --input tests/fixtures/evtx/system_service_demo.evtx \
+  --out out/evtx-demo/alerts.json \
+  --html out/evtx-demo/report.html \
+  --write-events out/evtx-demo/normalized_events.json
+```
+
+The demo ingests 1,601 normalized Windows events and focuses on Service Control Manager activity. Existing SOC-Forge rules identify new service installation events and PsExec-style service execution evidence involving `PsExec` and `PSEXESVC.EXE`. The generated case is an analyst starting point: inspect the service names, image paths, host context, neighboring service state changes, and whether separate authentication telemetry is available to identify who initiated the activity.
+
+This demo does not prove malicious intent by itself. The fixture is System-channel telemetry, so it does not include complete authentication context, endpoint process lineage, or network telemetry.
+
 
 ## Portfolio Demo Package
 

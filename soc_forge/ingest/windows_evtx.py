@@ -206,6 +206,7 @@ def normalize_evtx_record_xml(record: EvtxRecordXml) -> tuple[Dict[str, Any] | N
     process_name = _first_event_data(event_data, ("ProcessName", "NewProcessName", "Image"))
     parent_process = _first_event_data(event_data, ("ParentProcessName", "ParentImage"))
     command_line = _first_event_data(event_data, ("CommandLine", "ProcessCommandLine"))
+    image_path = _first_event_data(event_data, ("ImagePath", "NewProcessName", "Image"))
     group_name = _first_event_data(event_data, ("GroupName", "TargetGroupName"))
 
     event: Dict[str, Any] = {
@@ -243,7 +244,9 @@ def normalize_evtx_record_xml(record: EvtxRecordXml) -> tuple[Dict[str, Any] | N
         "process_name": process_name,
         "parent_process": parent_process,
         "command_line": command_line,
+        "image_path": image_path,
         "service_name": _first_event_data(event_data, ("ServiceName",)),
+        "service_account": _first_event_data(event_data, ("ServiceAccount", "AccountName")),
         "task_name": _first_event_data(event_data, ("TaskName",)),
         "group_name": group_name,
     }

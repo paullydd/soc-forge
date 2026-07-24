@@ -112,6 +112,7 @@ def test_evtx_alias_precedence_and_compact_raw_event_data():
 <Data Name="NewProcessName">C:\\Windows\\System32\\cmd.exe</Data>
 <Data Name="ParentProcessName">explorer.exe</Data>
 <Data Name="CommandLine">cmd.exe /c whoami</Data>
+<Data Name="ImagePath">C:\\Windows\\PSEXESVC.EXE</Data>
 <Data Name="ServiceName">TestService</Data>
 <Data Name="TaskName">\\Microsoft\\Windows\\Test</Data>
 <Data Name="TargetGroupName">Administrators</Data>
@@ -132,7 +133,9 @@ def test_evtx_alias_precedence_and_compact_raw_event_data():
     assert event["process_name"] == "C:\\Windows\\System32\\cmd.exe"
     assert event["parent_process"] == "explorer.exe"
     assert event["command_line"] == "cmd.exe /c whoami"
+    assert event["image_path"] == "C:\\Windows\\PSEXESVC.EXE"
     assert event["service_name"] == "TestService"
+    assert event["service_account"] == "charlie"
     assert event["task_name"] == "\\Microsoft\\Windows\\Test"
     assert event["group_name"] == "Administrators"
     assert event["raw"]["event_data"]["UnmappedField"] == "kept"
