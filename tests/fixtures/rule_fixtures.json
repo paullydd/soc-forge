@@ -28,7 +28,7 @@
       "host": "DC1",
       "actor": "admin01",
       "username": "bob",
-      "group": "Domain Admins",
+      "group_name": "Domain Admins",
       "message": "Member added to Domain Admins."
     },
     "non_match": {
@@ -37,7 +37,7 @@
       "host": "DC1",
       "actor": "admin01",
       "username": "bob",
-      "group": "Marketing",
+      "group_name": "Marketing",
       "message": "Member added to Marketing."
     }
   },
@@ -170,6 +170,13 @@
   {
     "rule_id": "SOCF-010",
     "rule_file": "SOCF-010.yml",
+    "match_overrides": [
+      {"username": "alice"},
+      {"username": "bob"},
+      {"username": "carol"},
+      {"username": "dave"},
+      {"username": "erin"}
+    ],
     "match": {
       "timestamp": "2026-07-17T12:08:00Z",
       "event_id": 4625,

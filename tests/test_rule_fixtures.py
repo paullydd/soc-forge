@@ -14,7 +14,11 @@ FIXTURES += json.loads(Path("tests/fixtures/lateral_persistence_collection_rule_
 def test_rule_positive_and_negative_fixtures(fixture):
     rules = load_rules([str(Path("soc_forge/rules") / fixture["rule_file"])])
 
-    positive = run_rules([fixture["match"]], rules)
+    match_events = [
+        {**fixture["match"], **overrides}
+        for overrides in fixture.get("match_overrides", [{}])
+    ]
+    positive = run_rules(match_events, rules)
     assert any(alert.get("rule_id") == fixture["rule_id"] for alert in positive)
 
     negative = run_rules([fixture["non_match"]], rules)

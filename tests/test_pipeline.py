@@ -211,7 +211,7 @@ def test_run_analysis_for_events_can_skip_artifact_writes(tmp_path):
 
 
 def test_run_analysis_file_input_preserves_cli_style_artifact_paths(tmp_path):
-    events_path = write_events_jsonl(generate_scenario("brute_force"), tmp_path / "brute_force_events.jsonl")
+    events_path = write_events_jsonl(generate_scenario("password_spray"), tmp_path / "password_spray_events.jsonl")
     alerts_path = tmp_path / "json" / "alerts.json"
     report_path = tmp_path / "html" / "report.html"
     hunts_path = tmp_path / "out" / "hunts.json"
@@ -238,7 +238,7 @@ def test_run_analysis_file_input_preserves_cli_style_artifact_paths(tmp_path):
     assert result.cases_output_dir == report_path.parent
     assert result.hunts_path == hunts_path
     assert result.reconstructions_path == reconstructions_path
-    assert len(result.alerts) == 10
+    assert len(result.alerts) == 1
     assert len(result.legacy_alerts) == 0
     assert result.correlations["total"] == 0
     assert len(result.cases) == 1

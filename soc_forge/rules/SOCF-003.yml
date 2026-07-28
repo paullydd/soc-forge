@@ -15,13 +15,13 @@ rules:
       op: eq
       value: 4728
     - any:
-      - field: group
+      - field: group_name
         op: eq
         value: Administrators
-      - field: group
+      - field: group_name
         op: eq
         value: Domain Admins
-      - field: group
+      - field: group_name
         op: eq
         value: Enterprise Admins
   emit:
@@ -29,7 +29,7 @@ rules:
       host: ${host}
       actor: ${actor}
       username: ${username}
-      group: ${group}
+      group_name: ${group_name}
       message: ${message}
   description: Detects additions to privileged Windows groups that may grant administrative
     access.

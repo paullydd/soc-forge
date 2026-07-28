@@ -16,7 +16,7 @@ rules:
       value: 4625
   aggregate:
     group_by:
-    - src_ip
+    - ip
     window_minutes: 10
     distinct_count:
       field: username

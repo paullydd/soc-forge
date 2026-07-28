@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -25,6 +27,7 @@ class Rule:
     match: Dict[str, Any]
     emit: Dict[str, Any]
     score_modifiers: List[Dict[str, Any]]
+    aggregate: Dict[str, Any] = field(default_factory=dict)
 
     description: str = ""
     author: str = ""
@@ -87,6 +90,7 @@ def _load_rule_file(file_path: Path) -> List[Rule]:
                 match=dict(r.get("match", {}) or {}),
                 emit=dict(r.get("emit", {}) or {}),
                 score_modifiers=list(r.get("score_modifiers", []) or []),
+                aggregate=dict(r.get("aggregate", {}) or {}),
                 description=str(r.get("description", "") or ""),
                 author=str(r.get("author", "") or ""),
                 created=str(r.get("created", "") or ""),
@@ -314,6 +318,34 @@ def _validate_rule_dict(r: Dict[str, Any], file_path: Path, idx: int, errors: Li
                 if sd is not None and not isinstance(sd, dict):
                     errors.append(f"{mp}: 'set_details' must be a mapping if present")
 
+    aggregate = r.get("aggregate")
+    if aggregate is not None:
+        if not isinstance(aggregate, dict):
+            errors.append(f"{prefix}: aggregate must be a mapping if present")
+        else:
+            group_by = aggregate.get("group_by")
+            if not isinstance(group_by, list) or not group_by or any(not _is_nonempty_str(field) for field in group_by):
+                errors.append(f"{prefix}: aggregate.group_by must be a non-empty list of field names")
+
+            try:
+                window_minutes = int(aggregate.get("window_minutes", 0))
+                if window_minutes <= 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errors.append(f"{prefix}: aggregate.window_minutes must be a positive integer")
+
+            distinct_count = aggregate.get("distinct_count")
+            if not isinstance(distinct_count, dict):
+                errors.append(f"{prefix}: aggregate.distinct_count must be a mapping")
+            else:
+                if not _is_nonempty_str(distinct_count.get("field")):
+                    errors.append(f"{prefix}: aggregate.distinct_count.field must be a field name")
+                try:
+                    threshold = int(distinct_count.get("gte", 0))
+                    if threshold <= 0:
+                        raise ValueError
+                except (TypeError, ValueError):
+                    errors.append(f"{prefix}: aggregate.distinct_count.gte must be a positive integer")
     desc = r.get("description", "")
     if desc is not None and not isinstance(desc, str):
         errors.append(f"{prefix}: description must be a string if present")
@@ -423,35 +455,90 @@ def _apply_score_modifiers(alert: Dict[str, Any], event: Dict[str, Any], rule: R
 # Runner
 # ----------------------------
 
+def _build_alert(rule: Rule, event: Dict[str, Any]) -> Dict[str, Any]:
+    alert = {
+        "rule_id": rule.id,
+        "severity": rule.severity,
+        "title": rule.title,
+        "timestamp": event.get("timestamp"),
+        "details": _emit_details(rule, event),
+        "mitre": rule.mitre,
+        "score": rule.score,
+        "status": "new",
+        "correlation_id": None,
+        "rule": {
+            "description": getattr(rule, "description", ""),
+            "author": getattr(rule, "author", ""),
+            "created": getattr(rule, "created", ""),
+            "logsource": getattr(rule, "logsource", ""),
+            "tags": getattr(rule, "tags", []) or [],
+        },
+    }
+    _apply_score_modifiers(alert, event, rule)
+    return alert
+
+
+def _parse_aggregate_timestamp(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def run_rules(events: List[Dict[str, Any]], rules: List[Rule]) -> List[Dict[str, Any]]:
     alerts: List[Dict[str, Any]] = []
+    aggregate_windows = defaultdict(lambda: defaultdict(deque))
+    aggregate_active = defaultdict(set)
 
     for ev in events:
         for rule in rules:
             if not rule.enabled:
                 continue
 
-            if _eval_node(rule.match, ev):
-                alert = {
-                    "rule_id": rule.id,
-                    "severity": rule.severity,
-                    "title": rule.title,
-                    "timestamp": ev.get("timestamp"),
-                    "details": _emit_details(rule, ev),
-                    "mitre": rule.mitre,
-                    "score": rule.score,
-                    "status": "new",
-                    "correlation_id": None,
-                    "rule": {
-                        "description": getattr(rule, "description", ""),
-                        "author": getattr(rule, "author", ""),
-                        "created": getattr(rule, "created", ""),
-                        "logsource": getattr(rule, "logsource", ""),
-                        "tags": getattr(rule, "tags", []) or [],
-                    },
-                }
+            if not _eval_node(rule.match, ev):
+                continue
 
-                _apply_score_modifiers(alert, ev, rule)
-                alerts.append(alert)
+            if not rule.aggregate:
+                alerts.append(_build_alert(rule, ev))
+                continue
+
+            group_fields = rule.aggregate["group_by"]
+            group_key = tuple(ev.get(field) for field in group_fields)
+            if any(value in (None, "") for value in group_key):
+                continue
+
+            distinct_config = rule.aggregate["distinct_count"]
+            distinct_field = distinct_config["field"]
+            distinct_value = ev.get(distinct_field)
+            timestamp = _parse_aggregate_timestamp(ev.get("timestamp"))
+            if distinct_value in (None, "") or timestamp is None:
+                continue
+
+            window_minutes = int(rule.aggregate["window_minutes"])
+            threshold = int(distinct_config["gte"])
+            window = aggregate_windows[rule.id][group_key]
+            window.append((timestamp, distinct_value))
+            cutoff = timestamp - timedelta(minutes=window_minutes)
+            while window and window[0][0] < cutoff:
+                window.popleft()
+
+            distinct_values = {value for _, value in window}
+            if len(distinct_values) < threshold:
+                aggregate_active[rule.id].discard(group_key)
+                continue
+            if group_key in aggregate_active[rule.id]:
+                continue
+
+            aggregate_active[rule.id].add(group_key)
+            alert = _build_alert(rule, ev)
+            details = alert["details"]
+            details[f"distinct_{distinct_field}_count"] = len(distinct_values)
+            details["window_minutes"] = window_minutes
+            alerts.append(alert)
 
     return alerts

@@ -102,6 +102,7 @@ def generate_password_spray_scenario() -> List[Dict[str, Any]]:
                 "event_id": 4625,
                 "username": username,
                 "src_ip": src_ip,
+                "ip": src_ip,
                 "host": host,
                 "computer_name": host,
                 "logon_type": 3,
