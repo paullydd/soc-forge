@@ -87,12 +87,13 @@ Then open `http://127.0.0.1:8765`, choose `Detection Lab` or `Attack Chain`, and
 
 Run analysis against a JSONL, Windows Security CSV, or local Windows EVTX event file from the CLI. SOC-Forge auto-detects `.jsonl`, `.csv`, and `.evtx` by extension; use `--format` only when you need to override that detection.
 
-Windows Security CSV imports accept common exported columns including `TimeCreated` or `Date and Time`, `Id` or `Event ID`, `Computer` or `Host`, `User` or `Username`, and `Message`. Initial EVTX ingestion uses the explicit format name `windows-security-evtx` and extracts universal System metadata plus compact EventData values into the existing flat event model. During import, SOC-Forge reports bounded dataset diagnostics for missing timestamps, missing or invalid event IDs, malformed EVTX records, and missing optional context fields.
+Windows Security CSV imports accept common exported columns including `TimeCreated` or `Date and Time`, `Id` or `Event ID`, `Computer` or `Host`, `User` or `Username`, and `Message`. Initial EVTX ingestion uses the explicit format name `windows-security-evtx` or the shorter `evtx` alias, and extracts universal System metadata plus compact EventData values into the existing flat event model. During import, SOC-Forge reports bounded dataset diagnostics for missing timestamps, missing or invalid event IDs, malformed EVTX records, and missing optional context fields.
 
 ```bash
 soc-forge --input sample_events.jsonl
 soc-forge --input security_events.csv --format windows-security-csv
 soc-forge --input security.evtx --format windows-security-evtx
+soc-forge --input security.evtx --format evtx
 soc-forge --input sample_events.jsonl --write-events out/normalized_events.json
 ```
 

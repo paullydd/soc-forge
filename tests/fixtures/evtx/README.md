@@ -8,6 +8,7 @@
 - License: Apache License 2.0 as distributed by the upstream `python-evtx` repository.
 - Purpose: Minimal valid EVTX parser proof fixture for SOC-Forge v2.2 Slice 2A.
 - Expected record count: 1
+- SHA-256: becab64455866f8fae5583fbaa5dab901115e4397ea7abe14f37ad732d5d7eb9
 - Privacy note: This is upstream open-source parser test data, not private SOC-Forge telemetry.
 
 ## Normalization scope

@@ -6,7 +6,7 @@ This package is the recommended way to present SOC-Forge to reviewers, recruiter
 
 ```text
 Project: SOC-Forge
-Version: 1.0.0
+Version: 2.2.0
 Primary demo: Local analyst web UI guided demo
 Secondary demo: Terminal analyst console investigation workflow
 Test status: pytest -q
