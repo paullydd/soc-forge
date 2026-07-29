@@ -23,12 +23,20 @@ rules:
             - field: event_id
               op: eq
               value: 4663
-            - field: event_id
-              op: eq
-              value: 11
-            - field: event_id
-              op: eq
-              value: 15
+            - all:
+                - field: event_id
+                  op: eq
+                  value: 11
+                - field: provider
+                  op: eq
+                  value: Microsoft-Windows-Sysmon
+            - all:
+                - field: event_id
+                  op: eq
+                  value: 15
+                - field: provider
+                  op: eq
+                  value: Microsoft-Windows-Sysmon
         - any:
             - field: file_path
               op: regex
