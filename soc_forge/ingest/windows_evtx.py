@@ -198,15 +198,18 @@ def normalize_evtx_record_xml(record: EvtxRecordXml) -> tuple[Dict[str, Any] | N
         diagnostics.append(_diagnostic("warning", "EVTX record produced no useful normalized content", field="record", row=record.record_number))
         return None, diagnostics, True
 
-    actor = _first_event_data(event_data, ("SubjectUserName", "AccountName", "TargetUserName"))
+    actor = _first_event_data(event_data, ("SubjectUserName", "AccountName", "User", "TargetUserName"))
     target_user = _first_event_data(event_data, ("TargetUserName",))
-    username = _first_event_data(event_data, ("AccountName", "TargetUserName", "SubjectUserName"))
+    username = _first_event_data(event_data, ("AccountName", "User", "TargetUserName", "SubjectUserName"))
     ip = _first_event_data(event_data, ("IpAddress", "SourceNetworkAddress", "SourceAddress"))
     dest_ip = _first_event_data(event_data, ("DestinationIp", "DestinationIpAddress", "DestAddress", "DestinationAddress"))
-    process_name = _first_event_data(event_data, ("ProcessName", "NewProcessName", "Image"))
+    process_name = _first_event_data(event_data, ("ProcessName", "NewProcessName", "Image", "SourceImage"))
     parent_process = _first_event_data(event_data, ("ParentProcessName", "ParentImage"))
     command_line = _first_event_data(event_data, ("CommandLine", "ProcessCommandLine"))
     image_path = _first_event_data(event_data, ("ImagePath", "NewProcessName", "Image"))
+    target_process = _first_event_data(event_data, ("TargetImage", "TargetProcessName", "TargetProcess"))
+    file_path = _first_event_data(event_data, ("TargetFilename", "ObjectName", "FileName"))
+    target_filename = _first_event_data(event_data, ("TargetFilename", "FileName", "ObjectName"))
     group_name = _first_event_data(event_data, ("GroupName", "TargetGroupName"))
 
     event: Dict[str, Any] = {
@@ -245,6 +248,9 @@ def normalize_evtx_record_xml(record: EvtxRecordXml) -> tuple[Dict[str, Any] | N
         "parent_process": parent_process,
         "command_line": command_line,
         "image_path": image_path,
+        "target_process": target_process,
+        "file_path": file_path,
+        "target_filename": target_filename,
         "service_name": _first_event_data(event_data, ("ServiceName",)),
         "service_account": _first_event_data(event_data, ("ServiceAccount", "AccountName")),
         "task_name": _first_event_data(event_data, ("TaskName",)),
