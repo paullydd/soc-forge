@@ -13,7 +13,7 @@ def test_socf_003_new_admin():
             "timestamp": "2026-02-27T22:20:00Z",
             "event_id": 4728,
             "username": "bob",
-            "group_name": "Administrators",
+            "group_name": "Domain Admins",
             "actor": "alice",
             "host": "WIN10",
             "message": "added to group",
@@ -30,7 +30,7 @@ def test_socf_003_new_admin():
 
     assert a["details"]["host"] == "WIN10"
     assert a["details"]["username"] == "bob"
-    assert a["details"]["group_name"] == "Administrators"
+    assert a["details"]["group_name"] == "Domain Admins"
     assert a["details"]["actor"] == "alice"
 
 def test_yaml_rule_socf_003_no_match():

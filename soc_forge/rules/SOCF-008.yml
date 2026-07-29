@@ -14,11 +14,16 @@ rules:
     id: T1098
   match:
     all:
-    - field: message
+    - any:
+      - field: event_id
+        op: eq
+        value: 4732
+      - field: event_id
+        op: eq
+        value: 4756
+    - field: group_name
       op: regex
-      value: (?i)(member was added to a security-enabled (global|local|universal)
-        group|administrators|domain admins|enterprise admins|remote desktop users|backup
-        operators)
+      value: (?i)^(administrators|enterprise admins|remote desktop users|backup operators)$
   emit:
     details:
       host: ${host}
@@ -28,8 +33,7 @@ rules:
       group_name: ${group_name}
       message: ${message}
       suspicious: true
-  description: Detects user additions to privileged or sensitive groups from Windows
-    security event text.
+  description: Detects additions to privileged local or universal Windows groups using structured group-change events.
   logsource: windows-security
   tags:
   - windows

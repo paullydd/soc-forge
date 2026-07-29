@@ -14,16 +14,9 @@ rules:
     - field: event_id
       op: eq
       value: 4728
-    - any:
-      - field: group_name
-        op: eq
-        value: Administrators
-      - field: group_name
-        op: eq
-        value: Domain Admins
-      - field: group_name
-        op: eq
-        value: Enterprise Admins
+    - field: group_name
+      op: eq
+      value: Domain Admins
   emit:
     details:
       host: ${host}
@@ -31,8 +24,7 @@ rules:
       username: ${username}
       group_name: ${group_name}
       message: ${message}
-  description: Detects additions to privileged Windows groups that may grant administrative
-    access.
+  description: Detects additions to the privileged Domain Admins global group.
   logsource: windows-security
   tags:
   - windows
