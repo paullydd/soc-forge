@@ -39,6 +39,8 @@ RULE_FINDINGS = {
     "SOCF-018": "A commonly abused Windows binary executed suspicious script or remote-content behavior.",
     "SOCF-019": "Execution from an administrative share was observed and may indicate remote staging or lateral movement.",
     "SOCF-020": "Archive tooling staged sensitive-looking files, which can indicate collection or exfiltration preparation.",
+    "SOCF-021": "Windows security controls were disabled, excluded, or stopped, which can indicate defense evasion.",
+    "SOCF-022": "System recovery or shadow copy data was deleted or disabled, which can indicate destructive impact.",
 }
 
 

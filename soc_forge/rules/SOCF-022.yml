@@ -1,0 +1,62 @@
+version: 1
+rules:
+  - id: SOCF-022
+    enabled: true
+    title: System recovery or shadow copy deletion
+    description: Detects commands that delete volume shadow copies, backup catalogs, or Windows recovery configuration.
+    author: SOC-Forge
+    created: "2026-07-29"
+    logsource: windows-process
+    tags:
+      - windows
+      - impact
+      - recovery
+    severity: high
+    score: 95
+    mitre:
+      - tactic: Impact
+        technique: Inhibit System Recovery
+        id: T1490
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4688
+            - all:
+                - field: event_id
+                  op: eq
+                  value: 1
+                - field: provider
+                  op: eq
+                  value: Microsoft-Windows-Sysmon
+        - any:
+            - field: command_line
+              op: regex
+              value: '(?i)\bvssadmin(?:\.exe)?\s+delete\s+shadows\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\bwmic(?:\.exe)?\s+shadowcopy\s+delete\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\bwbadmin(?:\.exe)?\s+delete\s+catalog\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\bbcdedit(?:\.exe)?\b.*\brecoveryenabled\s+no\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\breagentc(?:\.exe)?\s+/disable\b'
+            - field: message
+              op: regex
+              value: '(?i)(vssadmin(?:\.exe)?\s+delete\s+shadows|wmic(?:\.exe)?\s+shadowcopy\s+delete|wbadmin(?:\.exe)?\s+delete\s+catalog|bcdedit(?:\.exe)?.*recoveryenabled\s+no|reagentc(?:\.exe)?\s+/disable)'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        provider: "${provider}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

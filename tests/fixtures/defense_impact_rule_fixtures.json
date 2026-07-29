@@ -1,0 +1,46 @@
+[
+  {
+    "rule_id": "SOCF-021",
+    "rule_file": "SOCF-021.yml",
+    "match": {
+      "timestamp": "2026-07-29T12:00:00Z",
+      "event_id": 4688,
+      "host": "WS-LAB-01",
+      "username": "alice",
+      "process_name": "powershell.exe",
+      "command_line": "powershell.exe Add-MpPreference -ExclusionPath C:\\Temp",
+      "message": "PowerShell added a Microsoft Defender exclusion."
+    },
+    "non_match": {
+      "timestamp": "2026-07-29T12:00:00Z",
+      "event_id": 4688,
+      "host": "WS-LAB-01",
+      "username": "alice",
+      "process_name": "powershell.exe",
+      "command_line": "powershell.exe Update-MpSignature",
+      "message": "PowerShell updated Microsoft Defender signatures."
+    }
+  },
+  {
+    "rule_id": "SOCF-022",
+    "rule_file": "SOCF-022.yml",
+    "match": {
+      "timestamp": "2026-07-29T12:03:00Z",
+      "event_id": 4688,
+      "host": "WS-LAB-01",
+      "username": "alice",
+      "process_name": "vssadmin.exe",
+      "command_line": "vssadmin.exe delete shadows /all /quiet",
+      "message": "Volume shadow copies were deleted."
+    },
+    "non_match": {
+      "timestamp": "2026-07-29T12:03:00Z",
+      "event_id": 4688,
+      "host": "WS-LAB-01",
+      "username": "alice",
+      "process_name": "vssadmin.exe",
+      "command_line": "vssadmin.exe list shadows",
+      "message": "Volume shadow copies were listed."
+    }
+  }
+]

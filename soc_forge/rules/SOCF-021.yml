@@ -1,0 +1,56 @@
+version: 1
+rules:
+  - id: SOCF-021
+    enabled: true
+    title: Windows security control tampering
+    description: Detects commands that disable Microsoft Defender protections, add exclusions, or stop core endpoint security services.
+    author: SOC-Forge
+    created: "2026-07-29"
+    logsource: windows-process
+    tags:
+      - windows
+      - defense-evasion
+      - security-controls
+    severity: high
+    score: 90
+    mitre:
+      - tactic: Defense Evasion
+        technique: "Impair Defenses: Disable or Modify Tools"
+        id: T1562.001
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4688
+            - all:
+                - field: event_id
+                  op: eq
+                  value: 1
+                - field: provider
+                  op: eq
+                  value: Microsoft-Windows-Sysmon
+        - any:
+            - field: command_line
+              op: regex
+              value: '(?i)\bSet-MpPreference\b.*\bDisableRealtimeMonitoring\b.*(?:\$?true|1)\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\bAdd-MpPreference\b.*\bExclusion(?:Path|Process|Extension)\b'
+            - field: command_line
+              op: regex
+              value: '(?i)\b(?:sc|net)(?:\.exe)?\s+(?:stop|config)\s+(?:WinDefend|Sense)\b'
+            - field: message
+              op: regex
+              value: '(?i)(Set-MpPreference.*DisableRealtimeMonitoring.*(?:\$?true|1)|Add-MpPreference.*Exclusion(?:Path|Process|Extension)|(?:sc|net)(?:\.exe)?\s+(?:stop|config)\s+(?:WinDefend|Sense))'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        provider: "${provider}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

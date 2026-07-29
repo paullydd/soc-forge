@@ -8,6 +8,7 @@ from soc_forge.rules.engine import load_rules, run_rules
 FIXTURES = json.loads(Path("tests/fixtures/rule_fixtures.json").read_text())
 FIXTURES += json.loads(Path("tests/fixtures/process_credential_rule_fixtures.json").read_text())
 FIXTURES += json.loads(Path("tests/fixtures/lateral_persistence_collection_rule_fixtures.json").read_text())
+FIXTURES += json.loads(Path("tests/fixtures/defense_impact_rule_fixtures.json").read_text())
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=[f["rule_id"] for f in FIXTURES])

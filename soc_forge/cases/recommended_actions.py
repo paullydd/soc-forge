@@ -227,6 +227,16 @@ def build_recommended_actions(items_sorted: List[Dict[str, Any]]) -> List[str]:
         actions.append("Review archive contents, destination path, and process ancestry to determine whether data collection occurred.")
         actions.append("Search for follow-on upload, external transfer, or cleanup behavior after archive creation.")
 
+    # SOCF-021: Security control tampering
+    if _has_rule(items_sorted, "SOCF-021"):
+        actions.append("Validate whether the security control change was authorized and restore disabled protections or remove unsafe exclusions.")
+        actions.append("Review nearby process activity and security-tool telemetry for the actor or process that changed endpoint protections.")
+
+    # SOCF-022: Inhibit system recovery
+    if _has_rule(items_sorted, "SOCF-022"):
+        actions.append("Treat unexpected recovery or shadow copy deletion as possible destructive activity and isolate the endpoint if unauthorized.")
+        actions.append("Verify backup integrity and recovery options before remediation, then investigate adjacent encryption, deletion, or staging activity.")
+
     threat = _first(items_sorted, "threat_level") or _first(items_sorted, "severity")
     if hosts and threat and str(threat).lower() in {"high", "critical"}:
         actions.append("If activity is unauthorized, initiate containment on impacted hosts and reset affected credentials.")

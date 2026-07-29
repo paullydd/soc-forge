@@ -305,7 +305,16 @@ def normalize_attack_step(alert: dict) -> str:
     if rule_id in {"SOCF-010", "SOCF-011"} or "scheduled task" in title:
         return "Persistence"
 
-    if rule_id in {"SOCF-020", "SOCF-021"} or "service" in title:
+    if rule_id == "SOCF-020":
+        return "Collection"
+
+    if rule_id == "SOCF-021":
+        return "Defense Evasion"
+
+    if rule_id == "SOCF-022":
+        return "Impact"
+
+    if rule_id in {"SOCF-004", "SOCF-016"} or "service" in title:
         return "Service Execution"
 
     if "admin" in title or "privilege" in title:
