@@ -79,6 +79,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
     run_dir.mkdir()
     command = """
 import json
+from soc_forge import __version__
 from soc_forge.rules import BUILTIN_RULES_PATH
 from soc_forge.rules.engine import load_rules, run_rules
 
@@ -93,7 +94,7 @@ event = {
     "message": "Defender exclusion added",
 }
 alerts = run_rules([event], rules)
-print(json.dumps({"rule_count": len(rules), "rule_ids": [a["rule_id"] for a in alerts]}))
+print(json.dumps({"version": __version__, "rule_count": len(rules), "rule_ids": [a["rule_id"] for a in alerts]}))
 """
     completed = subprocess.run(
         [str(python), "-I", "-c", command],
@@ -103,5 +104,6 @@ print(json.dumps({"rule_count": len(rules), "rule_ids": [a["rule_id"] for a in a
         text=True,
     )
     result = json.loads(completed.stdout)
+    assert result["version"] == "2.3.0"
     assert result["rule_count"] == expected_rule_count
     assert "SOCF-021" in result["rule_ids"]

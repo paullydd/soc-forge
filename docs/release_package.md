@@ -6,7 +6,7 @@ This package is the recommended way to present SOC-Forge to reviewers, recruiter
 
 ```text
 Project: SOC-Forge
-Version: 2.2.0
+Version: 2.3.0
 Primary demo: Local analyst web UI guided demo
 Secondary demo: Terminal analyst console investigation workflow
 Test status: pytest -q
@@ -148,3 +148,27 @@ These ideas are postponed future work, not current release capability:
 - Exportable graph images and additional case bundle formats
 - Cloud identity and SaaS audit-log detection packs
 - Per-rule false-positive notes, severity rationale, and data-source requirements
+
+## Distribution Validation
+
+SOC-Forge v2.3.0 packages 21 built-in YAML rules. Installed CLI, pipeline, and web scorecard paths discover those rules from the installed `soc_forge.rules` package rather than the current working directory.
+
+Build and validate from a clean repository root:
+
+```bash
+rm -rf dist build
+python -m build
+python -m twine check dist/*
+pytest -q tests/test_packaging_release.py
+```
+
+Expected release artifacts:
+
+```text
+dist/soc_forge-2.3.0-py3-none-any.whl
+dist/soc_forge-2.3.0.tar.gz
+```
+
+The packaging contract verifies that the wheel contains all 21 YAML rules and the web static assets, both distributions exclude test fixtures and test modules, and the wheel installs into an isolated environment, discovers built-in rules outside the source checkout, reports the installed package version, and triggers SOCF-021 from a known Security Event ID 4688 event.
+
+Known limitations: command-line detections are not bypass-proof and may alert on legitimate administration, backup maintenance, or disaster-recovery testing. Sysmon Event ID 1 paths require the `Microsoft-Windows-Sysmon` provider. Generated evidence may retain sensitive command-line arguments and should be reviewed before sharing.
