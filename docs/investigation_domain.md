@@ -63,3 +63,70 @@ The following behavior remains outside the domain model:
 - timeline or entity queries
 - UI and CLI behavior
 - handoff packaging and export
+
+## Local Investigation Repository
+
+`soc_forge.investigations.repository.InvestigationRepository` provides local,
+durable storage for the investigation aggregate. The caller supplies the
+workspace root; the repository does not use a hidden profile directory or
+global state.
+
+> The investigation repository stores analyst-owned investigation state and references to analysis artifacts. It does not rewrite pipeline-generated artifacts.
+
+### File Layout
+
+Each investigation has one UTF-8 JSON record:
+
+```text
+<workspace-root>/
+  investigations/
+    <investigation-id>.json
+```
+
+The record is a repository envelope containing:
+
+- repository schema version `1.0`
+- a positive integer repository revision
+- the serialized `Investigation`
+
+It does not copy events, alerts, cases, reconstructions, reports, or binary
+artifacts. Evidence remains connected to analysis output through logical
+artifact keys and stable source IDs.
+
+### Atomic Writes and Revisions
+
+`save()` serializes the complete envelope deterministically, writes a temporary
+file in the `investigations/` directory, flushes it, calls `os.fsync()`, and
+uses `os.replace()` to replace the destination. A failed write or replacement
+does not intentionally replace an existing valid record, and temporary files
+are removed after handled failures when practical.
+
+This provides atomic replacement for normal local use. It does not guarantee
+that every filesystem or hardware failure is crash-consistent.
+
+The first save creates revision `1`. Updating an existing investigation
+requires its current `expected_revision` and increments the revision. A stale
+revision raises a conflict error and no automatic merge occurs. Repository
+revision metadata remains outside the frozen investigation aggregate.
+
+The repository does not provide cross-process locks. Two local sessions can
+observe the same files, but truly simultaneous writes are not serialized.
+Optimistic revision checks reduce accidental overwrites; they do not provide
+multi-user transaction semantics.
+
+### Errors and Deletion
+
+The repository uses explicit errors for invalid IDs, missing records, duplicate
+first saves, stale revisions, and corrupt records. Investigation IDs cannot be
+empty, absolute, contain `..`, or contain path separators. Stored JSON must be
+an object with a supported repository envelope and a valid investigation
+schema.
+
+Deleting an investigation removes only its JSON record. It never deletes
+pipeline artifacts referenced by that investigation. Temporary files are not
+listed as investigations.
+
+No database is introduced because this slice needs one inspectable local
+record per aggregate, deterministic listing, and narrow optimistic conflict
+detection. Search, multi-user concurrency, transactions across investigations,
+and hosted operation are outside the current requirement.
