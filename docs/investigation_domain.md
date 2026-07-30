@@ -212,3 +212,77 @@ silently replace another session's work.
 Unchanged owner or status requests are idempotent after the expected revision
 is verified. The repository still provides atomic local file replacement, but
 there are no cross-process locks or multi-user transaction guarantees.
+
+## Analysis Bootstrap Adapter
+
+`soc_forge.investigations.bootstrap.InvestigationBootstrapAdapter` is the only
+investigation-layer component that understands `AnalysisResult`. Its dependency
+direction is deliberately one-way:
+
+```text
+Pipeline
+  -> AnalysisResult
+  -> InvestigationBootstrapAdapter
+  -> InvestigationWorkspaceService
+  -> InvestigationRepository
+```
+
+The workspace service, repository, and domain models do not import the
+pipeline. The adapter calls the workspace service and never writes repository
+files directly.
+
+> The bootstrap adapter translates completed analysis output into investigation references. It does not rerun analysis or copy pipeline-owned evidence into the investigation aggregate.
+
+### Source Analysis Identity
+
+`AnalysisResult` does not currently expose a stable run ID. The adapter derives
+an adapter-owned source-analysis ID by hashing a canonical manifest containing:
+
+- the input basename normalized across Windows and POSIX separators
+- the completed event count
+- the sorted set of all stable case IDs in the result
+- the sorted set of logical artifact keys currently present
+
+Absolute input, output, and artifact paths are excluded. Object memory
+representations and full event, alert, case, hunt, and reconstruction payloads
+are also excluded.
+
+Two completed analyses are the same for bootstrap identity when those four
+manifest values are equal. A change to any manifest value produces a different
+source-analysis ID. This is a deterministic local reference, not a forensic
+hash of every analysis payload.
+
+The separate bootstrap ID hashes the source-analysis ID and sorted selected
+case IDs. Selecting a different case set changes the bootstrap ID but does not
+redefine the underlying source-analysis ID. Investigation ID and creation time
+do not affect either identity.
+
+### Selection, Artifacts, and Titles
+
+Callers must explicitly select at least one case. Every selected ID must exist
+in the completed result. Duplicate selections are normalized, and selected IDs
+are sorted for deterministic requests. The adapter does not infer related cases
+or silently select every case.
+
+The `cases` artifact key is required because persisted evidence references point
+to completed case output. Other present artifact keys are optional. The adapter
+passes only sorted logical keys; it does not persist their filesystem paths,
+open reports, copy files, or inspect artifact contents.
+
+A single-case request uses that case's title. A multi-case request uses the
+title of the first case in deterministic case-ID order plus the number of
+additional cases. A caller-supplied, nonblank, single-line title takes
+precedence.
+
+### Side Effects and Limitations
+
+`build_creation_request()` is a pure mapping operation. It returns a frozen
+`InvestigationBootstrap` containing only investigation creation values and
+stable references. `bootstrap_investigation()` passes that request to the
+workspace service, which creates the investigation-owned repository record.
+
+The adapter does not mutate `AnalysisResult`, nested cases, artifact mappings,
+or artifact contents. It does not rerun detection, correlation, case building,
+or reconstruction. Logical artifact references can become stale if users move
+or delete completed analysis artifacts; refreshing or repairing those
+references is outside this slice.

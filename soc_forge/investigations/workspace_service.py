@@ -91,8 +91,13 @@ class InvestigationWorkspaceService:
         artifact_keys: Iterable[str] = (),
         owner: str | None = None,
         initial_status: str = "open",
+        created_at: str | None = None,
     ) -> WorkspaceResult:
-        timestamp = self._now()
+        timestamp = (
+            self._required_text(created_at, "created_at")
+            if created_at is not None
+            else self._now()
+        )
         normalized_title = self._required_text(title, "title")
         normalized_status = self._validate_status(initial_status)
         normalized_owner = self._normalize_owner(owner)
