@@ -130,3 +130,85 @@ No database is introduced because this slice needs one inspectable local
 record per aggregate, deterministic listing, and narrow optimistic conflict
 detection. Search, multi-user concurrency, transactions across investigations,
 and hosted operation are outside the current requirement.
+
+## Investigation Workspace Service
+
+`soc_forge.investigations.workspace_service.InvestigationWorkspaceService`
+is the shared application boundary for future web and console workflows. It
+receives an `InvestigationRepository` and a small clock callable through its
+constructor. It does not select a storage root, read JSON directly, or use
+global state.
+
+Responsibilities remain separated:
+
+- frozen domain models own investigation data and serialization validation
+- the repository owns file layout, atomic replacement, revisions, and storage errors
+- the workspace service owns creation and analyst workflow validation
+- future presentation layers call the service instead of editing files directly
+
+> The workspace service manages analyst-owned investigation workflow. It does not rerun analysis, rewrite generated cases, or alter pipeline-produced artifacts.
+
+### Creation and Results
+
+Creation accepts a caller-supplied investigation ID, title, source analysis ID,
+case IDs, logical artifact keys, optional owner, initial status, and an
+injected timestamp. Case IDs become stable `EvidenceReference` objects; case
+or analysis payloads are not copied.
+
+Modifying operations return `WorkspaceResult`, containing the new frozen
+`Investigation` and its repository revision. Deletion returns
+`WorkspaceDeletionResult`, containing the deleted investigation ID and its
+last revision. Listing returns typed `InvestigationSummary` objects.
+
+### Status Policy
+
+The local analyst status vocabulary is:
+
+```text
+open
+in_progress
+escalated
+closed
+```
+
+Allowed transitions are:
+
+- `open -> in_progress`
+- `open -> closed`
+- `in_progress -> escalated`
+- `in_progress -> closed`
+- `escalated -> in_progress`
+- `escalated -> closed`
+
+A closed investigation can move to `in_progress` only through the explicit
+reopen operation. Requesting the current status is idempotent and does not
+change the timestamp or revision. Status does not imply containment,
+remediation, severity, or response action.
+
+### Owners, Annotations, and Decisions
+
+An owner is an opaque local analyst label, not an authenticated username or
+email address. Labels are trimmed when assigned; `None` clears ownership;
+empty labels are rejected. Investigation ownership never changes generated
+case ownership.
+
+Annotations are plain-text analyst notes with caller-supplied IDs, controlled
+target types, author labels, creation timestamps, and update timestamps.
+Duplicate IDs and empty text are rejected. Editing preserves creation time and
+position; removal affects only the selected annotation.
+
+Decisions are append-only analyst records with caller-supplied IDs, type,
+outcome, rationale, author, timestamp, and optional evidence or hypothesis
+references. Duplicate IDs and empty rationales are rejected. Recording a
+decision does not automatically change investigation status.
+
+### Revisions and Local Concurrency
+
+Every update and deletion requires the caller's expected repository revision.
+A current revision succeeds and returns the next revision. A stale revision
+raises `InvestigationConflictError`; the service does not retry, merge, or
+silently replace another session's work.
+
+Unchanged owner or status requests are idempotent after the expected revision
+is verified. The repository still provides atomic local file replacement, but
+there are no cross-process locks or multi-user transaction guarantees.

@@ -241,6 +241,16 @@ def test_delete_removes_only_investigation_record(tmp_path):
     assert artifact.read_text(encoding="utf-8") == "[]"
 
 
+def test_delete_with_stale_expected_revision_preserves_record(tmp_path):
+    repository = InvestigationRepository(tmp_path)
+    repository.save(build_investigation())
+
+    with pytest.raises(InvestigationConflictError, match="revision 1"):
+        repository.delete("INVESTIGATION-001", expected_revision=2)
+
+    assert repository.exists("INVESTIGATION-001")
+
+
 def test_failed_atomic_replace_does_not_corrupt_existing_record(tmp_path, monkeypatch):
     repository = InvestigationRepository(tmp_path)
     investigation = build_investigation()

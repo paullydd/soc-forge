@@ -56,6 +56,7 @@ def build_investigation() -> Investigation:
         target_id=evidence.reference_id,
         body="Confirm whether this was approved administrative activity.",
         created_at="2026-07-30T12:12:00Z",
+        updated_at="2026-07-30T12:12:00Z",
         created_by="analyst",
     )
     manifest = HandoffManifest(
@@ -92,6 +93,7 @@ def test_investigation_constructs_with_versioned_relationships():
 
     assert investigation.schema_version == INVESTIGATION_SCHEMA_VERSION
     assert investigation.metadata.schema_version == INVESTIGATION_SCHEMA_VERSION
+    assert investigation.metadata.status == "open"
     assert investigation.evidence_references[0].source_id.startswith("SOCF-021:")
     assert investigation.hypotheses[0].supporting_evidence_reference_ids == ("EVIDENCE-001",)
     assert investigation.decisions[0].hypothesis_ids == ("HYPOTHESIS-001",)
@@ -106,6 +108,7 @@ def test_investigation_serializes_to_json_compatible_dictionary():
     assert '"investigation_id": "INVESTIGATION-001"' in encoded
     assert payload["metadata"]["labels"] == ["endpoint", "defense-evasion"]
     assert payload["evidence_references"][0]["artifact_key"] == "alerts"
+    assert payload["annotations"][0]["updated_at"] == "2026-07-30T12:12:00Z"
     assert payload["handoff_manifest"]["decision_ids"] == ["DECISION-001"]
 
 

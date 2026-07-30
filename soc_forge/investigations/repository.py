@@ -49,6 +49,7 @@ class InvestigationSummary:
     investigation_id: str
     title: str
     owner: str | None
+    status: str
     created_at: str
     updated_at: str
     revision: int
@@ -126,6 +127,7 @@ class InvestigationRepository:
                     title=investigation.metadata.title,
                     owner=investigation.metadata.owner,
                     created_at=investigation.metadata.created_at,
+                    status=investigation.metadata.status,
                     updated_at=investigation.metadata.updated_at,
                     revision=stored.revision,
                 )
@@ -135,12 +137,27 @@ class InvestigationRepository:
         summaries.sort(key=lambda summary: summary.updated_at, reverse=True)
         return summaries
 
-    def delete(self, investigation_id: str) -> None:
+    def delete(
+        self,
+        investigation_id: str,
+        *,
+        expected_revision: int | None = None,
+    ) -> None:
         record_path = self._record_path(investigation_id)
         if not record_path.is_file():
             raise InvestigationNotFoundError(
                 f"Investigation {investigation_id!r} was not found"
             )
+        if expected_revision is not None:
+            current_revision = self._read_record(
+                record_path,
+                expected_id=investigation_id,
+            ).revision
+            if expected_revision != current_revision:
+                raise InvestigationConflictError(
+                    f"Investigation {investigation_id!r} is at revision "
+                    f"{current_revision}, not expected revision {expected_revision}"
+                )
         record_path.unlink()
 
     def _record_path(self, investigation_id: str) -> Path:

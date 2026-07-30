@@ -78,12 +78,14 @@ class WorkspaceMetadata(SerializableModel):
     created_at: str
     updated_at: str
     owner: str | None = None
+    status: str = "open"
     labels: Tuple[str, ...] = ()
     schema_version: str = INVESTIGATION_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         _validate_schema_version(self.schema_version, type(self).__name__)
         _require_text(self.title, "WorkspaceMetadata.title")
+        _require_text(self.status, "WorkspaceMetadata.status")
         _require_text(self.created_at, "WorkspaceMetadata.created_at")
         _require_text(self.updated_at, "WorkspaceMetadata.updated_at")
         object.__setattr__(self, "labels", _id_tuple(self.labels, "WorkspaceMetadata.labels"))
@@ -251,10 +253,13 @@ class Annotation(SerializableModel):
     target_id: str
     body: str
     created_at: str
+    updated_at: str | None = None
     created_by: str | None = None
     schema_version: str = INVESTIGATION_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
+        if self.updated_at is not None:
+            _require_text(self.updated_at, "Annotation.updated_at")
         _validate_schema_version(self.schema_version, type(self).__name__)
         _require_text(self.annotation_id, "Annotation.annotation_id")
         _require_text(self.target_id, "Annotation.target_id")
