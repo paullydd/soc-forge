@@ -1,5 +1,7 @@
 const state = {
   workspace: null,
+  investigations: [],
+  activeInvestigation: null,
   activeCaseId: null,
   view: "overview",
   search: "",
@@ -26,9 +28,14 @@ function qualityScore(caseItem) { return Number((caseItem.case_quality || {}).qu
 function matchesSearch(item) { return JSON.stringify(item).toLowerCase().includes(state.search.toLowerCase()); }
 
 async function loadWorkspace() {
-  const response = await fetch('/api/workspace');
-  if (!response.ok) throw new Error('Unable to load workspace');
-  state.workspace = await response.json();
+  const [workspaceResponse, investigationsResponse] = await Promise.all([
+    fetch('/api/workspace'),
+    fetch('/api/investigations'),
+  ]);
+  if (!workspaceResponse.ok) throw new Error('Unable to load workspace');
+  if (!investigationsResponse.ok) throw new Error('Unable to load investigations');
+  state.workspace = await workspaceResponse.json();
+  state.investigations = await investigationsResponse.json();
   if (!state.activeCaseId && state.workspace.cases.length) state.activeCaseId = state.workspace.cases[0].case_id;
   render();
 }
@@ -276,6 +283,9 @@ function renderCaseDetail(caseItem) {
         </div>
         ${renderEntityChips(caseItem)}
       </div>
+      <div class="workspace-actions">
+        <button id="createInvestigationButton" class="primary-button" type="button">Create Investigation</button>
+      </div>
       ${renderCaseStats(caseItem, quality)}
       <section class="brief-section"><h3>Executive Summary</h3><p class="summary-copy">${escapeHtml(quality.executive_summary || caseItem.summary || 'No executive summary available.')}</p></section>
       <section class="brief-grid">
@@ -285,6 +295,10 @@ function renderCaseDetail(caseItem) {
       <section class="brief-section"><h3>Key Evidence</h3><div class="evidence-list">${evidence || '<div class="muted">No key evidence available.</div>'}</div></section>
       <section class="brief-section"><h3>Timeline</h3><div class="timeline-list">${timeline || '<div class="muted">No timeline available.</div>'}</div></section>
     </div>`;
+  const createButton = $('#createInvestigationButton');
+  if (createButton) createButton.addEventListener('click', () => {
+    createInvestigationFromCase(caseItem).catch((error) => alert(error.message));
+  });
 }
 
 function nodeTypeLabel(type) {
@@ -471,6 +485,7 @@ function render() {
   renderOverview();
   renderCases();
   renderGraph();
+  renderInvestigations();
   renderScorecard();
   renderAlerts();
   renderHunts();
@@ -480,6 +495,10 @@ function render() {
 document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 $('#refreshButton').addEventListener('click', loadWorkspace);
 $('#runScenarioButton').addEventListener('click', () => runScenario().catch((error) => { state.runningScenario = false; renderScenarioButton(); alert(error.message); }));
+if ($('#refreshInvestigationsButton')) $('#refreshInvestigationsButton').addEventListener('click', () => {
+  loadInvestigationSummaries().then(renderInvestigations).catch((error) => alert(error.message));
+});
+
 $('#startDemoButton').addEventListener('click', () => startGuidedDemo().catch((error) => { state.runningScenario = false; renderScenarioButton(); alert(error.message); }));
 $('#nextDemoStepButton').addEventListener('click', advanceGuidedDemo);
 $('#closeDemoButton').addEventListener('click', () => { state.demo.active = false; render(); });

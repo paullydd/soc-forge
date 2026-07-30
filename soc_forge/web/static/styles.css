@@ -109,6 +109,18 @@ ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); line-height: 1.55
 .timeline-index { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #07100f; font-weight: 900; margin-left: -25px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .muted { color: var(--muted); }
+.compact-time { margin-top: 8px; font-size: 11px; }
+.workspace-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.workspace-metadata { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.workspace-metadata div, .workspace-record { border: 1px solid var(--line); background: #12181f; border-radius: 8px; padding: 12px; }
+.workspace-metadata span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.workspace-metadata strong { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.workspace-actions, .record-actions, .record-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.workspace-records { display: grid; gap: 8px; margin-top: 10px; }
+.workspace-record p { margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.record-head .muted { margin-left: auto; }
+.danger-button { border-color: #704048; color: #ffb8bd; }
+.danger-button:hover { border-color: var(--danger); }
 
 .bar-list { display: grid; gap: 10px; }
 .bar-item { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 2fr) 42px; gap: 10px; align-items: center; }
@@ -167,7 +179,8 @@ th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; fon
   #searchInput { width: 100%; }
   .metrics, .two-column, .split-layout, .brief-grid, .case-stat-grid, .graph-layout, .demo-steps, .scorecard-grid, .scorecard-lower, .scorecard-hero { grid-template-columns: 1fr; }
   .demo-guide-head, .demo-guide-actions { flex-direction: column; align-items: stretch; }
-  .case-detail-hero { flex-direction: column; }
+  .case-detail-hero, .workspace-heading { flex-direction: column; }
+  .workspace-metadata { grid-template-columns: 1fr; }
   .entity-chips, .graph-stat-row { justify-content: flex-start; max-width: none; }
   .list-panel, .detail-panel { min-height: auto; }
 }

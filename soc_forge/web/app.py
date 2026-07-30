@@ -10,12 +10,35 @@ from pathlib import Path
 from typing import Any, Dict, List
 from urllib.parse import parse_qs, unquote, urlparse
 
+from soc_forge.investigations.bootstrap import (
+    InvestigationBootstrapAdapter,
+    InvestigationBootstrapError,
+)
+from soc_forge.investigations.paths import resolve_workspace_root
+from soc_forge.investigations.repository import (
+    CorruptInvestigationRecordError,
+    InvestigationAlreadyExistsError,
+    InvestigationConflictError,
+    InvestigationNotFoundError,
+    InvestigationRepository,
+    InvestigationRepositoryError,
+)
+from soc_forge.investigations.workspace_service import (
+    InvalidStatusTransitionError,
+    InvestigationWorkspaceError,
+    InvestigationWorkspaceService,
+)
 from soc_forge.core.investigation_graph import build_investigation_graph, summarize_graph
 from soc_forge.pipeline import AnalysisOptions, run_analysis_for_events
 from soc_forge.rules import BUILTIN_RULES_PATH
 from soc_forge.rules.engine import load_rules
 from soc_forge.rules.quality import evaluate_rule_quality_from_paths
 from soc_forge.simulator import generate_scenario, write_events_jsonl
+from soc_forge.web.investigation_api import (
+    InvestigationRequestError,
+    InvestigationWebApplication,
+    NoActiveAnalysisError,
+)
 
 DEFAULT_OUT_DIR = Path("out")
 STATIC_DIR = Path(__file__).with_name("static")
@@ -23,11 +46,19 @@ WEB_SCENARIOS = {
     "attack_chain": "Attack Chain",
     "detection_lab": "Detection Lab",
 }
+INVESTIGATIONS_API_PREFIX = "/api/investigations"
+
+class ScenarioWorkspace(dict):
+
+    def __init__(self, workspace: Dict[str, Any], analysis_result: Any):
+        super().__init__(workspace)
+        self.analysis_result = analysis_result
 
 
 def read_json_file(path: Path, default: Any) -> Any:
     if not path.exists():
         return default
+
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
@@ -270,7 +301,7 @@ def run_demo_scenario(scenario: str, out_dir: Path = DEFAULT_OUT_DIR) -> Dict[st
     workspace["active_scenario"] = scenario
     workspace["scenario_label"] = WEB_SCENARIOS[scenario]
     workspace["generated_event_count"] = result.event_count
-    return workspace
+    return ScenarioWorkspace(workspace, result)
 
 
 class SocForgeWebHandler(BaseHTTPRequestHandler):
@@ -290,6 +321,188 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
     def send_json_error(self, message: str, status: int) -> None:
         self.send_json({"error": message}, status=status)
 
+
+    def send_investigation_error(
+        self,
+        code: str,
+        message: str,
+        status: int,
+        *,
+        investigation_id: str | None = None,
+        latest: Dict[str, Any] | None = None,
+    ) -> None:
+        error: Dict[str, Any] = {"code": code, "message": message}
+        if investigation_id:
+            error["investigation_id"] = investigation_id
+        payload: Dict[str, Any] = {"error": error}
+        if latest is not None:
+            payload["latest"] = latest
+        self.send_json(payload, status=status)
+
+    def read_json_payload(self) -> Dict[str, Any] | None:
+        if self.request_content_type() != "application/json":
+            self.send_investigation_error(
+                "unsupported_media_type",
+                "Content-Type must be application/json.",
+                415,
+            )
+            return None
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            raw_body = self.rfile.read(length).decode("utf-8") if length else "{}"
+            payload = json.loads(raw_body or "{}")
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            print(
+                f"[soc-forge-web] Invalid investigation JSON: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            self.send_investigation_error(
+                "invalid_json",
+                "Invalid JSON request body.",
+                400,
+            )
+            return None
+        if not isinstance(payload, dict):
+            self.send_investigation_error(
+                "invalid_request",
+                "JSON request body must be an object.",
+                400,
+            )
+            return None
+        return payload
+
+    @staticmethod
+    def investigation_segments(path: str) -> list[str] | None:
+        if path == INVESTIGATIONS_API_PREFIX:
+            return []
+        if not path.startswith(INVESTIGATIONS_API_PREFIX + "/"):
+            return None
+        suffix = path[len(INVESTIGATIONS_API_PREFIX) + 1 :]
+        return suffix.split("/") if suffix else []
+
+    @property
+    def investigation_app(self) -> InvestigationWebApplication:
+        return self.server.investigation_app  # type: ignore[attr-defined]
+
+    def handle_investigation_error(
+        self,
+        exc: Exception,
+        investigation_id: str | None = None,
+    ) -> None:
+        if isinstance(exc, InvestigationConflictError):
+            latest = None
+            if investigation_id:
+                try:
+                    latest = self.investigation_app.get_investigation(investigation_id)
+                except InvestigationRepositoryError:
+                    latest = None
+            self.send_investigation_error(
+                "revision_conflict",
+                "The investigation changed in another session.",
+                409,
+                investigation_id=investigation_id,
+                latest=latest,
+            )
+            return
+        if isinstance(exc, InvestigationAlreadyExistsError):
+            self.send_investigation_error(
+                "investigation_exists",
+                "An investigation with this ID already exists.",
+                409,
+                investigation_id=investigation_id,
+            )
+            return
+        if isinstance(exc, InvestigationNotFoundError):
+            self.send_investigation_error(
+                "investigation_not_found",
+                "Investigation not found.",
+                404,
+                investigation_id=investigation_id,
+            )
+            return
+        if isinstance(exc, NoActiveAnalysisError):
+            self.send_investigation_error(
+                "no_active_analysis",
+                str(exc),
+                409,
+            )
+            return
+        if isinstance(exc, InvalidStatusTransitionError):
+            self.send_investigation_error(
+                "invalid_status_transition",
+                str(exc),
+                409,
+                investigation_id=investigation_id,
+            )
+            return
+        if isinstance(exc, CorruptInvestigationRecordError):
+            print(
+                f"[soc-forge-web] Corrupt investigation record: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            self.send_investigation_error(
+                "workspace_unavailable",
+                "The investigation workspace could not be loaded.",
+                500,
+                investigation_id=investigation_id,
+            )
+            return
+        if isinstance(
+            exc,
+            (
+                InvestigationRequestError,
+                InvestigationBootstrapError,
+                InvestigationWorkspaceError,
+                InvestigationRepositoryError,
+                ValueError,
+            ),
+        ):
+            self.send_investigation_error(
+                "invalid_request",
+                str(exc),
+                400,
+                investigation_id=investigation_id,
+            )
+            return
+        print(
+            f"[soc-forge-web] Investigation request failed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        self.send_investigation_error(
+            "internal_error",
+            "Unable to process investigation request.",
+            500,
+            investigation_id=investigation_id,
+        )
+
+    def handle_investigation_post(
+        self, segments: list[str], payload: Dict[str, Any]
+    ) -> bool:
+        investigation_id = segments[0] if segments else None
+        try:
+            if not segments:
+                self.send_json(
+                    self.investigation_app.create_investigation(payload),
+                    status=201,
+                )
+                return True
+            if len(segments) == 2 and segments[1] == "owner":
+                result = self.investigation_app.assign_owner(investigation_id, payload)
+            elif len(segments) == 2 and segments[1] == "status":
+                result = self.investigation_app.change_status(investigation_id, payload)
+            elif len(segments) == 2 and segments[1] == "reopen":
+                result = self.investigation_app.reopen(investigation_id, payload)
+            elif len(segments) == 2 and segments[1] == "annotations":
+                result = self.investigation_app.add_annotation(investigation_id, payload)
+            elif len(segments) == 2 and segments[1] == "decisions":
+                result = self.investigation_app.record_decision(investigation_id, payload)
+            else:
+                return False
+            self.send_json(result)
+            return True
+        except Exception as exc:
+            self.handle_investigation_error(exc, investigation_id)
+            return True
     def request_content_type(self) -> str:
         return str(self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
 
@@ -335,6 +548,9 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 payload = json.loads(raw_body or "{}")
                 scenario = str(payload.get("scenario") or "")
                 workspace = run_demo_scenario(scenario, self.out_dir)
+                self.server.active_analysis_result = getattr(  # type: ignore[attr-defined]
+                    workspace, "analysis_result", None
+                )
             except json.JSONDecodeError as exc:
                 print(f"[soc-forge-web] Invalid JSON for /api/scenario: {exc}")
                 self.send_json_error("Invalid JSON request body", status=400)
@@ -349,6 +565,16 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 return
 
             self.send_json({"scenario": scenario, "workspace": workspace})
+            return
+
+        segments = self.investigation_segments(path)
+        if segments is not None:
+            payload = self.read_json_payload()
+            if payload is None:
+                return
+            if self.handle_investigation_post(segments, payload):
+                return
+            self.send_error(405, "Method not allowed")
             return
 
         self.send_error(404, "Not found")
@@ -394,6 +620,23 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         if path == "/api/scenarios":
             self.send_json([{"id": key, "label": value} for key, value in WEB_SCENARIOS.items()])
             return
+        segments = self.investigation_segments(path)
+        if segments is not None:
+            try:
+                if not segments:
+                    self.send_json(self.investigation_app.list_investigations())
+                    return
+                if len(segments) == 1:
+                    self.send_json(
+                        self.investigation_app.get_investigation(segments[0])
+                    )
+                    return
+            except Exception as exc:
+                self.handle_investigation_error(exc, segments[0] if segments else None)
+                return
+            self.send_error(404, "Not found")
+            return
+
 
         if path == "/artifact":
             name = parse_qs(parsed.query).get("file", [""])[0]
@@ -405,6 +648,51 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             return
 
         self.send_error(404, "Not found")
+
+    def do_PUT(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        segments = self.investigation_segments(path)
+        if segments is None:
+            self.send_error(501, "Unsupported method")
+            return
+        if len(segments) != 3 or segments[1] != "annotations":
+            self.send_error(405, "Method not allowed")
+            return
+        payload = self.read_json_payload()
+        if payload is None:
+            return
+        try:
+            result = self.investigation_app.update_annotation(
+                segments[0], segments[2], payload
+            )
+            self.send_json(result)
+        except Exception as exc:
+            self.handle_investigation_error(exc, segments[0])
+
+    def do_DELETE(self) -> None:
+        path = unquote(urlparse(self.path).path)
+        segments = self.investigation_segments(path)
+        if segments is None:
+            self.send_error(501, "Unsupported method")
+            return
+        is_workspace = len(segments) == 1
+        is_annotation = len(segments) == 3 and segments[1] == "annotations"
+        if not (is_workspace or is_annotation):
+            self.send_error(405, "Method not allowed")
+            return
+        payload = self.read_json_payload()
+        if payload is None:
+            return
+        try:
+            if is_workspace:
+                result = self.investigation_app.delete_investigation(segments[0], payload)
+            else:
+                result = self.investigation_app.remove_annotation(
+                    segments[0], segments[2], payload
+                )
+            self.send_json(result)
+        except Exception as exc:
+            self.handle_investigation_error(exc, segments[0])
 
 
 def is_loopback_host(host: str) -> bool:
@@ -421,12 +709,40 @@ def warn_if_non_loopback(host: str) -> None:
     print("Binding to a non-loopback host may expose investigation data and generated artifacts.")
 
 
-def make_server(host: str, port: int, out_dir: Path) -> ThreadingHTTPServer:
+def make_server(
+    host: str,
+    port: int,
+    out_dir: Path,
+    workspace_root: Path | None = None,
+    *,
+    workspace_clock: Any = None,
+    bootstrap_clock: Any = None,
+) -> ThreadingHTTPServer:
     class Handler(SocForgeWebHandler):
         pass
 
     Handler.out_dir = out_dir
-    return ThreadingHTTPServer((host, port), Handler)
+    server = ThreadingHTTPServer((host, port), Handler)
+    resolved_workspace_root = resolve_workspace_root(out_dir, workspace_root)
+    repository = InvestigationRepository(resolved_workspace_root)
+    service = (
+        InvestigationWorkspaceService(repository, clock=workspace_clock)
+        if workspace_clock is not None
+        else InvestigationWorkspaceService(repository)
+    )
+    adapter = (
+        InvestigationBootstrapAdapter(service, clock=bootstrap_clock)
+        if bootstrap_clock is not None
+        else InvestigationBootstrapAdapter(service)
+    )
+    server.active_analysis_result = None  # type: ignore[attr-defined]
+    server.workspace_root = resolved_workspace_root  # type: ignore[attr-defined]
+    server.investigation_app = InvestigationWebApplication(  # type: ignore[attr-defined]
+        bootstrap_adapter=adapter,
+        workspace_service=service,
+        analysis_provider=lambda: server.active_analysis_result,  # type: ignore[attr-defined]
+    )
+    return server
 
 
 def main() -> int:
@@ -441,6 +757,7 @@ def main() -> int:
     server = make_server(args.host, args.port, out_dir)
     print(f"SOC-Forge web UI running at http://{args.host}:{args.port}")
     print(f"Reading artifacts from: {out_dir}")
+    print(f"Investigation workspaces: {server.workspace_root}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

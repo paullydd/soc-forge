@@ -19,6 +19,7 @@
       <nav class="nav-tabs" aria-label="Views">
         <button class="nav-tab active" data-view="overview">Overview</button>
         <button class="nav-tab" data-view="cases">Cases</button>
+        <button class="nav-tab" data-view="investigations">Investigations</button>
         <button class="nav-tab" data-view="graph">Graph</button>
         <button class="nav-tab" data-view="scorecard">Scorecard</button>
         <button class="nav-tab" data-view="alerts">Alerts</button>
@@ -109,6 +110,21 @@
         </div>
       </section>
 
+      <section id="investigationsView" class="view">
+        <div class="split-layout">
+          <section class="panel list-panel">
+            <div class="panel-head">
+              <h2>Investigation Workspaces</h2>
+              <button id="refreshInvestigationsButton" type="button">Refresh</button>
+            </div>
+            <div id="investigationList" class="case-list"></div>
+          </section>
+          <section class="panel detail-panel">
+            <div id="investigationDetail" class="empty-state">Open a durable investigation workspace.</div>
+          </section>
+        </div>
+      </section>
+
       <section id="graphView" class="view">
         <section class="panel">
           <div class="panel-head">
@@ -147,6 +163,7 @@
       </section>
     </main>
   </div>
+  <script src="/static/investigations.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

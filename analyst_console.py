@@ -21,12 +21,13 @@ from soc_forge.cases.store import load_cases_file, save_cases_file
 from soc_forge.pipeline import AnalysisOptions, run_analysis
 from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.console import InvestigationConsoleController
+from soc_forge.investigations.paths import resolve_workspace_root
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
 
 init()
 
-WORKSPACE_ROOT = Path("out") / "workspace"
+WORKSPACE_ROOT = resolve_workspace_root(Path("out"))
 _current_analysis_result = None
 
 
