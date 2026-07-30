@@ -30,7 +30,7 @@ def test_change_status_appends_history_and_updates_header():
     change_case_status(
         case,
         "Investigating",
-        changed_by="pauly",
+        changed_by="analyst",
         reason="Triage started",
         changed_at="2026-07-16T12:05:00Z",
     )
@@ -41,7 +41,7 @@ def test_change_status_appends_history_and_updates_header():
     assert case["status_history"][-1] == {
         "status": "Investigating",
         "changed_at": "2026-07-16T12:05:00Z",
-        "changed_by": "pauly",
+        "changed_by": "analyst",
         "reason": "Triage started",
     }
 

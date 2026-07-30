@@ -42,7 +42,7 @@ with INPUT.open("r", encoding="utf-8-sig", newline="") as f_in, OUTPUT.open("w",
             "timestamp": row.get("TimeCreated", ""),
             "event_id": int(row.get("Id", 0) or 0),
             "message": message,
-            "host": "WINDOWS-PC",
+            "host": "WIN-ENDPOINT-01",
         }
         event.update(parse_message_fields(message))
         f_out.write(json.dumps(event) + "\n")

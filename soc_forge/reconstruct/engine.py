@@ -15,9 +15,13 @@ RULE_TO_RECON = {
     "SOCF-001": ("Credential Access", "Credential Access", "T1110", "Brute force login attempts"),
     "SOCF-002": ("Credential Access", "Credential Access", None, "Account lockout observed"),
     "SOCF-003": ("Privilege Escalation", "Privilege Escalation", "T1098", "Privileged group membership change"),
-    "SOCF-004": ("Persistence", "Persistence", "T1543", "Suspicious service installation"),
+    "SOCF-004": ("Persistence", "Service Execution", "T1543", "Suspicious service installation"),
     "SOCF-005": ("Persistence", "Persistence", "T1053.005", "Suspicious scheduled task created"),
     "SOCF-006": ("Initial Access", "Initial Access", "T1021.001", "Successful RDP logon"),
+    "SOCF-016": ("Lateral Movement", "Service Execution", "T1021.002", "PsExec-style service execution"),
+    "SOCF-020": ("Collection", "Collection", "T1560", "Suspicious archive staging of sensitive files"),
+    "SOCF-021": ("Defense Evasion", "Defense Evasion", "T1562.001", "Windows security control tampering"),
+    "SOCF-022": ("Impact", "Impact", "T1490", "System recovery or shadow copy deletion"),
 }
 
 

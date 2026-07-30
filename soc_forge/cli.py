@@ -6,6 +6,7 @@ from soc_forge.config import load_config
 from soc_forge.models import alert_to_dict
 from soc_forge.pipeline import AnalysisOptions, InputLoadError, run_analysis
 from soc_forge import __version__
+from soc_forge.rules import BUILTIN_RULES_PATH
 from soc_forge.rules.coverage import mitre_coverage_by_tactic, format_coverage_table
 from soc_forge.rules.engine import load_rules
 from soc_forge.rules.quality import evaluate_rule_quality_from_paths, format_rule_quality_report
@@ -111,14 +112,14 @@ def main():
         return run_simulator(args)
 
     if args.coverage:
-        rule_paths = args.rules or ["soc_forge/rules"]
+        rule_paths = args.rules or [str(BUILTIN_RULES_PATH)]
         rules = load_rules(rule_paths)
         rows = mitre_coverage_by_tactic(rules)
         print(format_coverage_table(rows))
         return 0
 
     if args.rule_quality:
-        rule_paths = args.rules or ["soc_forge/rules"]
+        rule_paths = args.rules or [str(BUILTIN_RULES_PATH)]
         load_rules(rule_paths)
         report = evaluate_rule_quality_from_paths(rule_paths)
         print(format_rule_quality_report(report))
@@ -133,7 +134,7 @@ def main():
     bf_window = args.bf_window if args.bf_window is not None else cfg.bruteforce.window_minutes
 
     input_path = Path(args.input)
-    rule_paths: list[str] = ["soc_forge/rules"]
+    rule_paths: list[str] = [str(BUILTIN_RULES_PATH)]
     if args.rules:
         rule_paths.extend(args.rules)
 

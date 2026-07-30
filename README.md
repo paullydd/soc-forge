@@ -280,3 +280,13 @@ SOC-Forge is built to explore and demonstrate:
 - MITRE ATT&CK mapping
 - Incident reconstruction
 - Analyst-facing reporting
+
+### Installed Package Detection Content
+
+Built distributions include the YAML files under `soc_forge/rules`. The CLI, shared pipeline, and web detection scorecard resolve that installed rules directory through the package rather than relying on the current working directory. The release packaging test builds and installs a wheel in an isolated environment, loads the built-in rules outside the source checkout, and verifies a known event triggers a built-in rule.
+
+### Endpoint Detection Interpretation
+
+Process detections SOCF-020, SOCF-021, and SOCF-022 support native Windows Security Event ID 4688. Their Sysmon Event ID 1 branches require the `Microsoft-Windows-Sysmon` provider so unrelated Event ID 1 records are not treated as Sysmon process creation.
+
+Reconstruction presents SOCF-020 as Collection, SOCF-021 as Defense Evasion, and SOCF-022 as Impact. These command-line detections are investigation signals, not proof of malicious intent. Legitimate administration, backup maintenance, and disaster-recovery testing may generate alerts. Alternate tools or command syntax may bypass string-based matching, and command-line evidence can contain sensitive arguments that should be reviewed before artifacts are shared.

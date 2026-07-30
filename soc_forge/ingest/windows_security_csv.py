@@ -61,7 +61,7 @@ def _has_any_field(fieldnames: List[str], candidates: tuple[str, ...]) -> bool:
     return any(field_name in fieldnames for field_name in candidates)
 
 
-def _normalize_row(row: Dict[str, Any], default_host: str = "WINDOWS-PC") -> Dict[str, Any]:
+def _normalize_row(row: Dict[str, Any], default_host: str = "WIN-ENDPOINT-01") -> Dict[str, Any]:
     message = row.get(MESSAGE_FIELD, "") or ""
 
     timestamp = _first_value(row, TIMESTAMP_FIELDS) or ""
@@ -139,7 +139,7 @@ def _validate_row(row: Dict[str, Any], row_number: int) -> List[IngestDiagnostic
     return diagnostics
 
 
-def load_windows_security_csv_with_diagnostics(path: str | Path, default_host: str = "WINDOWS-PC") -> WindowsSecurityCsvResult:
+def load_windows_security_csv_with_diagnostics(path: str | Path, default_host: str = "WIN-ENDPOINT-01") -> WindowsSecurityCsvResult:
     path = Path(path)
     events: List[Dict[str, Any]] = []
     diagnostics: List[IngestDiagnostic] = []
@@ -167,10 +167,10 @@ def load_windows_security_csv_with_diagnostics(path: str | Path, default_host: s
     return WindowsSecurityCsvResult(events=events, diagnostics=diagnostics, row_count=row_count)
 
 
-def load_windows_security_csv(path: str | Path, default_host: str = "WINDOWS-PC") -> List[Dict[str, Any]]:
+def load_windows_security_csv(path: str | Path, default_host: str = "WIN-ENDPOINT-01") -> List[Dict[str, Any]]:
     return load_windows_security_csv_with_diagnostics(path, default_host=default_host).events
 
 
-def iter_windows_security_events(path: str | Path, default_host: str = "WINDOWS-PC") -> Iterator[Dict[str, Any]]:
+def iter_windows_security_events(path: str | Path, default_host: str = "WIN-ENDPOINT-01") -> Iterator[Dict[str, Any]]:
     for event in load_windows_security_csv(path, default_host=default_host):
         yield event

@@ -5,7 +5,7 @@ SOC-Forge includes a lightweight local web UI for the primary guided portfolio d
 ## Run It
 
 ```bash
-cd /home/pauly/projects/soc-forge
+cd soc-forge
 source .venv/bin/activate
 python -m soc_forge.web.app --port 8765
 ```

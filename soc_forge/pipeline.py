@@ -17,6 +17,7 @@ from soc_forge.models import normalize_alerts
 from soc_forge.reconstruct.engine import reconstruct_case
 from soc_forge.cases.builder import build_cases
 from soc_forge.report.html_report import write_html_report
+from soc_forge.rules import BUILTIN_RULES_PATH
 from soc_forge.rules.coverage import mitre_coverage_by_tactic
 from soc_forge.rules.engine import load_rules, run_rules
 from soc_forge.rules.legacy import detect_bruteforce
@@ -235,7 +236,7 @@ def run_analysis_for_events(options: AnalysisOptions) -> AnalysisResult:
     case_input_name = options.case_input_name or input_name
 
     cfg = load_config(str(options.config_path))
-    rule_paths = _dedupe_rule_paths(options.rule_paths or ["soc_forge/rules"])
+    rule_paths = _dedupe_rule_paths(options.rule_paths or [str(BUILTIN_RULES_PATH)])
     rules = load_rules(rule_paths)
     yaml_alerts = run_rules(events, rules)
 

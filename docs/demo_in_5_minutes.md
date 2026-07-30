@@ -5,7 +5,7 @@ This is the quickest portfolio demo path for SOC-Forge. It uses the local web UI
 ## 1. Activate The Environment
 
 ```bash
-cd /home/pauly/projects/soc-forge
+cd soc-forge
 source .venv/bin/activate
 ```
 

@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from soc_forge.core.investigation_graph import build_investigation_graph, summarize_graph
 from soc_forge.pipeline import AnalysisOptions, run_analysis_for_events
+from soc_forge.rules import BUILTIN_RULES_PATH
 from soc_forge.rules.engine import load_rules
 from soc_forge.rules.quality import evaluate_rule_quality_from_paths
 from soc_forge.simulator import generate_scenario, write_events_jsonl
@@ -97,7 +98,7 @@ def build_detection_scorecard(
     out_dir: Path = DEFAULT_OUT_DIR,
     rule_paths: List[str] | None = None,
 ) -> Dict[str, Any]:
-    paths = rule_paths or ["soc_forge/rules"]
+    paths = rule_paths or [str(BUILTIN_RULES_PATH)]
     rules = load_rules(paths)
     enabled_rules = [rule for rule in rules if rule.enabled]
     quality = evaluate_rule_quality_from_paths(paths)

@@ -93,3 +93,13 @@ Detection content now covers:
 - Remote admin share execution
 - Archive staging for collection or exfiltration preparation
 - Correlations that connect lateral movement, credential access, and collection into case narratives
+
+## Endpoint Defense And Recovery Rules
+
+- `SOCF-020`: archive staging, reconstructed as Collection (`T1560`)
+- `SOCF-021`: security-control tampering, reconstructed as Defense Evasion (`T1562.001`)
+- `SOCF-022`: recovery or shadow-copy deletion, reconstructed as Impact (`T1490`)
+
+These process rules support native Windows Security Event ID 4688. Event ID 1 is accepted only when the event provider is `Microsoft-Windows-Sysmon`.
+
+The rules identify specific command-line patterns and do not establish malware certainty. Legitimate endpoint administration, backup maintenance, and disaster-recovery testing can produce similar activity. Alternate syntax or tools can bypass string matching. Generated evidence may retain sensitive command-line arguments and should be reviewed or redacted before sharing.

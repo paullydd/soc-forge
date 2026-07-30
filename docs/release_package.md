@@ -19,7 +19,7 @@ Screenshots: docs/screenshots/
 Start with the web UI. It is the cleanest visual demo and tells the story quickly:
 
 ```bash
-cd /home/pauly/projects/soc-forge
+cd soc-forge
 source .venv/bin/activate
 python -m soc_forge.web.app --port 8765
 ```

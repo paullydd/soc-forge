@@ -7,7 +7,7 @@ def test_build_closure_report_includes_disposition_and_summary():
             "case_id": "CASE-001",
             "title": "Suspicious activity",
             "status": "Closed",
-            "owner": "pauly",
+            "owner": "analyst",
             "updated_at": "2026-07-16T12:00:00Z",
             "disposition": "True Positive",
             "closure_summary": "Confirmed malicious activity.",
@@ -15,7 +15,7 @@ def test_build_closure_report_includes_disposition_and_summary():
             "status_history": [
                 {
                     "changed_at": "2026-07-16T12:00:00Z",
-                    "changed_by": "pauly",
+                    "changed_by": "analyst",
                     "status": "Closed",
                     "reason": "Confirmed",
                 }
@@ -26,7 +26,7 @@ def test_build_closure_report_includes_disposition_and_summary():
     assert "Disposition: True Positive" in report
     assert "Confirmed malicious activity." in report
     assert "Disabled account." in report
-    assert "2026-07-16T12:00:00Z | pauly | Closed | Confirmed" in report
+    assert "2026-07-16T12:00:00Z | analyst | Closed | Confirmed" in report
 
 
 def test_build_case_brief_includes_quality_sections():

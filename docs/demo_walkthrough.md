@@ -15,7 +15,7 @@ RDP logon
 ## 1. Prepare the Environment
 
 ```bash
-cd /home/pauly/projects/soc-forge
+cd soc-forge
 source .venv/bin/activate
 ```
 

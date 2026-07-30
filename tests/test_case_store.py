@@ -19,13 +19,13 @@ def test_save_and_load_cases_file_normalizes_lifecycle(tmp_path):
 
 def test_filter_cases_by_status_risk_owner_and_notes():
     cases = [
-        {"case_id": "CASE-001", "status": "New", "risk_score": 250, "owner": "pauly", "notes": ["note"]},
+        {"case_id": "CASE-001", "status": "New", "risk_score": 250, "owner": "analyst", "notes": ["note"]},
         {"case_id": "CASE-002", "status": "Closed", "risk_score": 80, "owner": "alice", "notes": []},
-        {"case_id": "CASE-003", "status": "Investigating", "risk_score": 120, "owner": "pauly", "notes": []},
+        {"case_id": "CASE-003", "status": "Investigating", "risk_score": 120, "owner": "analyst", "notes": []},
     ]
 
     assert [case["case_id"] for case in filter_cases(cases, "high_risk")] == ["CASE-001"]
-    assert [case["case_id"] for case in filter_cases(cases, "assigned_to_me", current_owner="pauly")] == ["CASE-001", "CASE-003"]
+    assert [case["case_id"] for case in filter_cases(cases, "assigned_to_me", current_owner="analyst")] == ["CASE-001", "CASE-003"]
     assert [case["case_id"] for case in filter_cases(cases, "has_notes")] == ["CASE-001"]
     assert [case["case_id"] for case in filter_cases(cases, "closed")] == ["CASE-002"]
     assert [case["case_id"] for case in filter_cases(cases, "open")] == ["CASE-001", "CASE-003"]
