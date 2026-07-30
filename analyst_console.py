@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import subprocess
 import sys
 import json
@@ -15,10 +16,35 @@ from soc_forge.menus.analysis import analysis_menu
 from soc_forge.menus.reporting import reporting_menu
 from soc_forge.menus.system import system_menu
 from soc_forge.dashboard.dashboard import show_dashboard
-from soc_forge.ui.screen import set_clear_screen
+from soc_forge.ui.screen import begin_screen, set_clear_screen
 from soc_forge.cases.store import load_cases_file, save_cases_file
+from soc_forge.pipeline import AnalysisOptions, run_analysis
+from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
+from soc_forge.investigations.console import InvestigationConsoleController
+from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
 
 init()
+
+WORKSPACE_ROOT = Path("out") / "workspace"
+_current_analysis_result = None
+
+
+def get_current_analysis_result():
+    return _current_analysis_result
+
+
+def build_investigation_console_controller(workspace_root=WORKSPACE_ROOT):
+    repository = InvestigationRepository(workspace_root)
+    service = InvestigationWorkspaceService(repository)
+    adapter = InvestigationBootstrapAdapter(service)
+    return InvestigationConsoleController(
+        bootstrap_adapter=adapter,
+        workspace_service=service,
+        analysis_provider=get_current_analysis_result,
+        workspace_root=workspace_root,
+        screen_func=begin_screen,
+    )
 
 
 def startup_screen():
@@ -323,6 +349,7 @@ def analyze_log_file():
     clear_screen()
     print("ANALYZE LOG FILE")
     print("-" * 50)
+    global _current_analysis_result
 
     input_file = input("Enter log file path: ").strip()
 
@@ -333,12 +360,25 @@ def analyze_log_file():
 
     html_choice = input("Generate HTML report? (y/n): ").lower().strip()
 
-    command = f"python -m soc_forge.cli --input {input_file}"
+    try:
+        _current_analysis_result = run_analysis(
+            AnalysisOptions(
+                input_path=Path(input_file),
+                output_dir=Path("out"),
+                report_path=Path("out/report.html") if html_choice == "y" else None,
+                write_report=html_choice == "y",
+            )
+        )
+    except Exception as exc:
+        error(f"Analysis failed: {exc}")
+        pause()
+        return
 
-    if html_choice == "y":
-        command += " --html out/report.html"
-
-    run_command(command)
+    success(
+        f"Analysis complete: {_current_analysis_result.event_count} events, "
+        f"{len(_current_analysis_result.alerts)} alerts, "
+        f"{len(_current_analysis_result.cases)} cases."
+    )
     pause()
 
 
@@ -1100,6 +1140,7 @@ def view_or_add_notes():
     pause()
 
 def main_menu():
+    workspace_controller = build_investigation_console_controller()
     while True:
         clear_screen()
         show_dashboard(
@@ -1142,6 +1183,7 @@ def main_menu():
                 view_or_add_notes,
                 manage_case_status,
                 save_cases,
+                workspace_controller,
             )
 
         elif choice == "3":

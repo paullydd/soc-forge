@@ -140,6 +140,10 @@ class InvestigationWorkspaceService:
     def list_investigations(self) -> List[InvestigationSummary]:
         return self.repository.list_investigations()
 
+    def available_status_transitions(self, status: str) -> tuple[str, ...]:
+        normalized_status = self._validate_status(status)
+        return tuple(sorted(STATUS_TRANSITIONS[normalized_status]))
+
     def assign_owner(
         self,
         investigation_id: str,

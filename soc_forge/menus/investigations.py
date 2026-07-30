@@ -12,6 +12,7 @@ def investigations_menu(
     view_or_add_notes,
     manage_case_status,
     save_cases=None,
+    workspace_controller=None,
 ):
     while True:
         begin_screen("INVESTIGATIONS")
@@ -21,6 +22,7 @@ def investigations_menu(
         menu_option("3", "Entity Explorer")
         menu_option("4", "Analyst Notes")
         menu_option("5", "Case Status Management")
+        menu_option("6", "Investigation Workspaces")
         menu_option("0", "Back")
 
         choice = input("\nSelect option: ").strip()
@@ -42,6 +44,13 @@ def investigations_menu(
 
         elif choice == "5":
             manage_case_status()
+        elif choice == "6":
+            if workspace_controller is None:
+                error("Investigation workspaces are unavailable.")
+                pause()
+            else:
+                workspace_controller.run()
+
 
         elif choice == "0":
             return

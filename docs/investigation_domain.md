@@ -286,3 +286,31 @@ or artifact contents. It does not rerun detection, correlation, case building,
 or reconstruction. Logical artifact references can become stale if users move
 or delete completed analysis artifacts; refreshing or repairing those
 references is outside this slice.
+
+## Analyst Console Integration
+
+The analyst console uses the shared workspace service. It does not edit investigation JSON files or pipeline artifacts directly.
+
+The console keeps the most recently completed in-process `AnalysisResult` available
+for explicit case selection. Creating an investigation passes that completed result,
+the selected case ID, and caller-supplied workspace metadata through
+`InvestigationBootstrapAdapter`. The adapter creates the workspace through
+`InvestigationWorkspaceService`; the console does not reconstruct analysis state
+from generated JSON files.
+
+The default local workspace root is:
+
+```text
+out/workspace/
+  investigations/
+    <investigation-id>.json
+```
+
+The console displays repository revisions after creation and each successful
+modification. When a stale revision is detected, it does not overwrite the newer
+record; it reloads and displays the current revision. Deleting a workspace removes
+only the investigation record and leaves all referenced analysis artifacts intact.
+
+This integration remains local and single-user in scope. Owner and author values
+are labels, not authenticated identities. The console adds no persistence format,
+pipeline behavior, report behavior, web route, or export capability.
