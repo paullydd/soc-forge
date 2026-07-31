@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+from pathlib import Path
 from typing import Callable, Dict, Iterable, Mapping, Tuple
 
 from soc_forge.pipeline import AnalysisResult
+from soc_forge.investigations.models import AnalysisProvenance
 from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
     WorkspaceResult,
@@ -45,6 +47,7 @@ class InvestigationBootstrap:
     investigation_id: str
     title: str
     analysis_id: str
+    provenance: AnalysisProvenance
     bootstrap_id: str
     case_ids: Tuple[str, ...]
     artifact_keys: Tuple[str, ...]
@@ -89,12 +92,12 @@ class InvestigationBootstrapAdapter:
             )
 
         source_input_name = self._source_input_name(analysis_result.input_name)
-        analysis_id = self._analysis_id(
+        provenance = self._analysis_provenance(
+            analysis_result,
             source_input_name=source_input_name,
-            event_count=analysis_result.event_count,
-            all_case_ids=tuple(sorted(case_map)),
             artifact_keys=artifact_keys,
         )
+        analysis_id = provenance.source_analysis_id
         bootstrap_id = self._bootstrap_id(analysis_id, selected_case_ids)
         resolved_title = (
             self._validated_title(title)
@@ -113,6 +116,7 @@ class InvestigationBootstrapAdapter:
             ),
             title=resolved_title,
             analysis_id=analysis_id,
+            provenance=provenance,
             bootstrap_id=bootstrap_id,
             case_ids=selected_case_ids,
             artifact_keys=artifact_keys,
@@ -146,6 +150,7 @@ class InvestigationBootstrapAdapter:
             investigation_id=request.investigation_id,
             title=request.title,
             analysis_id=request.analysis_id,
+            provenance=request.provenance,
             case_ids=request.case_ids,
             artifact_keys=request.artifact_keys,
             owner=request.owner,
@@ -264,28 +269,86 @@ class InvestigationBootstrapAdapter:
         normalized = cls._required_text(input_name, "analysis input_name")
         return normalized.replace("\\", "/").rsplit("/", 1)[-1]
 
-    @staticmethod
-    def _analysis_id(
+    @classmethod
+    def _analysis_provenance(
+        cls,
+        analysis_result: AnalysisResult,
         *,
         source_input_name: str,
-        event_count: int,
-        all_case_ids: Tuple[str, ...],
         artifact_keys: Tuple[str, ...],
-    ) -> str:
+    ) -> AnalysisProvenance:
+        event_digest = cls._content_digest(analysis_result.events, "events")
+        alert_digest = cls._content_digest(analysis_result.alerts, "alerts")
+        case_digest = cls._content_digest(analysis_result.cases, "cases")
+        reconstruction_digest = cls._content_digest(
+            analysis_result.reconstructions, "reconstructions"
+        )
+        rule_ids = sorted(
+            {
+                str(alert["rule_id"]).strip()
+                for alert in analysis_result.alerts
+                if isinstance(alert, Mapping) and str(alert.get("rule_id") or "").strip()
+            }
+        )
+        rule_set_digest = cls._content_digest(rule_ids, "rule IDs")
         manifest = {
+            "provenance_schema_version": "1.0",
+            "derivation_algorithm": "sha256-canonical-json-v1",
+            "normalized_input_name": source_input_name,
+            "event_digest": event_digest,
+            "alert_digest": alert_digest,
+            "case_digest": case_digest,
+            "reconstruction_digest": reconstruction_digest,
+            "rule_set_digest": rule_set_digest,
             "artifact_keys": artifact_keys,
-            "case_ids": all_case_ids,
-            "event_count": event_count,
-            "input_name": source_input_name,
         }
-        digest = sha256(
-            json.dumps(
-                manifest,
-                separators=(",", ":"),
-                sort_keys=True,
-            ).encode("utf-8")
-        ).hexdigest()[:20]
-        return f"analysis-{digest}"
+        source_analysis_id = f"analysis-{cls._digest(manifest)[:20]}"
+        return AnalysisProvenance(
+            source_analysis_id=source_analysis_id,
+            normalized_input_name=source_input_name,
+            event_digest=event_digest,
+            alert_digest=alert_digest,
+            case_digest=case_digest,
+            reconstruction_digest=reconstruction_digest,
+            rule_set_digest=rule_set_digest,
+            artifact_keys=artifact_keys,
+        )
+
+    @classmethod
+    def _content_digest(cls, value: object, field_name: str) -> str:
+        try:
+            return cls._digest(cls._canonical_value(value))
+        except (TypeError, ValueError) as exc:
+            raise InvalidAnalysisResultError(
+                f"Completed analysis {field_name} cannot be canonicalized: {exc}"
+            ) from exc
+
+    @classmethod
+    def _canonical_value(cls, value: object) -> object:
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, Path):
+            raise TypeError("filesystem paths are not provenance content")
+        if is_dataclass(value):
+            return cls._canonical_value(asdict(value))
+        if isinstance(value, Mapping):
+            if any(not isinstance(key, str) for key in value):
+                raise TypeError("mapping keys must be strings")
+            return {key: cls._canonical_value(value[key]) for key in sorted(value)}
+        if isinstance(value, (list, tuple)):
+            return [cls._canonical_value(item) for item in value]
+        if isinstance(value, (set, frozenset)):
+            normalized = [cls._canonical_value(item) for item in value]
+            return sorted(normalized, key=cls._canonical_json)
+        raise TypeError(f"unsupported value type {type(value).__name__}")
+
+    @staticmethod
+    def _canonical_json(value: object) -> str:
+        return json.dumps(value, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+
+    @classmethod
+    def _digest(cls, value: object) -> str:
+        return sha256(cls._canonical_json(value).encode("utf-8")).hexdigest()
 
     @staticmethod
     def _bootstrap_id(

@@ -9,7 +9,6 @@ from soc_forge.investigations.workspace_service import (
     WorkspaceDeletionResult,
     WorkspaceResult,
 )
-from soc_forge.pipeline import AnalysisResult
 
 
 class InvestigationRequestError(ValueError):
@@ -40,7 +39,7 @@ class InvestigationWebApplication:
         *,
         bootstrap_adapter: InvestigationBootstrapAdapter,
         workspace_service: InvestigationWorkspaceService,
-        analysis_provider: Callable[[], AnalysisResult | None],
+        analysis_provider: Callable[[], object | None],
     ):
         self.bootstrap_adapter = bootstrap_adapter
         self.workspace_service = workspace_service

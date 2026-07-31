@@ -451,3 +451,92 @@ def test_source_identity_ignores_absolute_paths(tmp_path):
     )
 
     assert first_request.analysis_id == second_request.analysis_id
+
+def build_request(adapter, analysis, case_ids=("CASE-A",)):
+    return adapter.build_creation_request(
+        analysis,
+        "INVESTIGATION-PROVENANCE",
+        case_ids,
+        created_at=FIXED_TIME,
+    )
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        lambda result: result.events[0].update({"command_line": "different event"}),
+        lambda result: result.alerts[0].update({"severity": "different alert"}),
+        lambda result: result.cases[0]["items"].append({"rule_id": "SOCF-022"}),
+    ],
+)
+def test_material_analysis_content_changes_source_identity(mutator, tmp_path):
+    original = build_analysis_result(tmp_path)
+    changed = deepcopy(original)
+    mutator(changed)
+    adapter, _, _ = build_adapter(tmp_path)
+
+    assert build_request(adapter, original).analysis_id != build_request(adapter, changed).analysis_id
+
+
+def test_provenance_ignores_artifact_and_dictionary_insertion_order(tmp_path):
+    original = build_analysis_result(tmp_path)
+    reordered = deepcopy(original)
+    reordered.artifacts = dict(reversed(tuple(original.artifacts.items())))
+    reordered.events = [
+        {
+            "command_line": original.events[0]["command_line"],
+            "event_id": original.events[0]["event_id"],
+        }
+    ]
+    reordered.alerts = [
+        {
+            "details": dict(reversed(tuple(original.alerts[0]["details"].items()))),
+            "rule_id": original.alerts[0]["rule_id"],
+        }
+    ]
+    adapter, _, _ = build_adapter(tmp_path)
+
+    first = build_request(adapter, original)
+    second = build_request(adapter, reordered)
+
+    assert first.analysis_id == second.analysis_id
+    assert first.provenance == second.provenance
+
+
+def test_new_bootstrap_persists_explainable_provenance_metadata(tmp_path):
+    analysis = build_analysis_result(tmp_path)
+    adapter, _, repository = build_adapter(tmp_path)
+
+    result = adapter.bootstrap_investigation(
+        analysis,
+        "INVESTIGATION-001",
+        ["CASE-A"],
+        created_at=FIXED_TIME,
+    )
+
+    provenance = result.investigation.provenance
+    assert provenance is not None
+    assert provenance.source_analysis_id == result.investigation.analysis_id
+    assert provenance.normalized_input_name == "detection_lab.jsonl"
+    assert provenance.artifact_keys == (
+        "alerts",
+        "cases",
+        "events",
+        "hunts",
+        "reconstructions",
+        "report",
+    )
+    assert repository.load("INVESTIGATION-001").provenance == provenance
+
+
+def test_only_bootstrap_imports_concrete_pipeline_result():
+    root = Path(__file__).parents[1] / "soc_forge"
+
+    concrete_importers = []
+    for path in (root / "investigations").glob("*.py"):
+        if "soc_forge.pipeline" in imported_modules(path):
+            concrete_importers.append(path.name)
+    assert concrete_importers == ["bootstrap.py"]
+    assert "soc_forge.pipeline" not in imported_modules(
+        root / "web" / "investigation_api.py"
+    )

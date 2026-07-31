@@ -41,6 +41,34 @@ Investigation
 The models are frozen dataclasses with explicit identifiers, schema versions, tuple-based relationships, and JSON-compatible dictionary serialization. Callers own identifier generation. Investigation objects own analyst-authored context, while pipeline artifacts remain immutable source material.
 
 Caller-provided lists are copied into tuples during construction. Domain objects do not retain mutable event, alert, case, reconstruction, or `AnalysisResult` payloads. Optional fields default to `None` or empty tuples; they do not introduce secrets, machine-specific paths, or process-dependent values.
+## Identifier and Reference Integrity
+
+Repeatable children use separate, investigation-local identifier namespaces:
+evidence references, hypotheses, decisions, timeline selections, and annotations.
+IDs must be unique within their own child type. The same value may be used by
+different child types because their namespaces are unambiguous.
+
+Investigation construction and deserialization enforce aggregate-wide integrity:
+
+- hypothesis supporting and contradicting IDs must resolve to evidence references
+- one evidence reference cannot be both supporting and contradicting for one hypothesis
+- decision evidence and hypothesis IDs must resolve within the investigation
+- timeline-selection evidence IDs must resolve within the investigation
+- handoff IDs must resolve to owned children or declared artifact keys
+- a handoff manifest's investigation ID must match its owning aggregate
+
+Annotation targets are controlled. `investigation`, `evidence`, `hypothesis`,
+`decision`, and `timeline_selection` are aggregate-owned and must resolve
+internally. `case` and `analysis` are explicit external logical references;
+their IDs are validated as nonblank but do not require aggregate membership.
+
+> Investigation-owned references must resolve within the aggregate unless their reference type is explicitly classified as external.
+
+The workspace service checks operation-specific decision and annotation
+references before saving. Aggregate validation remains the final defense during
+construction and repository loading. A persisted integrity failure is reported
+through the repository's corrupt-record error contract.
+
 
 ## Schema Version Policy
 
@@ -235,27 +263,44 @@ files directly.
 
 ### Source Analysis Identity
 
-`AnalysisResult` does not currently expose a stable run ID. The adapter derives
-an adapter-owned source-analysis ID by hashing a canonical manifest containing:
+The adapter creates a frozen `AnalysisProvenance` manifest for every newly
+bootstrapped investigation. Its derivation algorithm is
+`sha256-canonical-json-v1`. The manifest records:
 
-- the input basename normalized across Windows and POSIX separators
-- the completed event count
-- the sorted set of all stable case IDs in the result
-- the sorted set of logical artifact keys currently present
+- provenance schema version `1.0`
+- input basename normalized across Windows and POSIX separators
+- SHA-256 digests of normalized events, alerts, cases, and reconstructions
+- a SHA-256 digest of the sorted rule IDs present in completed alerts
+- the sorted logical artifact keys present
+- the resulting source-analysis ID
 
-Absolute input, output, and artifact paths are excluded. Object memory
-representations and full event, alert, case, hunt, and reconstruction payloads
-are also excluded.
+Nested mappings are normalized by sorted string keys before hashing. Sequence
+order is retained because completed event and result order can be meaningful;
+set-like values and artifact keys are sorted. The source-analysis ID is the
+first 20 hexadecimal characters of the SHA-256 digest of the canonical
+provenance manifest, prefixed with `analysis-`.
 
-Two completed analyses are the same for bootstrap identity when those four
-manifest values are equal. A change to any manifest value produces a different
-source-analysis ID. This is a deterministic local reference, not a forensic
-hash of every analysis payload.
+Absolute input paths, output paths, artifact paths, Python object
+representations, and rendered HTML do not participate. Raw events, alerts,
+cases, and reconstructions are hashed for identity but are not copied into the
+investigation.
+
+> The source-analysis identifier represents canonical completed-analysis provenance, not a filesystem location or presentation artifact.
+
+Changing normalized event content, alert content, case membership, case
+content, reconstruction content, observed rule IDs, or logical artifact keys
+changes the source-analysis ID. Dictionary insertion order and artifact path
+location do not.
 
 The separate bootstrap ID hashes the source-analysis ID and sorted selected
 case IDs. Selecting a different case set changes the bootstrap ID but does not
 redefine the underlying source-analysis ID. Investigation ID and creation time
 do not affect either identity.
+
+Epic 1 records without `provenance` remain valid schema 1.x records. Their
+existing `analysis_id` is retained as a legacy identifier and is not silently
+reinterpreted as the canonical algorithm. Newly bootstrapped records store
+both the source-analysis ID and its provenance metadata.
 
 ### Selection, Artifacts, and Titles
 

@@ -309,3 +309,58 @@ def test_listing_rejects_record_symlink_that_escapes_repository_root(tmp_path):
 
     with pytest.raises(InvalidInvestigationIdError, match="escapes"):
         InvestigationRepository(tmp_path / "workspace").list_investigations()
+
+def _duplicate_evidence(payload):
+    payload["evidence_references"].append(dict(payload["evidence_references"][0]))
+
+
+def _dangling_decision(payload):
+    payload["decisions"][0]["evidence_reference_ids"] = ["EVIDENCE-MISSING"]
+
+
+def _dangling_hypothesis(payload):
+    payload["hypotheses"][0]["supporting_evidence_reference_ids"] = ["EVIDENCE-MISSING"]
+
+
+def _invalid_annotation_target(payload):
+    payload["annotations"][0]["target_id"] = "EVIDENCE-MISSING"
+
+
+def _mismatched_handoff(payload):
+    payload["handoff_manifest"]["investigation_id"] = "INVESTIGATION-OTHER"
+
+
+def _unsupported_provenance(payload):
+    payload["provenance"] = {
+        "source_analysis_id": payload["analysis_id"],
+        "normalized_input_name": "events.jsonl",
+        "event_digest": "event",
+        "alert_digest": "alert",
+        "case_digest": "case",
+        "reconstruction_digest": "reconstruction",
+        "rule_set_digest": "rules",
+        "schema_version": "2.0",
+    }
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        _duplicate_evidence,
+        _dangling_decision,
+        _dangling_hypothesis,
+        _invalid_annotation_target,
+        _mismatched_handoff,
+        _unsupported_provenance,
+    ],
+)
+def test_persisted_integrity_failures_use_corrupt_record_contract(mutator, tmp_path):
+    repository = InvestigationRepository(tmp_path)
+    repository.save(build_investigation())
+    path = record_path(tmp_path)
+    envelope = json.loads(path.read_text(encoding="utf-8"))
+    mutator(envelope["investigation"])
+    path.write_text(json.dumps(envelope), encoding="utf-8")
+
+    with pytest.raises(CorruptInvestigationRecordError, match="INVESTIGATION-001"):
+        repository.load("INVESTIGATION-001")

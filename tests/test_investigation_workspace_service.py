@@ -12,6 +12,7 @@ from soc_forge.investigations.workspace_service import (
     InvalidOwnerError,
     InvalidStatusTransitionError,
     InvalidWorkspaceOperationError,
+    InvalidWorkspaceReferenceError,
     InvestigationWorkspaceService,
     WorkspaceDeletionResult,
     WorkspaceResult,
@@ -421,7 +422,7 @@ def test_record_decision_appends_analyst_decision_without_status_side_effect(tmp
         rationale="Endpoint confirmation is required.",
         author="alice",
         evidence_reference_ids=("case:CASE-001",),
-        hypothesis_ids=("HYPOTHESIS-001",),
+        hypothesis_ids=(),
         expected_revision=created.revision,
     )
 
@@ -638,3 +639,75 @@ def test_injected_clock_makes_all_timestamp_updates_deterministic(tmp_path):
     assert assigned.investigation.metadata.updated_at == "2026-08-01T00:01:00Z"
     assert annotated.investigation.metadata.updated_at == "2026-08-01T00:02:00Z"
     assert clock.calls == 3
+
+@pytest.mark.parametrize(
+    ("evidence_ids", "hypothesis_ids", "missing_id"),
+    [
+        (("EVIDENCE-MISSING",), (), "EVIDENCE-MISSING"),
+        ((), ("HYPOTHESIS-MISSING",), "HYPOTHESIS-MISSING"),
+    ],
+)
+def test_invalid_decision_reference_does_not_save_or_increment_revision(
+    evidence_ids,
+    hypothesis_ids,
+    missing_id,
+    tmp_path,
+):
+    service, repository, _ = build_service(tmp_path)
+    created = create_workspace(service)
+    before = repository.load_record("INVESTIGATION-001")
+
+    with pytest.raises(InvalidWorkspaceReferenceError, match=missing_id):
+        service.record_decision(
+            "INVESTIGATION-001",
+            decision_id="DECISION-INVALID",
+            decision_type="triage",
+            outcome="escalate",
+            rationale="Invalid reference",
+            author="alice",
+            evidence_reference_ids=evidence_ids,
+            hypothesis_ids=hypothesis_ids,
+            expected_revision=created.revision,
+        )
+
+    after = repository.load_record("INVESTIGATION-001")
+    assert after == before
+    assert after.revision == 1
+
+
+def test_invalid_annotation_target_does_not_save_or_increment_revision(tmp_path):
+    service, repository, _ = build_service(tmp_path)
+    created = create_workspace(service)
+    before = repository.load_record("INVESTIGATION-001")
+
+    with pytest.raises(InvalidWorkspaceReferenceError, match="EVIDENCE-MISSING"):
+        service.add_annotation(
+            "INVESTIGATION-001",
+            annotation_id="ANNOTATION-INVALID",
+            target_type="evidence",
+            target_id="EVIDENCE-MISSING",
+            body="Invalid target",
+            author="alice",
+            expected_revision=created.revision,
+        )
+
+    assert repository.load_record("INVESTIGATION-001") == before
+
+
+def test_external_case_annotation_is_explicitly_supported(tmp_path):
+    service, _, _ = build_service(tmp_path)
+    created = create_workspace(service)
+
+    updated = service.add_annotation(
+        "INVESTIGATION-001",
+        annotation_id="ANNOTATION-CASE",
+        target_type="case",
+        target_id="CASE-EXTERNAL",
+        body="External case reference",
+        author="alice",
+        expected_revision=created.revision,
+    )
+
+    assert updated.revision == 2
+    assert updated.investigation.annotations[0].target_type == "case"
+    assert updated.investigation.annotations[0].target_id == "CASE-EXTERNAL"

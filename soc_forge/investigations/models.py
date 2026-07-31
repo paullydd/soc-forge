@@ -13,8 +13,38 @@ EVIDENCE_SOURCE_TYPES = frozenset(
 )
 HYPOTHESIS_STATES = frozenset({"open", "supported", "rejected", "inconclusive"})
 ANNOTATION_TARGET_TYPES = frozenset(
+    {"investigation", "evidence", "hypothesis", "decision", "timeline_selection", "case", "analysis"}
+)
+INTERNAL_ANNOTATION_TARGET_TYPES = frozenset(
     {"investigation", "evidence", "hypothesis", "decision", "timeline_selection"}
 )
+EXTERNAL_ANNOTATION_TARGET_TYPES = ANNOTATION_TARGET_TYPES.difference(
+    INTERNAL_ANNOTATION_TARGET_TYPES
+)
+
+
+class InvestigationIntegrityError(ValueError):
+    """Base error for an internally inconsistent investigation aggregate."""
+
+
+class DuplicateChildIdError(InvestigationIntegrityError):
+    pass
+
+
+class MissingInvestigationReferenceError(InvestigationIntegrityError):
+    pass
+
+
+class InvalidAnnotationTargetError(InvestigationIntegrityError):
+    pass
+
+
+class MismatchedHandoffInvestigationError(InvestigationIntegrityError):
+    pass
+
+
+class ContradictoryEvidenceAssignmentError(InvestigationIntegrityError):
+    pass
 
 T = TypeVar("T", bound="SerializableModel")
 
@@ -70,6 +100,56 @@ class SerializableModel:
     @classmethod
     def from_dict(cls: Type[T], data: Mapping[str, Any]) -> T:
         return cls(**dict(data))
+
+
+@dataclass(frozen=True)
+class AnalysisProvenance(SerializableModel):
+    source_analysis_id: str
+    normalized_input_name: str
+    event_digest: str
+    alert_digest: str
+    case_digest: str
+    reconstruction_digest: str
+    rule_set_digest: str
+    artifact_keys: Tuple[str, ...] = ()
+    derivation_algorithm: str = "sha256-canonical-json-v1"
+    schema_version: str = INVESTIGATION_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        _validate_schema_version(self.schema_version, type(self).__name__)
+        for field_name in (
+            "source_analysis_id",
+            "normalized_input_name",
+            "event_digest",
+            "alert_digest",
+            "case_digest",
+            "reconstruction_digest",
+            "rule_set_digest",
+            "derivation_algorithm",
+        ):
+            _require_text(getattr(self, field_name), f"AnalysisProvenance.{field_name}")
+        object.__setattr__(
+            self,
+            "artifact_keys",
+            _id_tuple(self.artifact_keys, "AnalysisProvenance.artifact_keys"),
+        )
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "AnalysisProvenance":
+        _require_fields(
+            data,
+            cls.__name__,
+            "source_analysis_id",
+            "normalized_input_name",
+            "event_digest",
+            "alert_digest",
+            "case_digest",
+            "reconstruction_digest",
+            "rule_set_digest",
+        )
+        values = dict(data)
+        values["artifact_keys"] = tuple(values.get("artifact_keys", ()))
+        return cls(**values)
 
 
 @dataclass(frozen=True)
@@ -341,6 +421,7 @@ class Investigation(SerializableModel):
     timeline_selections: Tuple[TimelineSelection, ...] = ()
     annotations: Tuple[Annotation, ...] = ()
     handoff_manifest: HandoffManifest | None = None
+    provenance: AnalysisProvenance | None = None
     schema_version: str = INVESTIGATION_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -371,6 +452,136 @@ class Investigation(SerializableModel):
             self.handoff_manifest, HandoffManifest
         ):
             raise ValueError("Investigation.handoff_manifest must be HandoffManifest or None")
+        if self.provenance is not None and not isinstance(self.provenance, AnalysisProvenance):
+            raise ValueError("Investigation.provenance must be AnalysisProvenance or None")
+        if self.provenance is not None and self.provenance.source_analysis_id != self.analysis_id:
+            raise MissingInvestigationReferenceError(
+                f"Investigation {self.investigation_id!r} provenance source analysis ID "
+                f"{self.provenance.source_analysis_id!r} does not match analysis_id"
+            )
+        self._validate_integrity()
+
+    def _validate_integrity(self) -> None:
+        child_ids = {
+            "evidence reference": self._unique_child_ids(
+                "evidence reference", self.evidence_references, "reference_id"
+            ),
+            "hypothesis": self._unique_child_ids(
+                "hypothesis", self.hypotheses, "hypothesis_id"
+            ),
+            "decision": self._unique_child_ids("decision", self.decisions, "decision_id"),
+            "timeline selection": self._unique_child_ids(
+                "timeline selection", self.timeline_selections, "selection_id"
+            ),
+            "annotation": self._unique_child_ids(
+                "annotation", self.annotations, "annotation_id"
+            ),
+        }
+        evidence_ids = child_ids["evidence reference"]
+        hypothesis_ids = child_ids["hypothesis"]
+        decision_ids = child_ids["decision"]
+        timeline_ids = child_ids["timeline selection"]
+        annotation_ids = child_ids["annotation"]
+
+        for hypothesis in self.hypotheses:
+            overlap = sorted(
+                set(hypothesis.supporting_evidence_reference_ids).intersection(
+                    hypothesis.contradicting_evidence_reference_ids
+                )
+            )
+            if overlap:
+                raise ContradictoryEvidenceAssignmentError(
+                    f"Investigation {self.investigation_id!r} hypothesis "
+                    f"{hypothesis.hypothesis_id!r} assigns evidence {overlap[0]!r} "
+                    "as both supporting and contradicting"
+                )
+            self._require_references(
+                "hypothesis", hypothesis.hypothesis_id, "supporting evidence",
+                hypothesis.supporting_evidence_reference_ids, evidence_ids,
+            )
+            self._require_references(
+                "hypothesis", hypothesis.hypothesis_id, "contradicting evidence",
+                hypothesis.contradicting_evidence_reference_ids, evidence_ids,
+            )
+
+        for decision in self.decisions:
+            self._require_references(
+                "decision", decision.decision_id, "evidence",
+                decision.evidence_reference_ids, evidence_ids,
+            )
+            self._require_references(
+                "decision", decision.decision_id, "hypothesis",
+                decision.hypothesis_ids, hypothesis_ids,
+            )
+
+        for selection in self.timeline_selections:
+            self._require_references(
+                "timeline selection", selection.selection_id, "evidence",
+                selection.evidence_reference_ids, evidence_ids,
+            )
+
+        target_ids = {
+            "investigation": {self.investigation_id},
+            "evidence": evidence_ids,
+            "hypothesis": hypothesis_ids,
+            "decision": decision_ids,
+            "timeline_selection": timeline_ids,
+        }
+        for annotation in self.annotations:
+            if annotation.target_type in INTERNAL_ANNOTATION_TARGET_TYPES:
+                if annotation.target_id not in target_ids[annotation.target_type]:
+                    raise InvalidAnnotationTargetError(
+                        f"Investigation {self.investigation_id!r} annotation "
+                        f"{annotation.annotation_id!r} targets missing "
+                        f"{annotation.target_type} {annotation.target_id!r}"
+                    )
+
+        manifest = self.handoff_manifest
+        if manifest is not None:
+            if manifest.investigation_id != self.investigation_id:
+                raise MismatchedHandoffInvestigationError(
+                    f"Investigation {self.investigation_id!r} handoff manifest "
+                    f"{manifest.manifest_id!r} names investigation "
+                    f"{manifest.investigation_id!r}"
+                )
+            for relationship, references, known in (
+                ("evidence", manifest.evidence_reference_ids, evidence_ids),
+                ("hypothesis", manifest.hypothesis_ids, hypothesis_ids),
+                ("decision", manifest.decision_ids, decision_ids),
+                ("annotation", manifest.annotation_ids, annotation_ids),
+                ("artifact", manifest.artifact_keys, set(self.analysis_artifact_keys)),
+            ):
+                self._require_references(
+                    "handoff manifest", manifest.manifest_id, relationship,
+                    references, known,
+                )
+
+    def _unique_child_ids(self, child_type: str, children: tuple, id_field: str) -> set[str]:
+        seen: set[str] = set()
+        for child in children:
+            child_id = getattr(child, id_field)
+            if child_id in seen:
+                raise DuplicateChildIdError(
+                    f"Investigation {self.investigation_id!r} has duplicate "
+                    f"{child_type} ID {child_id!r}"
+                )
+            seen.add(child_id)
+        return seen
+
+    def _require_references(
+        self,
+        child_type: str,
+        child_id: str,
+        relationship: str,
+        references: Tuple[str, ...],
+        known_ids: set[str],
+    ) -> None:
+        missing = sorted(set(references).difference(known_ids))
+        if missing:
+            raise MissingInvestigationReferenceError(
+                f"Investigation {self.investigation_id!r} {child_type} {child_id!r} "
+                f"references missing {relationship} ID {missing[0]!r}"
+            )
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "Investigation":
@@ -389,4 +600,6 @@ class Investigation(SerializableModel):
         values["annotations"] = tuple(Annotation.from_dict(item) for item in values.get("annotations", ()))
         manifest = values.get("handoff_manifest")
         values["handoff_manifest"] = HandoffManifest.from_dict(manifest) if manifest else None
+        provenance = values.get("provenance")
+        values["provenance"] = AnalysisProvenance.from_dict(provenance) if provenance else None
         return cls(**values)

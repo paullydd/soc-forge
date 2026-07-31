@@ -519,3 +519,31 @@ def test_static_ui_escapes_investigation_owned_strings():
         "decision.decided_by",
     ):
         assert f"escapeHtml({field}" in source
+
+def test_corrupt_integrity_record_returns_generic_error_without_path_or_traceback(
+    investigation_server,
+):
+    create_investigation(investigation_server)
+    path = (
+        investigation_server["workspace_root"]
+        / "investigations"
+        / "INV-WEB-001.json"
+    )
+    envelope = json.loads(path.read_text(encoding="utf-8"))
+    evidence = envelope["investigation"]["evidence_references"][0]
+    envelope["investigation"]["evidence_references"].append(dict(evidence))
+    path.write_text(json.dumps(envelope), encoding="utf-8")
+
+    status, payload = json_request(
+        investigation_server,
+        "GET",
+        "/api/investigations/INV-WEB-001",
+    )
+
+    assert status == 500
+    assert payload["error"]["code"] == "workspace_unavailable"
+    assert payload["error"]["message"] == "The investigation workspace could not be loaded."
+    encoded = json.dumps(payload).lower()
+    assert "traceback" not in encoded
+    assert str(path).lower() not in encoded
+    assert "duplicate" not in encoded

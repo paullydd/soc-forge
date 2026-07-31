@@ -5,9 +5,11 @@ from datetime import datetime, timezone
 from typing import Callable, Iterable, List
 
 from soc_forge.investigations.models import (
+    AnalysisProvenance,
     Annotation,
     Decision,
     EvidenceReference,
+    INTERNAL_ANNOTATION_TARGET_TYPES,
     Investigation,
     WorkspaceMetadata,
 )
@@ -55,6 +57,10 @@ class DuplicateDecisionError(InvalidWorkspaceOperationError):
     pass
 
 
+class InvalidWorkspaceReferenceError(InvalidWorkspaceOperationError):
+    pass
+
+
 @dataclass(frozen=True)
 class WorkspaceResult:
     investigation: Investigation
@@ -87,6 +93,7 @@ class InvestigationWorkspaceService:
         investigation_id: str,
         title: str,
         analysis_id: str,
+        provenance: AnalysisProvenance | None = None,
         case_ids: Iterable[str] = (),
         artifact_keys: Iterable[str] = (),
         owner: str | None = None,
@@ -126,6 +133,7 @@ class InvestigationWorkspaceService:
             ),
             analysis_artifact_keys=normalized_artifact_keys,
             evidence_references=evidence_references,
+            provenance=provenance,
         )
         revision = self.repository.save(investigation)
         return WorkspaceResult(investigation=investigation, revision=revision)
@@ -226,6 +234,12 @@ class InvestigationWorkspaceService:
             updated_at=timestamp,
             created_by=self._required_text(author, "annotation author"),
         )
+        self._validate_annotation_target(
+            current.investigation,
+            annotation.target_type,
+            annotation.target_id,
+            annotation.annotation_id,
+        )
         updated = replace(
             current.investigation,
             metadata=replace(
@@ -320,6 +334,18 @@ class InvestigationWorkspaceService:
             decided_at=timestamp,
             decided_by=self._required_text(author, "decision author"),
         )
+        self._require_known_ids(
+            current.investigation,
+            "decision", decision.decision_id, "evidence",
+            decision.evidence_reference_ids,
+            {item.reference_id for item in current.investigation.evidence_references},
+        )
+        self._require_known_ids(
+            current.investigation,
+            "decision", decision.decision_id, "hypothesis",
+            decision.hypothesis_ids,
+            {item.hypothesis_id for item in current.investigation.hypotheses},
+        )
         updated = replace(
             current.investigation,
             metadata=replace(
@@ -389,6 +415,47 @@ class InvestigationWorkspaceService:
         )
         return WorkspaceResult(investigation=investigation, revision=revision)
 
+
+    @classmethod
+    def _validate_annotation_target(
+        cls,
+        investigation: Investigation,
+        target_type: str,
+        target_id: str,
+        annotation_id: str,
+    ) -> None:
+        if target_type not in INTERNAL_ANNOTATION_TARGET_TYPES:
+            return
+        known_by_type = {
+            "investigation": {investigation.investigation_id},
+            "evidence": {item.reference_id for item in investigation.evidence_references},
+            "hypothesis": {item.hypothesis_id for item in investigation.hypotheses},
+            "decision": {item.decision_id for item in investigation.decisions},
+            "timeline_selection": {
+                item.selection_id for item in investigation.timeline_selections
+            },
+        }
+        if target_id not in known_by_type[target_type]:
+            raise InvalidWorkspaceReferenceError(
+                f"Investigation {investigation.investigation_id!r} annotation "
+                f"{annotation_id!r} targets missing {target_type} {target_id!r}"
+            )
+
+    @staticmethod
+    def _require_known_ids(
+        investigation: Investigation,
+        child_type: str,
+        child_id: str,
+        relationship: str,
+        references: tuple[str, ...],
+        known_ids: set[str],
+    ) -> None:
+        missing = sorted(set(references).difference(known_ids))
+        if missing:
+            raise InvalidWorkspaceReferenceError(
+                f"Investigation {investigation.investigation_id!r} {child_type} "
+                f"{child_id!r} references missing {relationship} ID {missing[0]!r}"
+            )
 
     @staticmethod
     def _annotation_index(investigation: Investigation, annotation_id: str) -> int:
