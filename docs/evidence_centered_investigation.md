@@ -201,3 +201,81 @@ reports the new revision, and displays a bounded copy of an attempted rationale
 where practical so the analyst can re-enter it.
 
 > The console resolves evidence through the shared catalog and records analyst selections through the evidence service. It does not derive identities or copy source payloads.
+
+
+## Web Evidence Workflow
+
+The durable web investigation workspace exposes the same evidence catalog and
+selection service as the analyst console:
+
+```text
+Open investigation
+  -> Browse evidence
+  -> Inspect provenance
+  -> Reveal sensitive value if required
+  -> Select and classify
+  -> Add rationale
+  -> Reopen later
+  -> Review or update selection
+```
+
+The Evidence section displays scope, selected, supporting, contradicting, and
+context counts. Candidate filters are limited to `all`, `event`, `alert`,
+`case`, and `reconstruction_step`. Discovery is constrained to relationships
+proven for the investigation's selected cases; an empty filter result does not
+cause the web layer to infer a relationship.
+
+Candidate lists contain bounded metadata, sensitive-field names, and provenance
+limitations. Detail responses contain only catalog-resolved bounded fields and
+field-level provenance. Sensitive values are omitted by default and require an
+explicit browser confirmation that requests `include_sensitive=true`. SOC-Forge
+does not automatically redact values after reveal. Browser history, developer
+tools, terminal logs, and screen captures can retain investigation data.
+
+Bootstrap scope references are shown separately and are not classified as
+analyst-reviewed evidence. Analyst selections require a controlled
+`supporting`, `contradicting`, or `context` classification, nonblank
+rationale, author label, and current revision. Updates cannot change source
+identity or selection origin. Removal never cascades and fails while a
+hypothesis or decision still references the evidence.
+
+Candidate discovery and source-detail resolution require the server's active
+completed analysis to match the investigation provenance exactly. Persisted
+selection metadata remains available after a server restart without active
+analysis, but source details report unavailable until the matching analysis is
+run again. The server does not reopen arbitrary artifact paths.
+
+On revision conflict, the API returns the latest workspace. The browser refreshes
+the authoritative revision without automatic retry or silent merge and retains
+the attempted selection fields in transient memory where practical.
+`localStorage` is not a source of truth.
+
+The evidence routes are:
+
+```text
+GET    /api/investigations/{id}/evidence/candidates?type={type}
+GET    /api/investigations/{id}/evidence/candidates/{evidence_id}
+GET    /api/investigations/{id}/evidence/candidates/{evidence_id}?include_sensitive=true
+GET    /api/investigations/{id}/evidence/selections
+POST   /api/investigations/{id}/evidence/selections
+PUT    /api/investigations/{id}/evidence/selections/{evidence_id}
+DELETE /api/investigations/{id}/evidence/selections/{evidence_id}
+```
+
+Selection creation accepts `evidence_id`, `classification`, `rationale`,
+`author`, and `expected_revision`. Updates accept only `classification`,
+`rationale`, `author`, and `expected_revision`. Deletion requires
+`expected_revision`. Selection responses separate `scope_references` from
+`analyst_selections` and include classification counts plus the authoritative
+revision.
+
+Web and console selections share one durable repository representation.
+Evidence chosen through either interface is immediately readable and editable
+through the other, subject to revision checks.
+
+The web server remains a local-only tool: loopback is the default, there is no
+authentication, and non-loopback binding prints a warning. No permissive CORS
+policy is added. Analyst and telemetry strings are rendered as text in the
+evidence UI.
+
+> Web evidence routes use the shared catalog and evidence service. They do not derive identities, infer relationships, or copy source payloads.

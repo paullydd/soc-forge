@@ -69,6 +69,7 @@ Use `Start Demo` to run the selected scenario and step through the current portf
 - Detection engineering scorecard with quality, MITRE coverage, evidence context, correlation depth, and demo readiness
 - Alert table
 - Hunt finding review
+- Durable investigation evidence browsing, provenance review, and analyst selection management
 - Links to generated HTML and JSON artifacts
 
 ## API Endpoints
@@ -100,3 +101,32 @@ GET /artifact?file=reconstructions.json
 The server is local-only by default and binds to `127.0.0.1`. It does not include authentication, users, sessions, cookies, TLS, or role-based access control. If you explicitly bind it to a non-loopback host, SOC-Forge prints a console warning because generated artifacts may expose investigation data.
 
 Generated HTML and JSON artifacts can contain usernames, hosts, IP addresses, command lines, and investigation notes. Review and redact artifacts before sharing them.
+
+
+### Durable Investigation Evidence
+
+The Investigations view includes an Evidence section for case-scoped candidate
+browsing, bounded provenance inspection, analyst classification and rationale,
+and durable selection management. Scope references and analyst-selected
+evidence are displayed separately.
+
+Candidate and source-detail access requires the matching completed analysis to
+remain active. Persisted selection metadata remains visible when it is not
+active. Sensitive values are hidden by default and require an explicit reveal;
+revealed values can remain in browser history, developer tools, or screen
+captures. SOC-Forge does not automatically redact them.
+
+Evidence requests use the current workspace revision. A conflict refreshes the
+latest authoritative workspace without automatic retry. The browser keeps
+unsent evidence form values only in memory where practical.
+
+Additional local routes:
+
+```text
+GET    /api/investigations/{id}/evidence/candidates?type={type}
+GET    /api/investigations/{id}/evidence/candidates/{evidence_id}
+GET    /api/investigations/{id}/evidence/selections
+POST   /api/investigations/{id}/evidence/selections
+PUT    /api/investigations/{id}/evidence/selections/{evidence_id}
+DELETE /api/investigations/{id}/evidence/selections/{evidence_id}
+```

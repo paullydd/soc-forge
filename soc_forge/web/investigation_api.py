@@ -4,6 +4,8 @@ from dataclasses import asdict
 from typing import Any, Callable, Dict, Mapping
 
 from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
+from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
+from soc_forge.investigations.evidence_service import InvestigationEvidenceService
 from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
     WorkspaceDeletionResult,
@@ -16,6 +18,14 @@ class InvestigationRequestError(ValueError):
 
 
 class NoActiveAnalysisError(InvestigationRequestError):
+    pass
+
+
+class EvidenceAnalysisUnavailableError(InvestigationRequestError):
+    pass
+
+
+class EvidenceAnalysisProvenanceMismatchError(InvestigationRequestError):
     pass
 
 
@@ -40,10 +50,16 @@ class InvestigationWebApplication:
         bootstrap_adapter: InvestigationBootstrapAdapter,
         workspace_service: InvestigationWorkspaceService,
         analysis_provider: Callable[[], object | None],
+        evidence_catalog: AnalysisEvidenceCatalog | None = None,
+        evidence_service: InvestigationEvidenceService | None = None,
     ):
         self.bootstrap_adapter = bootstrap_adapter
         self.workspace_service = workspace_service
         self.analysis_provider = analysis_provider
+        self.evidence_catalog = evidence_catalog or AnalysisEvidenceCatalog()
+        self.evidence_service = evidence_service or InvestigationEvidenceService(
+            workspace_service
+        )
 
     def list_investigations(self) -> list[Dict[str, Any]]:
         return [asdict(summary) for summary in self.workspace_service.list_investigations()]
@@ -166,6 +182,200 @@ class InvestigationWebApplication:
                 expected_revision=self._expected_revision(payload),
             )
         )
+
+    def list_evidence_candidates(
+        self,
+        investigation_id: str,
+        evidence_type: str | None = None,
+    ) -> Dict[str, Any]:
+        current, analysis = self._evidence_context(investigation_id)
+        evidence_types = None if evidence_type in (None, "all") else (evidence_type,)
+        candidates = self.evidence_catalog.list_candidates(
+            analysis,
+            case_ids=self._scope_case_ids(current),
+            evidence_types=evidence_types,
+        )
+        return {
+            "candidates": [self._candidate_response(item) for item in candidates],
+            "filter": evidence_type or "all",
+            "revision": current.revision,
+        }
+
+    def get_evidence_candidate(
+        self,
+        investigation_id: str,
+        evidence_id: str,
+        *,
+        include_sensitive: bool = False,
+    ) -> Dict[str, Any]:
+        current, analysis = self._evidence_context(investigation_id)
+        candidate = self.evidence_catalog.get_candidate(analysis, evidence_id)
+        if not set(candidate.case_ids).intersection(self._scope_case_ids(current)):
+            from soc_forge.investigations.evidence_service import EvidenceOutsideScopeError
+
+            raise EvidenceOutsideScopeError("Evidence is outside investigation case scope")
+        details = self.evidence_catalog.resolve_details(analysis, evidence_id)
+        fields = []
+        for field in details.fields:
+            item = field.to_dict()
+            if field.sensitive and not include_sensitive:
+                item["value"] = None
+                item["value_hidden"] = True
+            else:
+                item["value_hidden"] = False
+            fields.append(item)
+        return {
+            "candidate": self._candidate_response(candidate),
+            "details": {"evidence_id": details.evidence_id, "fields": fields},
+            "source_resolvable": True,
+            "sensitive_values_included": include_sensitive,
+            "revision": current.revision,
+        }
+
+    def list_evidence_selections(self, investigation_id: str) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        references = current.investigation.evidence_references
+        scope = sorted(
+            (item for item in references if item.origin == "scope"),
+            key=lambda item: item.reference_id,
+        )
+        selected = sorted(
+            (item for item in references if item.origin == "analyst_selection"),
+            key=lambda item: item.reference_id,
+        )
+        return {
+            "scope_references": [item.to_dict() for item in scope],
+            "analyst_selections": [item.to_dict() for item in selected],
+            "counts": {
+                "scope": len(scope),
+                "selected": len(selected),
+                "supporting": sum(item.classification == "supporting" for item in selected),
+                "contradicting": sum(
+                    item.classification == "contradicting" for item in selected
+                ),
+                "context": sum(item.classification == "context" for item in selected),
+            },
+            "revision": current.revision,
+        }
+
+    def select_evidence(
+        self,
+        investigation_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        current, analysis = self._evidence_context(investigation_id)
+        evidence_id = self._required_text(payload, "evidence_id")
+        candidate = self.evidence_catalog.get_candidate(analysis, evidence_id)
+        result = self.evidence_service.select_evidence(
+            investigation_id,
+            candidate,
+            classification=self._string_value(payload, "classification"),
+            rationale=self._string_value(payload, "rationale"),
+            author=self._string_value(payload, "author"),
+            expected_revision=self._expected_revision(payload),
+        )
+        return workspace_response(result)
+
+    def update_evidence(
+        self,
+        investigation_id: str,
+        evidence_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        allowed = {"classification", "rationale", "author", "expected_revision"}
+        unknown = sorted(set(payload).difference(allowed))
+        if unknown:
+            raise InvestigationRequestError(
+                "Evidence update contains unsupported field(s): " + ", ".join(unknown)
+            )
+        classification = self._optional_update_text(payload, "classification")
+        rationale = self._optional_update_text(payload, "rationale")
+        author = self._optional_update_text(payload, "author")
+        result = self.evidence_service.update_evidence_rationale(
+            investigation_id,
+            evidence_id,
+            classification=classification,
+            rationale=rationale,
+            author=author,
+            expected_revision=self._expected_revision(payload),
+        )
+        return workspace_response(result)
+
+    def remove_evidence(
+        self,
+        investigation_id: str,
+        evidence_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        result = self.evidence_service.remove_evidence(
+            investigation_id,
+            evidence_id,
+            expected_revision=self._expected_revision(payload),
+        )
+        return workspace_response(result)
+
+    def _evidence_context(self, investigation_id: str):
+        current = self.workspace_service.get_investigation(investigation_id)
+        analysis = self.analysis_provider()
+        if analysis is None:
+            raise EvidenceAnalysisUnavailableError(
+                "Source evidence details require the matching completed analysis to be active."
+            )
+        active_analysis_id = self.evidence_catalog.source_analysis_id(analysis)
+        if active_analysis_id != current.investigation.analysis_id:
+            raise EvidenceAnalysisProvenanceMismatchError(
+                "The active analysis does not match this investigation."
+            )
+        return current, analysis
+
+    @staticmethod
+    def _scope_case_ids(current: WorkspaceResult) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                item.source_id
+                for item in current.investigation.evidence_references
+                if item.origin == "scope" and item.source_type == "case"
+            )
+        )
+
+    @staticmethod
+    def _candidate_response(candidate) -> Dict[str, Any]:
+        return {
+            "evidence_id": candidate.evidence_id,
+            "evidence_type": candidate.evidence_type,
+            "title": candidate.title,
+            "summary": candidate.summary,
+            "timestamp": candidate.timestamp,
+            "source_id": candidate.source_id,
+            "case_ids": list(candidate.case_ids),
+            "rule_id": candidate.rule_id,
+            "tactic": candidate.tactic,
+            "technique": candidate.technique,
+            "entities": list(candidate.entity_references),
+            "sensitive_fields": list(candidate.sensitive_fields),
+            "relationship": candidate.relationship,
+            "limitation_reason": candidate.limitation_reason,
+            "selectable": candidate.selectable,
+            "source_analysis_id": candidate.source_analysis_id,
+        }
+
+    @staticmethod
+    def _string_value(payload: Mapping[str, Any], field: str) -> str:
+        value = payload.get(field)
+        if not isinstance(value, str):
+            raise InvestigationRequestError(f"{field} must be a string")
+        return value
+
+    @staticmethod
+    def _optional_update_text(
+        payload: Mapping[str, Any], field: str
+    ) -> str | None:
+        if field not in payload:
+            return None
+        value = payload[field]
+        if not isinstance(value, str):
+            raise InvestigationRequestError(f"{field} must be a string")
+        return value
 
     def delete_investigation(
         self, investigation_id: str, payload: Mapping[str, Any]

@@ -180,7 +180,25 @@ th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; fon
   .metrics, .two-column, .split-layout, .brief-grid, .case-stat-grid, .graph-layout, .demo-steps, .scorecard-grid, .scorecard-lower, .scorecard-hero { grid-template-columns: 1fr; }
   .demo-guide-head, .demo-guide-actions { flex-direction: column; align-items: stretch; }
   .case-detail-hero, .workspace-heading { flex-direction: column; }
-  .workspace-metadata { grid-template-columns: 1fr; }
+  .workspace-metadata, .evidence-counts, .evidence-detail-grid { grid-template-columns: 1fr; }
   .entity-chips, .graph-stat-row { justify-content: flex-start; max-width: none; }
   .list-panel, .detail-panel { min-height: auto; }
 }
+
+.evidence-counts { display: grid; grid-template-columns: repeat(5, minmax(95px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.evidence-count { border: 1px solid var(--line); background: #12181f; border-radius: 6px; padding: 9px; }
+.evidence-count span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+.evidence-count strong { display: block; margin-top: 5px; font-size: 17px; }
+.evidence-status { min-height: 20px; margin-top: 9px; }
+.evidence-facts { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 9px 0; color: var(--muted); font-size: 12px; }
+.evidence-warning { border-left: 3px solid var(--high); color: #ffd2ad; padding: 7px 9px; margin: 8px 0; background: #211a15; overflow-wrap: anywhere; }
+.evidence-limitation { border-left: 3px solid var(--accent-2); color: #ffefaf; padding: 7px 9px; margin: 8px 0; background: #201e14; overflow-wrap: anywhere; }
+.evidence-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.evidence-detail-grid div, .evidence-field { border: 1px solid var(--line); background: #10161c; border-radius: 6px; padding: 9px; }
+.evidence-detail-grid span { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+.evidence-detail-grid strong { display: block; margin-top: 5px; overflow-wrap: anywhere; }
+.evidence-field { display: grid; gap: 6px; }
+.evidence-field .muted { font-size: 12px; overflow-wrap: anywhere; }
+.scope-evidence .workspace-record { border-left: 3px solid var(--accent-2); }
+.selected-evidence .workspace-record { border-left: 3px solid var(--accent); }
+.evidence-section h4 { margin: 10px 0 0; }

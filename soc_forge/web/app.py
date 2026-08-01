@@ -14,6 +14,18 @@ from soc_forge.investigations.bootstrap import (
     InvestigationBootstrapAdapter,
     InvestigationBootstrapError,
 )
+from soc_forge.investigations.evidence_catalog import (
+    EvidenceCandidateNotFoundError,
+    UnsupportedEvidenceTypeError,
+)
+from soc_forge.investigations.evidence_service import (
+    DuplicateEvidenceSelectionError,
+    EvidenceOutsideScopeError,
+    EvidenceSelectionNotFoundError,
+    InvalidEvidenceClassificationError,
+    InvalidEvidenceRationaleError,
+)
+from soc_forge.investigations.models import MissingInvestigationReferenceError
 from soc_forge.investigations.paths import resolve_workspace_root
 from soc_forge.investigations.repository import (
     CorruptInvestigationRecordError,
@@ -35,6 +47,8 @@ from soc_forge.rules.engine import load_rules
 from soc_forge.rules.quality import evaluate_rule_quality_from_paths
 from soc_forge.simulator import generate_scenario, write_events_jsonl
 from soc_forge.web.investigation_api import (
+    EvidenceAnalysisProvenanceMismatchError,
+    EvidenceAnalysisUnavailableError,
     InvestigationRequestError,
     InvestigationWebApplication,
     NoActiveAnalysisError,
@@ -389,6 +403,31 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         exc: Exception,
         investigation_id: str | None = None,
     ) -> None:
+        evidence_errors = (
+            (EvidenceAnalysisUnavailableError, "analysis_unavailable", 409),
+            (
+                EvidenceAnalysisProvenanceMismatchError,
+                "analysis_provenance_mismatch",
+                409,
+            ),
+            (UnsupportedEvidenceTypeError, "invalid_evidence_type", 400),
+            (EvidenceCandidateNotFoundError, "evidence_candidate_not_found", 404),
+            (EvidenceSelectionNotFoundError, "evidence_selection_not_found", 404),
+            (InvalidEvidenceClassificationError, "invalid_classification", 400),
+            (InvalidEvidenceRationaleError, "invalid_rationale", 400),
+            (DuplicateEvidenceSelectionError, "duplicate_evidence_selection", 409),
+            (EvidenceOutsideScopeError, "evidence_outside_scope", 409),
+            (MissingInvestigationReferenceError, "evidence_reference_conflict", 409),
+        )
+        for error_type, code, status in evidence_errors:
+            if isinstance(exc, error_type):
+                self.send_investigation_error(
+                    code,
+                    self._evidence_error_message(code),
+                    status,
+                    investigation_id=investigation_id,
+                )
+                return
         if isinstance(exc, InvestigationConflictError):
             latest = None
             if investigation_id:
@@ -475,6 +514,21 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             investigation_id=investigation_id,
         )
 
+    @staticmethod
+    def _evidence_error_message(code: str) -> str:
+        return {
+            "analysis_unavailable": "Source evidence requires the matching active analysis.",
+            "analysis_provenance_mismatch": "The active analysis does not match this investigation.",
+            "invalid_evidence_type": "Unsupported evidence type.",
+            "evidence_candidate_not_found": "Evidence candidate not found.",
+            "evidence_selection_not_found": "Selected evidence not found.",
+            "invalid_classification": "Invalid evidence classification.",
+            "invalid_rationale": "Evidence rationale must be nonblank.",
+            "duplicate_evidence_selection": "Evidence is already selected.",
+            "evidence_outside_scope": "Evidence is outside the investigation case scope.",
+            "evidence_reference_conflict": "Evidence is still referenced by investigation state.",
+        }[code]
+
     def handle_investigation_post(
         self, segments: list[str], payload: Dict[str, Any]
     ) -> bool:
@@ -496,6 +550,15 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 result = self.investigation_app.add_annotation(investigation_id, payload)
             elif len(segments) == 2 and segments[1] == "decisions":
                 result = self.investigation_app.record_decision(investigation_id, payload)
+            elif (
+                len(segments) == 3
+                and segments[1:] == ["evidence", "selections"]
+            ):
+                result = self.investigation_app.select_evidence(
+                    investigation_id, payload
+                )
+                self.send_json(result, status=201)
+                return True
             else:
                 return False
             self.send_json(result)
@@ -626,6 +689,44 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 if not segments:
                     self.send_json(self.investigation_app.list_investigations())
                     return
+                if (
+                    len(segments) == 3
+                    and segments[1:] == ["evidence", "candidates"]
+                ):
+                    evidence_type = parse_qs(parsed.query).get("type", [None])[0]
+                    self.send_json(
+                        self.investigation_app.list_evidence_candidates(
+                            segments[0], evidence_type
+                        )
+                    )
+                    return
+                if (
+                    len(segments) == 4
+                    and segments[1:3] == ["evidence", "candidates"]
+                ):
+                    raw_sensitive = parse_qs(parsed.query).get(
+                        "include_sensitive", ["false"]
+                    )[0]
+                    if raw_sensitive not in {"true", "false"}:
+                        raise InvestigationRequestError(
+                            "include_sensitive must be true or false"
+                        )
+                    self.send_json(
+                        self.investigation_app.get_evidence_candidate(
+                            segments[0],
+                            segments[3],
+                            include_sensitive=raw_sensitive == "true",
+                        )
+                    )
+                    return
+                if (
+                    len(segments) == 3
+                    and segments[1:] == ["evidence", "selections"]
+                ):
+                    self.send_json(
+                        self.investigation_app.list_evidence_selections(segments[0])
+                    )
+                    return
                 if len(segments) == 1:
                     self.send_json(
                         self.investigation_app.get_investigation(segments[0])
@@ -655,16 +756,26 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         if segments is None:
             self.send_error(501, "Unsupported method")
             return
-        if len(segments) != 3 or segments[1] != "annotations":
+        is_annotation = len(segments) == 3 and segments[1] == "annotations"
+        is_evidence = (
+            len(segments) == 4
+            and segments[1:3] == ["evidence", "selections"]
+        )
+        if not (is_annotation or is_evidence):
             self.send_error(405, "Method not allowed")
             return
         payload = self.read_json_payload()
         if payload is None:
             return
         try:
-            result = self.investigation_app.update_annotation(
-                segments[0], segments[2], payload
-            )
+            if is_annotation:
+                result = self.investigation_app.update_annotation(
+                    segments[0], segments[2], payload
+                )
+            else:
+                result = self.investigation_app.update_evidence(
+                    segments[0], segments[3], payload
+                )
             self.send_json(result)
         except Exception as exc:
             self.handle_investigation_error(exc, segments[0])
@@ -677,7 +788,11 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             return
         is_workspace = len(segments) == 1
         is_annotation = len(segments) == 3 and segments[1] == "annotations"
-        if not (is_workspace or is_annotation):
+        is_evidence = (
+            len(segments) == 4
+            and segments[1:3] == ["evidence", "selections"]
+        )
+        if not (is_workspace or is_annotation or is_evidence):
             self.send_error(405, "Method not allowed")
             return
         payload = self.read_json_payload()
@@ -686,9 +801,13 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         try:
             if is_workspace:
                 result = self.investigation_app.delete_investigation(segments[0], payload)
-            else:
+            elif is_annotation:
                 result = self.investigation_app.remove_annotation(
                     segments[0], segments[2], payload
+                )
+            else:
+                result = self.investigation_app.remove_evidence(
+                    segments[0], segments[3], payload
                 )
             self.send_json(result)
         except Exception as exc:
