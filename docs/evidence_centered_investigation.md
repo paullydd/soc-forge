@@ -150,5 +150,54 @@ Analyst-selected evidence uses the distinct `analyst_selection` origin.
 Existing Epic 1 records omit the new optional fields and continue loading with
 scope defaults. This is a backward-compatible schema 1.x extension.
 
-The repository remains local and single-writer in scope. This slice adds no
-locking, database, web routes, console menus, exports, or hosted behavior.
+The repository remains local and single-writer in scope. This slice adds no locking, database, web routes, exports, or hosted behavior.
+
+
+## Analyst Console Evidence Workflow
+
+The durable investigation workspace includes a focused evidence screen:
+
+```text
+Open investigation
+  -> Browse evidence
+  -> Inspect provenance
+  -> Select and classify
+  -> Record rationale
+  -> Reopen later
+  -> Review or update selection
+```
+
+Candidate discovery is limited to the investigation's selected cases and can
+show all supported types or only events, alerts, cases, or reconstruction
+steps. The catalog supplies deterministic ordering, stable identities,
+relationships, sensitive-field labels, and bounded details. The console does
+not perform free-text search, infer relationships, or display raw payloads.
+
+Evidence discovery and source-detail inspection require the completed
+`AnalysisResult` to be active in the current console session. Its catalog-
+derived provenance ID must exactly match the investigation's source-analysis
+ID. A different analysis is refused even when it contains matching case IDs.
+General analysis-session restoration is not available yet. Persisted analyst
+metadata remains reviewable when the matching analysis is unavailable, but
+source details cannot then be resolved.
+
+Sensitive field names are always identified. Displaying sensitive values, such
+as command lines, requires explicit confirmation and uses bounded catalog
+details. Declining keeps those values hidden. Terminal scrollback may retain
+any sensitive values the analyst chooses to display, so the terminal session
+must be handled as sensitive investigation material.
+
+Selection requires a controlled supporting, contradicting, or context
+classification, a nonblank rationale, an author label, and confirmation.
+Bootstrap scope references are displayed separately and never counted as
+analyst-selected or reviewed evidence. Selection updates preserve the source
+evidence identity and original selection timestamp. Removal requires
+confirmation and is refused while a hypothesis or decision still references
+the evidence; relationships are never cascade-deleted.
+
+Every mutation uses the currently displayed repository revision. On conflict,
+the console does not retry or merge. It reloads the latest investigation,
+reports the new revision, and displays a bounded copy of an attempted rationale
+where practical so the analyst can re-enter it.
+
+> The console resolves evidence through the shared catalog and records analyst selections through the evidence service. It does not derive identities or copy source payloads.

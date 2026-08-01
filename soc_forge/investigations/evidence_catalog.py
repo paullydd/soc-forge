@@ -51,6 +51,10 @@ class _CatalogEntry:
 
 
 class AnalysisEvidenceCatalog:
+    def source_analysis_id(self, analysis_result: AnalysisResult) -> str:
+        """Return the stable provenance identity owned by the catalog."""
+        return self._analysis_provenance(analysis_result).source_analysis_id
+
     def list_candidates(
         self,
         analysis_result: AnalysisResult,
@@ -125,6 +129,11 @@ class AnalysisEvidenceCatalog:
 
     def _catalog_entries(self, analysis_result: AnalysisResult) -> Tuple[_CatalogEntry, ...]:
         self._validate_analysis_result(analysis_result)
+        analysis_id = self._analysis_provenance(analysis_result).source_analysis_id
+        return self._entries_for_analysis(analysis_result, analysis_id)
+
+    def _analysis_provenance(self, analysis_result: AnalysisResult):
+        self._validate_analysis_result(analysis_result)
         artifact_keys = tuple(
             sorted(
                 {
@@ -143,8 +152,13 @@ class AnalysisEvidenceCatalog:
             reconstructions=analysis_result.reconstructions,
             artifact_keys=artifact_keys,
         )
-        analysis_id = provenance.source_analysis_id
+        return provenance
 
+    def _entries_for_analysis(
+        self,
+        analysis_result: AnalysisResult,
+        analysis_id: str,
+    ) -> Tuple[_CatalogEntry, ...]:
         event_entries, event_by_source = self._event_entries(
             analysis_result.events, analysis_id
         )

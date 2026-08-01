@@ -116,6 +116,7 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     assert any("Selected case IDs: CASE-B" in line for line in messages)
     assert any("Annotations: 0" in line for line in messages)
     assert any("Decisions: 0" in line for line in messages)
+    assert "[10] Evidence workspace" in messages
 
 
 def test_create_override_cancel_and_missing_analysis_paths(tmp_path):
