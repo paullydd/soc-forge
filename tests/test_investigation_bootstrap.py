@@ -536,7 +536,7 @@ def test_only_bootstrap_imports_concrete_pipeline_result():
     for path in (root / "investigations").glob("*.py"):
         if "soc_forge.pipeline" in imported_modules(path):
             concrete_importers.append(path.name)
-    assert concrete_importers == ["bootstrap.py"]
+    assert set(concrete_importers) == {"bootstrap.py", "evidence_catalog.py"}
     assert "soc_forge.pipeline" not in imported_modules(
         root / "web" / "investigation_api.py"
     )

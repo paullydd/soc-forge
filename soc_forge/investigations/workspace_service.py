@@ -148,6 +148,32 @@ class InvestigationWorkspaceService:
     def list_investigations(self) -> List[InvestigationSummary]:
         return self.repository.list_investigations()
 
+    def replace_evidence_references(
+        self,
+        investigation_id: str,
+        evidence_references: Iterable[EvidenceReference],
+        *,
+        expected_revision: int,
+    ) -> WorkspaceResult:
+        current = self._load_for_update(investigation_id, expected_revision)
+        normalized = tuple(evidence_references)
+        if any(not isinstance(item, EvidenceReference) for item in normalized):
+            raise InvalidWorkspaceOperationError(
+                "evidence_references must contain EvidenceReference objects"
+            )
+        if normalized == current.investigation.evidence_references:
+            return current
+        timestamp = self._now()
+        updated = replace(
+            current.investigation,
+            metadata=replace(
+                current.investigation.metadata,
+                updated_at=timestamp,
+            ),
+            evidence_references=normalized,
+        )
+        return self._save(updated, expected_revision)
+
     def available_status_transitions(self, status: str) -> tuple[str, ...]:
         normalized_status = self._validate_status(status)
         return tuple(sorted(STATUS_TRANSITIONS[normalized_status]))

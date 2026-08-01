@@ -11,6 +11,9 @@ SUPPORTED_SCHEMA_MAJOR = 1
 EVIDENCE_SOURCE_TYPES = frozenset(
     {"event", "alert", "case", "hunt", "correlation", "reconstruction", "artifact"}
 )
+EVIDENCE_REFERENCE_ORIGINS = frozenset({"scope", "analyst_selection"})
+EVIDENCE_CLASSIFICATIONS = frozenset({"supporting", "contradicting", "context"})
+SELECTABLE_EVIDENCE_TYPES = frozenset({"event", "alert", "case", "reconstruction_step"})
 HYPOTHESIS_STATES = frozenset({"open", "supported", "rejected", "inconclusive"})
 ANNOTATION_TARGET_TYPES = frozenset(
     {"investigation", "evidence", "hypothesis", "decision", "timeline_selection", "case", "analysis"}
@@ -187,6 +190,16 @@ class EvidenceReference(SerializableModel):
     case_id: str | None = None
     timestamp: str | None = None
     label: str | None = None
+    origin: str = "scope"
+    classification: str | None = None
+    rationale: str | None = None
+    selected_by: str | None = None
+    selected_at: str | None = None
+    selection_updated_at: str | None = None
+    source_analysis_id: str | None = None
+    evidence_type: str | None = None
+    scope_case_ids: Tuple[str, ...] = ()
+    provenance_fields: Tuple[str, ...] = ()
     schema_version: str = INVESTIGATION_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -198,11 +211,55 @@ class EvidenceReference(SerializableModel):
                 "EvidenceReference.source_type must be one of: "
                 + ", ".join(sorted(EVIDENCE_SOURCE_TYPES))
             )
+        if self.origin not in EVIDENCE_REFERENCE_ORIGINS:
+            raise ValueError(
+                "EvidenceReference.origin must be one of: "
+                + ", ".join(sorted(EVIDENCE_REFERENCE_ORIGINS))
+            )
+        object.__setattr__(
+            self,
+            "scope_case_ids",
+            _id_tuple(self.scope_case_ids, "EvidenceReference.scope_case_ids"),
+        )
+        object.__setattr__(
+            self,
+            "provenance_fields",
+            _id_tuple(self.provenance_fields, "EvidenceReference.provenance_fields"),
+        )
+        if self.origin == "analyst_selection":
+            if self.classification not in EVIDENCE_CLASSIFICATIONS:
+                raise ValueError(
+                    "EvidenceReference.classification must be one of: "
+                    + ", ".join(sorted(EVIDENCE_CLASSIFICATIONS))
+                )
+            for field_name in (
+                "rationale",
+                "selected_by",
+                "selected_at",
+                "source_analysis_id",
+                "evidence_type",
+            ):
+                _require_text(
+                    getattr(self, field_name),
+                    f"EvidenceReference.{field_name}",
+                )
+            if self.evidence_type not in SELECTABLE_EVIDENCE_TYPES:
+                raise ValueError(
+                    "EvidenceReference.evidence_type must be one of: "
+                    + ", ".join(sorted(SELECTABLE_EVIDENCE_TYPES))
+                )
+        elif self.classification is not None:
+            raise ValueError(
+                "Scope EvidenceReference objects cannot carry analyst classification"
+            )
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "EvidenceReference":
         _require_fields(data, cls.__name__, "reference_id", "source_type", "source_id")
-        return cls(**dict(data))
+        values = dict(data)
+        values["scope_case_ids"] = tuple(values.get("scope_case_ids", ()))
+        values["provenance_fields"] = tuple(values.get("provenance_fields", ()))
+        return cls(**values)
 
 
 @dataclass(frozen=True)
@@ -482,6 +539,17 @@ class Investigation(SerializableModel):
         decision_ids = child_ids["decision"]
         timeline_ids = child_ids["timeline selection"]
         annotation_ids = child_ids["annotation"]
+        for evidence in self.evidence_references:
+            if (
+                evidence.origin == "analyst_selection"
+                and evidence.source_analysis_id != self.analysis_id
+            ):
+                raise MissingInvestigationReferenceError(
+                    f"Investigation {self.investigation_id!r} evidence reference "
+                    f"{evidence.reference_id!r} belongs to source analysis "
+                    f"{evidence.source_analysis_id!r}, not {self.analysis_id!r}"
+                )
+
 
         for hypothesis in self.hypotheses:
             overlap = sorted(

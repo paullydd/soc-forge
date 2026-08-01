@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
-from pathlib import Path
 from typing import Callable, Dict, Iterable, Mapping, Tuple
 
 from soc_forge.pipeline import AnalysisResult
 from soc_forge.investigations.models import AnalysisProvenance
+from soc_forge.investigations.provenance import (
+    ProvenanceDerivationError,
+    derive_analysis_provenance,
+)
 from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
     WorkspaceResult,
@@ -92,11 +95,17 @@ class InvestigationBootstrapAdapter:
             )
 
         source_input_name = self._source_input_name(analysis_result.input_name)
-        provenance = self._analysis_provenance(
-            analysis_result,
-            source_input_name=source_input_name,
-            artifact_keys=artifact_keys,
-        )
+        try:
+            provenance = derive_analysis_provenance(
+                normalized_input_name=source_input_name,
+                events=analysis_result.events,
+                alerts=analysis_result.alerts,
+                cases=analysis_result.cases,
+                reconstructions=analysis_result.reconstructions,
+                artifact_keys=artifact_keys,
+            )
+        except ProvenanceDerivationError as exc:
+            raise InvalidAnalysisResultError(str(exc)) from exc
         analysis_id = provenance.source_analysis_id
         bootstrap_id = self._bootstrap_id(analysis_id, selected_case_ids)
         resolved_title = (
@@ -268,87 +277,6 @@ class InvestigationBootstrapAdapter:
     def _source_input_name(cls, input_name: str) -> str:
         normalized = cls._required_text(input_name, "analysis input_name")
         return normalized.replace("\\", "/").rsplit("/", 1)[-1]
-
-    @classmethod
-    def _analysis_provenance(
-        cls,
-        analysis_result: AnalysisResult,
-        *,
-        source_input_name: str,
-        artifact_keys: Tuple[str, ...],
-    ) -> AnalysisProvenance:
-        event_digest = cls._content_digest(analysis_result.events, "events")
-        alert_digest = cls._content_digest(analysis_result.alerts, "alerts")
-        case_digest = cls._content_digest(analysis_result.cases, "cases")
-        reconstruction_digest = cls._content_digest(
-            analysis_result.reconstructions, "reconstructions"
-        )
-        rule_ids = sorted(
-            {
-                str(alert["rule_id"]).strip()
-                for alert in analysis_result.alerts
-                if isinstance(alert, Mapping) and str(alert.get("rule_id") or "").strip()
-            }
-        )
-        rule_set_digest = cls._content_digest(rule_ids, "rule IDs")
-        manifest = {
-            "provenance_schema_version": "1.0",
-            "derivation_algorithm": "sha256-canonical-json-v1",
-            "normalized_input_name": source_input_name,
-            "event_digest": event_digest,
-            "alert_digest": alert_digest,
-            "case_digest": case_digest,
-            "reconstruction_digest": reconstruction_digest,
-            "rule_set_digest": rule_set_digest,
-            "artifact_keys": artifact_keys,
-        }
-        source_analysis_id = f"analysis-{cls._digest(manifest)[:20]}"
-        return AnalysisProvenance(
-            source_analysis_id=source_analysis_id,
-            normalized_input_name=source_input_name,
-            event_digest=event_digest,
-            alert_digest=alert_digest,
-            case_digest=case_digest,
-            reconstruction_digest=reconstruction_digest,
-            rule_set_digest=rule_set_digest,
-            artifact_keys=artifact_keys,
-        )
-
-    @classmethod
-    def _content_digest(cls, value: object, field_name: str) -> str:
-        try:
-            return cls._digest(cls._canonical_value(value))
-        except (TypeError, ValueError) as exc:
-            raise InvalidAnalysisResultError(
-                f"Completed analysis {field_name} cannot be canonicalized: {exc}"
-            ) from exc
-
-    @classmethod
-    def _canonical_value(cls, value: object) -> object:
-        if value is None or isinstance(value, (str, int, float, bool)):
-            return value
-        if isinstance(value, Path):
-            raise TypeError("filesystem paths are not provenance content")
-        if is_dataclass(value):
-            return cls._canonical_value(asdict(value))
-        if isinstance(value, Mapping):
-            if any(not isinstance(key, str) for key in value):
-                raise TypeError("mapping keys must be strings")
-            return {key: cls._canonical_value(value[key]) for key in sorted(value)}
-        if isinstance(value, (list, tuple)):
-            return [cls._canonical_value(item) for item in value]
-        if isinstance(value, (set, frozenset)):
-            normalized = [cls._canonical_value(item) for item in value]
-            return sorted(normalized, key=cls._canonical_json)
-        raise TypeError(f"unsupported value type {type(value).__name__}")
-
-    @staticmethod
-    def _canonical_json(value: object) -> str:
-        return json.dumps(value, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
-
-    @classmethod
-    def _digest(cls, value: object) -> str:
-        return sha256(cls._canonical_json(value).encode("utf-8")).hexdigest()
 
     @staticmethod
     def _bootstrap_id(
