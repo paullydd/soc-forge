@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Mapping
 from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
+from soc_forge.investigations.reasoning_service import InvestigationReasoningService
 from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
     WorkspaceDeletionResult,
@@ -26,6 +27,10 @@ class EvidenceAnalysisUnavailableError(InvestigationRequestError):
 
 
 class EvidenceAnalysisProvenanceMismatchError(InvestigationRequestError):
+    pass
+
+
+class DecisionNotFoundError(InvestigationRequestError):
     pass
 
 
@@ -52,12 +57,17 @@ class InvestigationWebApplication:
         analysis_provider: Callable[[], object | None],
         evidence_catalog: AnalysisEvidenceCatalog | None = None,
         evidence_service: InvestigationEvidenceService | None = None,
+        reasoning_service: InvestigationReasoningService | None = None,
     ):
         self.bootstrap_adapter = bootstrap_adapter
         self.workspace_service = workspace_service
         self.analysis_provider = analysis_provider
         self.evidence_catalog = evidence_catalog or AnalysisEvidenceCatalog()
         self.evidence_service = evidence_service or InvestigationEvidenceService(
+            workspace_service
+        )
+
+        self.reasoning_service = reasoning_service or InvestigationReasoningService(
             workspace_service
         )
 
@@ -127,7 +137,7 @@ class InvestigationWebApplication:
             self.workspace_service.add_annotation(
                 investigation_id,
                 annotation_id=self._required_text(payload, "annotation_id"),
-                author=self._required_text(payload, "author"),
+                author=self._string_value(payload, "author"),
                 body=self._required_text(payload, "text"),
                 target_type=str(payload.get("target_type") or "investigation"),
                 target_id=self._optional_text(payload, "target_id"),
@@ -171,10 +181,10 @@ class InvestigationWebApplication:
             self.workspace_service.record_decision(
                 investigation_id,
                 decision_id=self._required_text(payload, "decision_id"),
-                author=self._required_text(payload, "author"),
+                author=self._string_value(payload, "author"),
                 decision_type=self._required_text(payload, "decision_type"),
                 outcome=self._required_text(payload, "outcome"),
-                rationale=self._required_text(payload, "rationale"),
+                rationale=self._string_value(payload, "rationale"),
                 evidence_reference_ids=self._optional_list(
                     payload, "evidence_reference_ids"
                 ),
@@ -313,6 +323,320 @@ class InvestigationWebApplication:
             expected_revision=self._expected_revision(payload),
         )
         return workspace_response(result)
+
+
+    def get_reasoning_summary(self, investigation_id: str) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        summary = self.reasoning_service.reasoning_summary(investigation_id)
+        response = asdict(summary)
+        response["total_decisions"] = response.pop("decision_count")
+        response["revision"] = current.revision
+        return response
+
+    def list_hypotheses(self, investigation_id: str) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        hypotheses = sorted(
+            current.investigation.hypotheses,
+            key=lambda item: item.hypothesis_id,
+        )
+        return {
+            "hypotheses": [
+                {
+                    "hypothesis_id": item.hypothesis_id,
+                    "statement": item.statement,
+                    "state": item.state,
+                    "author": item.author,
+                    "created_at": item.created_at,
+                    "updated_at": item.updated_at,
+                    "supporting_evidence_count": len(
+                        item.supporting_evidence_reference_ids
+                    ),
+                    "contradicting_evidence_count": len(
+                        item.contradicting_evidence_reference_ids
+                    ),
+                }
+                for item in hypotheses
+            ],
+            "revision": current.revision,
+        }
+
+    def get_hypothesis(
+        self, investigation_id: str, hypothesis_id: str
+    ) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        hypothesis = self._hypothesis(current, hypothesis_id)
+        evidence = {
+            item.reference_id: item
+            for item in current.investigation.evidence_references
+        }
+        decisions = sorted(
+            (
+                item
+                for item in current.investigation.decisions
+                if hypothesis_id in item.hypothesis_ids
+            ),
+            key=lambda item: (item.decided_at or "", item.decision_id),
+        )
+        return {
+            "hypothesis": hypothesis.to_dict(),
+            "supporting_evidence": [
+                evidence[evidence_id].to_dict()
+                for evidence_id in hypothesis.supporting_evidence_reference_ids
+            ],
+            "contradicting_evidence": [
+                evidence[evidence_id].to_dict()
+                for evidence_id in hypothesis.contradicting_evidence_reference_ids
+            ],
+            "related_decisions": [item.to_dict() for item in decisions],
+            "revision": current.revision,
+            "source_details_available": self._matching_analysis_available(current),
+        }
+
+    def create_hypothesis(
+        self, investigation_id: str, payload: Mapping[str, Any]
+    ) -> Dict[str, Any]:
+        result = self.reasoning_service.create_hypothesis(
+            investigation_id,
+            hypothesis_id=self._required_text(payload, "hypothesis_id"),
+            statement=self._string_value(payload, "statement"),
+            author=self._string_value(payload, "author"),
+            supporting_evidence_ids=self._optional_list(
+                payload, "supporting_evidence_ids"
+            ),
+            contradicting_evidence_ids=self._optional_list(
+                payload, "contradicting_evidence_ids"
+            ),
+            expected_revision=self._expected_revision(payload),
+        )
+        return self._reasoning_mutation_response(
+            result, hypothesis_id=self._required_text(payload, "hypothesis_id")
+        )
+
+    def edit_hypothesis(
+        self,
+        investigation_id: str,
+        hypothesis_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        hypothesis = self._hypothesis(current, hypothesis_id)
+        result = self.reasoning_service.edit_hypothesis_statement(
+            investigation_id,
+            hypothesis_id,
+            statement=self._string_value(payload, "statement"),
+            author=hypothesis.author or "Unknown",
+            expected_revision=self._expected_revision(payload),
+        )
+        return self._reasoning_mutation_response(
+            result, hypothesis_id=hypothesis_id
+        )
+
+    def add_hypothesis_evidence(
+        self,
+        investigation_id: str,
+        hypothesis_id: str,
+        relationship: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        result = self.reasoning_service.add_hypothesis_evidence(
+            investigation_id,
+            hypothesis_id,
+            self._required_text(payload, "evidence_id"),
+            relationship=relationship,
+            expected_revision=self._expected_revision(payload),
+        )
+        return self._reasoning_mutation_response(
+            result, hypothesis_id=hypothesis_id
+        )
+
+    def remove_hypothesis_evidence(
+        self,
+        investigation_id: str,
+        hypothesis_id: str,
+        evidence_id: str,
+        relationship: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        result = self.reasoning_service.remove_hypothesis_evidence(
+            investigation_id,
+            hypothesis_id,
+            evidence_id,
+            relationship=relationship,
+            expected_revision=self._expected_revision(payload),
+        )
+        return self._reasoning_mutation_response(
+            result, hypothesis_id=hypothesis_id
+        )
+
+    def assess_hypothesis(
+        self,
+        investigation_id: str,
+        hypothesis_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        decision_id = self._required_text(payload, "decision_id")
+        result = self.reasoning_service.assess_hypothesis(
+            investigation_id,
+            hypothesis_id,
+            state=self._string_value(payload, "state"),
+            rationale=self._string_value(payload, "rationale"),
+            author=self._string_value(payload, "author"),
+            decision_id=decision_id,
+            expected_revision=self._expected_revision(payload),
+        )
+        return self._reasoning_mutation_response(
+            result,
+            hypothesis_id=hypothesis_id,
+            decision_id=decision_id,
+        )
+
+    def reopen_hypothesis(
+        self,
+        investigation_id: str,
+        hypothesis_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        decision_id = self._required_text(payload, "decision_id")
+        result = self.reasoning_service.reopen_hypothesis(
+            investigation_id,
+            hypothesis_id,
+            rationale=self._string_value(payload, "rationale"),
+            author=self._string_value(payload, "author"),
+            decision_id=decision_id,
+            expected_revision=self._expected_revision(payload),
+        )
+        return self._reasoning_mutation_response(
+            result,
+            hypothesis_id=hypothesis_id,
+            decision_id=decision_id,
+        )
+
+    def list_reasoning_decisions(self, investigation_id: str) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        decisions = sorted(
+            current.investigation.decisions,
+            key=lambda item: (item.decided_at or "", item.decision_id),
+        )
+        return {
+            "decisions": [
+                {
+                    "decision_id": item.decision_id,
+                    "decision_type": item.decision_type,
+                    "author": item.decided_by,
+                    "decided_at": item.decided_at,
+                    "rationale": item.rationale,
+                    "outcome": item.outcome,
+                    "related_hypothesis_count": len(item.hypothesis_ids),
+                    "related_evidence_count": len(item.evidence_reference_ids),
+                }
+                for item in decisions
+            ],
+            "revision": current.revision,
+        }
+
+    def get_reasoning_decision(
+        self, investigation_id: str, decision_id: str
+    ) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        decision = next(
+            (
+                item
+                for item in current.investigation.decisions
+                if item.decision_id == decision_id
+            ),
+            None,
+        )
+        if decision is None:
+            raise DecisionNotFoundError("Decision not found.")
+        return {"decision": decision.to_dict(), "revision": current.revision}
+
+    def record_reasoning_decision(
+        self, investigation_id: str, payload: Mapping[str, Any]
+    ) -> Dict[str, Any]:
+        decision_id = self._required_text(payload, "decision_id")
+        decision_type = self._required_text(payload, "decision_type")
+        if decision_type == "hypothesis_assessment":
+            from soc_forge.investigations.reasoning_service import InvalidDecisionTypeError
+
+            raise InvalidDecisionTypeError(
+                "Hypothesis assessments use the dedicated assessment endpoint"
+            )
+        result = self.reasoning_service.record_investigation_decision(
+            investigation_id,
+            decision_id=decision_id,
+            decision_type=decision_type,
+            outcome=self._optional_text(payload, "outcome") or decision_type,
+            rationale=self._string_value(payload, "rationale"),
+            author=self._string_value(payload, "author"),
+            evidence_reference_ids=self._optional_list(
+                payload, "evidence_reference_ids"
+            ),
+            hypothesis_ids=self._optional_list(payload, "hypothesis_ids"),
+            expected_revision=self._expected_revision(payload),
+        )
+        return self._reasoning_mutation_response(result, decision_id=decision_id)
+
+    def _reasoning_mutation_response(
+        self,
+        result: WorkspaceResult,
+        *,
+        hypothesis_id: str | None = None,
+        decision_id: str | None = None,
+    ) -> Dict[str, Any]:
+        response = workspace_response(result)
+        if hypothesis_id is not None:
+            response["hypothesis"] = self._hypothesis(
+                result, hypothesis_id
+            ).to_dict()
+        if decision_id is not None:
+            decision = next(
+                (
+                    item
+                    for item in result.investigation.decisions
+                    if item.decision_id == decision_id
+                ),
+                None,
+            )
+            if decision is None:
+                from soc_forge.investigations.reasoning_service import (
+                    InvalidHypothesisTransitionError,
+                )
+
+                raise InvalidHypothesisTransitionError(
+                    "The requested hypothesis transition did not append a decision"
+                )
+            response["decision"] = decision.to_dict()
+        return response
+
+    @staticmethod
+    def _hypothesis(current: WorkspaceResult, hypothesis_id: str):
+        from soc_forge.investigations.reasoning_service import HypothesisNotFoundError
+
+        hypothesis = next(
+            (
+                item
+                for item in current.investigation.hypotheses
+                if item.hypothesis_id == hypothesis_id
+            ),
+            None,
+        )
+        if hypothesis is None:
+            raise HypothesisNotFoundError(
+                f"Hypothesis {hypothesis_id!r} was not found"
+            )
+        return hypothesis
+
+    def _matching_analysis_available(self, current: WorkspaceResult) -> bool:
+        analysis = self.analysis_provider()
+        if analysis is None:
+            return False
+        try:
+            return (
+                self.evidence_catalog.source_analysis_id(analysis)
+                == current.investigation.analysis_id
+            )
+        except Exception:
+            return False
 
     def _evidence_context(self, investigation_id: str):
         current = self.workspace_service.get_investigation(investigation_id)

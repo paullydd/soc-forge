@@ -101,3 +101,39 @@ Run or select scenario
   -> Restart server
   -> Reopen durable workspace
 ```
+
+## Reasoning API
+
+The web reasoning API is nested under the durable investigation resource:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/investigations/{id}/reasoning` | Shared reasoning summary and revision |
+| `GET` | `/api/investigations/{id}/hypotheses` | Deterministic hypothesis summaries |
+| `POST` | `/api/investigations/{id}/hypotheses` | Create an analyst-authored hypothesis |
+| `GET` | `/api/investigations/{id}/hypotheses/{hypothesis_id}` | Persisted hypothesis, evidence relationships, and assessment history |
+| `PUT` | `/api/investigations/{id}/hypotheses/{hypothesis_id}` | Edit only the statement |
+| `POST` | `/api/investigations/{id}/hypotheses/{hypothesis_id}/supporting-evidence` | Add a compatible supporting relationship |
+| `DELETE` | `/api/investigations/{id}/hypotheses/{hypothesis_id}/supporting-evidence/{evidence_id}` | Remove only the supporting relationship |
+| `POST` | `/api/investigations/{id}/hypotheses/{hypothesis_id}/contradicting-evidence` | Add a compatible contradicting relationship |
+| `DELETE` | `/api/investigations/{id}/hypotheses/{hypothesis_id}/contradicting-evidence/{evidence_id}` | Remove only the contradicting relationship |
+| `POST` | `/api/investigations/{id}/hypotheses/{hypothesis_id}/assess` | Assess an open hypothesis with an append-only decision |
+| `POST` | `/api/investigations/{id}/hypotheses/{hypothesis_id}/reopen` | Reopen for further investigation |
+| `GET` | `/api/investigations/{id}/reasoning/decisions` | List analyst reasoning decisions |
+| `POST` | `/api/investigations/{id}/reasoning/decisions` | Record a controlled general decision |
+| `GET` | `/api/investigations/{id}/reasoning/decisions/{decision_id}` | Read an immutable decision |
+
+The existing `POST /api/investigations/{id}/decisions` route remains for
+backward compatibility. New reasoning UI flows use
+`/reasoning/decisions`, which accepts escalation, containment recommendation,
+closure rationale, and investigative conclusion. Hypothesis assessment is
+available only through the dedicated assessment route.
+
+Requests use JSON and modifying requests require `expected_revision`.
+Reasoning errors use the existing stable error envelope. Stale revisions return
+`revision_conflict` and the latest workspace where available. Detail and
+reasoning mutation responses use `Cache-Control: no-store`.
+
+A supported or rejected state records current analyst assessment, not objective
+certainty. Decisions document reasoning and do not execute containment,
+remediation, or other response actions.

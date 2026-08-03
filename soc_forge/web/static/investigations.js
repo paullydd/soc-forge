@@ -42,6 +42,7 @@ async function openInvestigation(investigationId) {
   state.evidenceCandidates = [];
   state.evidenceDraft = null;
   await loadEvidenceSelections();
+  await loadReasoning();
   renderInvestigations();
 }
 
@@ -70,6 +71,7 @@ async function createInvestigationFromCase(caseItem) {
   state.evidenceCandidates = [];
   state.evidenceDraft = null;
   await loadEvidenceSelections();
+  await loadReasoning();
   await loadInvestigationSummaries();
   setView('investigations');
   renderInvestigations();
@@ -160,6 +162,22 @@ function renderInvestigations() {
         <button id="addAnnotationButton" type="button">Add Annotation</button>
         <button id="recordDecisionButton" type="button">Record Decision</button>
       </div>
+      <section class="brief-section reasoning-section">
+        <div class="panel-head">
+          <h3>Hypotheses and Decisions</h3>
+          <span class="muted">Analyst-authored reasoning</span>
+        </div>
+        <p class="muted">States reflect analyst assessment of current evidence, not machine certainty.</p>
+        <div id="reasoningCounts" class="evidence-counts"></div>
+        <div class="workspace-actions">
+          <button id="viewHypothesesButton" type="button">View Hypotheses</button>
+          <button id="createHypothesisButton" type="button">Create Hypothesis</button>
+          <button id="viewReasoningDecisionsButton" type="button">View Decisions</button>
+          <button id="recordReasoningDecisionButton" type="button">Record Decision</button>
+        </div>
+        <div id="reasoningStatus" class="muted evidence-status"></div>
+        <div id="reasoningWorkspace" class="workspace-records"></div>
+      </section>
       <section class="brief-section evidence-section">
         <div class="panel-head">
           <h3>Evidence</h3>
@@ -211,7 +229,9 @@ function renderInvestigations() {
     </div>`;
   bindInvestigationActions(investigation);
   bindEvidenceActions();
+  bindReasoningActions();
   renderEvidenceSummary();
+  renderReasoningSummary();
 }
 
 function bindInvestigationActions(investigation) {
@@ -638,6 +658,7 @@ async function selectEvidence(candidate) {
 
 async function showSelectedEvidence() {
   await loadEvidenceSelections();
+  await loadReasoning();
   renderInvestigations();
   const target = $('#evidenceWorkspace');
   if (!target) return;
@@ -736,4 +757,526 @@ async function removeEvidenceSelection(reference) {
   await loadInvestigationSummaries();
   renderInvestigations();
   await showSelectedEvidence();
+}
+
+
+
+function activeReasoningBase() {
+  const investigationId =
+    state.activeInvestigation?.investigation?.investigation_id;
+  if (!investigationId) throw new Error('Open an investigation first');
+  return `/api/investigations/${encodeURIComponent(investigationId)}`;
+}
+
+async function reasoningGet(path) {
+  const response = await fetch(path, { cache: 'no-store' });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(
+      investigationErrorMessage(payload, 'Reasoning request failed'),
+    );
+  }
+  return payload;
+}
+
+async function loadReasoning() {
+  if (!state.activeInvestigation) return;
+  state.reasoningSummary = await reasoningGet(
+    `${activeReasoningBase()}/reasoning`,
+  );
+}
+
+function renderReasoningSummary() {
+  const target = $('#reasoningCounts');
+  if (!target) return;
+  target.replaceChildren();
+  const summary = state.reasoningSummary || {
+    total_hypotheses: 0,
+    open: 0,
+    supported: 0,
+    rejected: 0,
+    inconclusive: 0,
+    total_decisions: 0,
+  };
+  [
+    ['Hypotheses', summary.total_hypotheses],
+    ['Open', summary.open],
+    ['Supported', summary.supported],
+    ['Rejected', summary.rejected],
+    ['Inconclusive', summary.inconclusive],
+    ['Decisions', summary.total_decisions],
+  ].forEach(([label, value]) => {
+    const item = evidenceElement('div', 'evidence-count');
+    item.append(
+      evidenceElement('span', '', label),
+      evidenceElement('strong', '', value),
+    );
+    target.append(item);
+  });
+}
+
+async function refreshReasoning(updated) {
+  if (updated?.investigation) state.activeInvestigation = updated;
+  await loadReasoning();
+  await loadEvidenceSelections();
+  await loadInvestigationSummaries();
+  renderInvestigations();
+}
+
+function showReasoningError(error) {
+  const status = $('#reasoningStatus');
+  if (status) {
+    status.textContent = error.message.includes('another session')
+      ? `${error.message} Draft values remain available in this browser session.`
+      : error.message;
+  }
+}
+
+function compatibleReasoningEvidence(classification, excluded = []) {
+  const excludedIds = new Set(excluded);
+  return asArray(
+    state.evidenceSelections?.analyst_selections
+      || state.activeInvestigation?.investigation?.evidence_references,
+  )
+    .filter((item) => (
+      item.origin === 'analyst_selection'
+      && item.classification === classification
+      && !excludedIds.has(item.reference_id)
+    ))
+    .sort((left, right) => left.reference_id.localeCompare(right.reference_id));
+}
+
+function chooseReasoningItem(items, label) {
+  if (!items.length) return null;
+  const listing = items.map((item, index) => (
+    `${index + 1}. ${item.hypothesis_id || item.reference_id}`
+  )).join('\n');
+  const value = window.prompt(`${label}\n${listing}\nNumber (blank for none)`, '');
+  if (value === null || value.trim() === '') return null;
+  const index = Number(value) - 1;
+  if (!Number.isInteger(index) || index < 0 || index >= items.length) {
+    throw new Error('Choose one of the displayed records.');
+  }
+  return items[index];
+}
+
+function selectedReasoningIds(items, label) {
+  if (!items.length) return [];
+  const selected = chooseReasoningItem(items, label);
+  return selected
+    ? [selected.hypothesis_id || selected.reference_id]
+    : [];
+}
+
+async function createWebHypothesis() {
+  const draft = state.reasoningDraft?.kind === 'hypothesis'
+    ? state.reasoningDraft
+    : {};
+  const hypothesisId = window.prompt('Hypothesis ID', draft.hypothesis_id || '');
+  if (hypothesisId === null) return;
+  const statement = window.prompt(
+    'Analyst hypothesis statement',
+    draft.statement || '',
+  );
+  if (statement === null) return;
+  const author = window.prompt('Analyst author label', draft.author || '');
+  if (author === null) return;
+  const supporting = selectedReasoningIds(
+    compatibleReasoningEvidence('supporting'),
+    'Choose optional supporting evidence',
+  );
+  const contradicting = selectedReasoningIds(
+    compatibleReasoningEvidence('contradicting', supporting),
+    'Choose optional contradicting evidence',
+  );
+  state.reasoningDraft = {
+    kind: 'hypothesis',
+    hypothesis_id: hypothesisId,
+    statement,
+    author,
+  };
+  if (!window.confirm(
+    'Create this analyst-authored hypothesis? It is not a machine conclusion.',
+  )) return;
+  try {
+    const updated = await investigationRequest(
+      'POST',
+      `${activeReasoningBase()}/hypotheses`,
+      {
+        hypothesis_id: hypothesisId,
+        statement,
+        author,
+        supporting_evidence_ids: supporting,
+        contradicting_evidence_ids: contradicting,
+        expected_revision: state.activeInvestigation.revision,
+      },
+    );
+    state.reasoningDraft = null;
+    await refreshReasoning(updated);
+    await showWebHypothesis(hypothesisId);
+  } catch (error) {
+    renderInvestigations();
+    showReasoningError(error);
+  }
+}
+
+async function listWebHypotheses() {
+  const payload = await reasoningGet(
+    `${activeReasoningBase()}/hypotheses`,
+  );
+  const target = $('#reasoningWorkspace');
+  if (!target) return;
+  target.replaceChildren();
+  asArray(payload.hypotheses).forEach((hypothesis) => {
+    const row = evidenceElement('article', 'workspace-record');
+    const head = evidenceElement('div', 'record-head');
+    head.append(
+      evidenceElement('strong', 'mono', hypothesis.hypothesis_id),
+      evidenceElement('span', 'pill', hypothesis.state),
+      evidenceElement('span', 'muted', hypothesis.author || 'Unknown'),
+    );
+    row.append(
+      head,
+      evidenceElement('p', '', hypothesis.statement),
+      evidenceElement(
+        'div',
+        'muted',
+        `Updated ${hypothesis.updated_at || 'Unknown'} | Supporting ${hypothesis.supporting_evidence_count} | Contradicting ${hypothesis.contradicting_evidence_count}`,
+      ),
+    );
+    const open = evidenceElement('button', '', 'Open');
+    open.type = 'button';
+    open.addEventListener('click', () => {
+      showWebHypothesis(hypothesis.hypothesis_id).catch(showReasoningError);
+    });
+    row.append(open);
+    target.append(row);
+  });
+  if (!target.children.length) {
+    target.append(evidenceElement('div', 'muted', 'No analyst-authored hypotheses.'));
+  }
+}
+
+function renderReasoningEvidence(reference, relationship, hypothesisId) {
+  const row = evidenceElement('article', 'workspace-record');
+  row.append(
+    evidenceElement('strong', 'mono', reference.reference_id),
+    evidenceElement(
+      'div',
+      '',
+      `${reference.evidence_type || reference.source_type} | ${reference.classification}`,
+    ),
+    evidenceElement('p', '', reference.rationale || 'No rationale'),
+    evidenceElement('div', 'muted', `Source: ${reference.source_id}`),
+    evidenceElement(
+      'div',
+      'evidence-warning',
+      'Evidence metadata and source values may be sensitive.',
+    ),
+  );
+  const remove = evidenceElement('button', '', 'Remove from Hypothesis');
+  remove.type = 'button';
+  remove.addEventListener('click', () => {
+    removeWebHypothesisEvidence(
+      hypothesisId,
+      relationship,
+      reference.reference_id,
+    ).catch(showReasoningError);
+  });
+  row.append(remove);
+  return row;
+}
+
+async function showWebHypothesis(hypothesisId) {
+  const payload = await reasoningGet(
+    `${activeReasoningBase()}/hypotheses/${encodeURIComponent(hypothesisId)}`,
+  );
+  const target = $('#reasoningWorkspace');
+  if (!target) return;
+  target.replaceChildren();
+  const hypothesis = payload.hypothesis;
+  const detail = evidenceElement('article', 'workspace-record reasoning-detail');
+  detail.append(
+    evidenceElement('h4', '', hypothesis.statement),
+    evidenceElement('div', 'mono muted', hypothesis.hypothesis_id),
+    evidenceElement('span', 'pill', hypothesis.state),
+    evidenceElement('div', '', `Author: ${hypothesis.author || 'Unknown'}`),
+    evidenceElement(
+      'div',
+      'muted',
+      `Created ${hypothesis.created_at || 'Unknown'} | Updated ${hypothesis.updated_at || 'Unknown'}`,
+    ),
+  );
+  const actions = evidenceElement('div', 'record-actions');
+  if (hypothesis.state === 'open') {
+    const edit = evidenceElement('button', '', 'Edit Statement');
+    edit.type = 'button';
+    edit.addEventListener('click', () => {
+      editWebHypothesis(hypothesis).catch(showReasoningError);
+    });
+    actions.append(edit);
+    const assess = evidenceElement('button', 'primary-button', 'Assess');
+    assess.type = 'button';
+    assess.addEventListener('click', () => {
+      assessWebHypothesis(hypothesis).catch(showReasoningError);
+    });
+    actions.append(assess);
+  } else {
+    const reopen = evidenceElement('button', '', 'Reopen');
+    reopen.type = 'button';
+    reopen.addEventListener('click', () => {
+      reopenWebHypothesis(hypothesis).catch(showReasoningError);
+    });
+    actions.append(reopen);
+  }
+  [
+    ['supporting', hypothesis.supporting_evidence_reference_ids],
+    ['contradicting', hypothesis.contradicting_evidence_reference_ids],
+  ].forEach(([relationship, ids]) => {
+    const add = evidenceElement('button', '', `Add ${relationship} evidence`);
+    add.type = 'button';
+    add.addEventListener('click', () => {
+      addWebHypothesisEvidence(hypothesis, relationship).catch(showReasoningError);
+    });
+    actions.append(add);
+  });
+  detail.append(actions);
+  target.append(detail, evidenceElement('h4', '', 'Supporting Evidence'));
+  asArray(payload.supporting_evidence).forEach((item) => {
+    target.append(renderReasoningEvidence(item, 'supporting', hypothesisId));
+  });
+  target.append(evidenceElement('h4', '', 'Contradicting Evidence'));
+  asArray(payload.contradicting_evidence).forEach((item) => {
+    target.append(renderReasoningEvidence(item, 'contradicting', hypothesisId));
+  });
+  target.append(evidenceElement('h4', '', 'Append-only Assessment History'));
+  asArray(payload.related_decisions).forEach((item) => {
+    target.append(renderWebDecision(item));
+  });
+  if (!payload.source_details_available) {
+    target.append(evidenceElement(
+      'div',
+      'muted',
+      'Persisted reasoning remains available. Source details require the matching active analysis in the evidence workspace.',
+    ));
+  }
+}
+
+async function editWebHypothesis(hypothesis) {
+  const statement = window.prompt('Hypothesis statement', hypothesis.statement);
+  if (statement === null) return;
+  state.reasoningDraft = { kind: 'statement', statement };
+  const updated = await investigationRequest(
+    'PUT',
+    `${activeReasoningBase()}/hypotheses/${encodeURIComponent(hypothesis.hypothesis_id)}`,
+    { statement, expected_revision: state.activeInvestigation.revision },
+  );
+  state.reasoningDraft = null;
+  await refreshReasoning(updated);
+  await showWebHypothesis(hypothesis.hypothesis_id);
+}
+
+async function addWebHypothesisEvidence(hypothesis, relationship) {
+  const excluded = [
+    ...asArray(hypothesis.supporting_evidence_reference_ids),
+    ...asArray(hypothesis.contradicting_evidence_reference_ids),
+  ];
+  const evidence = chooseReasoningItem(
+    compatibleReasoningEvidence(relationship, excluded),
+    `Choose ${relationship} analyst-selected evidence`,
+  );
+  if (!evidence) return;
+  const updated = await investigationRequest(
+    'POST',
+    `${activeReasoningBase()}/hypotheses/${encodeURIComponent(hypothesis.hypothesis_id)}/${relationship}-evidence`,
+    {
+      evidence_id: evidence.reference_id,
+      expected_revision: state.activeInvestigation.revision,
+    },
+  );
+  await refreshReasoning(updated);
+  await showWebHypothesis(hypothesis.hypothesis_id);
+}
+
+async function removeWebHypothesisEvidence(
+  hypothesisId,
+  relationship,
+  evidenceId,
+) {
+  if (!window.confirm(
+    'Remove only this hypothesis relationship? Selected evidence will remain.',
+  )) return;
+  const updated = await investigationRequest(
+    'DELETE',
+    `${activeReasoningBase()}/hypotheses/${encodeURIComponent(hypothesisId)}/${relationship}-evidence/${encodeURIComponent(evidenceId)}`,
+    { expected_revision: state.activeInvestigation.revision },
+  );
+  await refreshReasoning(updated);
+  await showWebHypothesis(hypothesisId);
+}
+
+async function assessWebHypothesis(hypothesis) {
+  const stateValue = window.prompt(
+    'Assessment: supported, rejected, or inconclusive',
+    'inconclusive',
+  );
+  if (stateValue === null) return;
+  const rationale = window.prompt(
+    'Assessment rationale',
+    state.reasoningDraft?.rationale || '',
+  );
+  if (rationale === null) return;
+  const author = window.prompt('Analyst author label', '');
+  if (author === null) return;
+  const decisionId = window.prompt('Assessment decision ID', '');
+  if (decisionId === null) return;
+  state.reasoningDraft = { kind: 'assessment', rationale };
+  if (!window.confirm(
+    'This records an analyst assessment. It does not verify the hypothesis as objective fact.',
+  )) return;
+  const updated = await investigationRequest(
+    'POST',
+    `${activeReasoningBase()}/hypotheses/${encodeURIComponent(hypothesis.hypothesis_id)}/assess`,
+    {
+      state: stateValue,
+      rationale,
+      author,
+      decision_id: decisionId,
+      expected_revision: state.activeInvestigation.revision,
+    },
+  );
+  state.reasoningDraft = null;
+  await refreshReasoning(updated);
+  await showWebHypothesis(hypothesis.hypothesis_id);
+}
+
+async function reopenWebHypothesis(hypothesis) {
+  const rationale = window.prompt(
+    'Rationale for reopening',
+    state.reasoningDraft?.rationale || '',
+  );
+  if (rationale === null) return;
+  const author = window.prompt('Analyst author label', '');
+  if (author === null) return;
+  const decisionId = window.prompt('Reopening decision ID', '');
+  if (decisionId === null) return;
+  state.reasoningDraft = { kind: 'reopen', rationale };
+  if (!window.confirm('Reopen for further investigation?')) return;
+  const updated = await investigationRequest(
+    'POST',
+    `${activeReasoningBase()}/hypotheses/${encodeURIComponent(hypothesis.hypothesis_id)}/reopen`,
+    {
+      rationale,
+      author,
+      decision_id: decisionId,
+      expected_revision: state.activeInvestigation.revision,
+    },
+  );
+  state.reasoningDraft = null;
+  await refreshReasoning(updated);
+  await showWebHypothesis(hypothesis.hypothesis_id);
+}
+
+function renderWebDecision(decision) {
+  const row = evidenceElement('article', 'workspace-record');
+  row.append(
+    evidenceElement('strong', 'mono', decision.decision_id),
+    evidenceElement('span', 'pill', decision.decision_type),
+    evidenceElement('div', '', `Outcome: ${decision.outcome}`),
+    evidenceElement('p', '', decision.rationale),
+    evidenceElement(
+      'div',
+      'muted',
+      `${decision.decided_by || decision.author || 'Unknown'} | ${decision.decided_at || 'Unknown'}`,
+    ),
+    evidenceElement(
+      'div',
+      'mono muted',
+      `Hypotheses: ${asArray(decision.hypothesis_ids).join(', ') || 'None'} | Evidence: ${asArray(decision.evidence_reference_ids).join(', ') || 'None'}`,
+    ),
+  );
+  return row;
+}
+
+async function listWebDecisions() {
+  const payload = await reasoningGet(
+    `${activeReasoningBase()}/reasoning/decisions`,
+  );
+  const target = $('#reasoningWorkspace');
+  if (!target) return;
+  target.replaceChildren();
+  for (const summary of asArray(payload.decisions)) {
+    const detail = await reasoningGet(
+      `${activeReasoningBase()}/reasoning/decisions/${encodeURIComponent(summary.decision_id)}`,
+    );
+    target.append(renderWebDecision(detail.decision));
+  }
+  if (!target.children.length) {
+    target.append(evidenceElement('div', 'muted', 'No analyst decisions.'));
+  }
+}
+
+async function recordWebDecision() {
+  const decisionId = window.prompt('Decision ID', '');
+  if (decisionId === null) return;
+  const decisionType = window.prompt(
+    'Decision type: escalation, containment_recommendation, closure_rationale, or investigative_conclusion',
+    'escalation',
+  );
+  if (decisionType === null) return;
+  const rationale = window.prompt(
+    'Decision rationale',
+    state.reasoningDraft?.rationale || '',
+  );
+  if (rationale === null) return;
+  const author = window.prompt('Analyst author label', '');
+  if (author === null) return;
+  const hypotheses = asArray(
+    state.activeInvestigation.investigation.hypotheses,
+  ).sort((left, right) => left.hypothesis_id.localeCompare(right.hypothesis_id));
+  const hypothesisIds = selectedReasoningIds(
+    hypotheses,
+    'Choose an optional related hypothesis',
+  );
+  const evidenceIds = selectedReasoningIds(
+    asArray(state.evidenceSelections?.analyst_selections),
+    'Choose optional analyst-selected evidence',
+  );
+  state.reasoningDraft = { kind: 'decision', rationale };
+  if (!window.confirm(
+    'A recorded decision documents analyst reasoning. It does not perform response actions.',
+  )) return;
+  const updated = await investigationRequest(
+    'POST',
+    `${activeReasoningBase()}/reasoning/decisions`,
+    {
+      decision_id: decisionId,
+      decision_type: decisionType,
+      rationale,
+      author,
+      hypothesis_ids: hypothesisIds,
+      evidence_reference_ids: evidenceIds,
+      expected_revision: state.activeInvestigation.revision,
+    },
+  );
+  state.reasoningDraft = null;
+  await refreshReasoning(updated);
+  await listWebDecisions();
+}
+
+function bindReasoningActions() {
+  const actions = [
+    ['#viewHypothesesButton', listWebHypotheses],
+    ['#createHypothesisButton', createWebHypothesis],
+    ['#viewReasoningDecisionsButton', listWebDecisions],
+    ['#recordReasoningDecisionButton', recordWebDecision],
+  ];
+  actions.forEach(([selector, handler]) => {
+    const button = $(selector);
+    if (button) {
+      button.addEventListener('click', () => {
+        handler().catch(showReasoningError);
+      });
+    }
+  });
 }

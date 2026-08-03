@@ -165,3 +165,40 @@ rationale visible where practical. Analyst reasoning and evidence values may
 remain in terminal scrollback and should be handled as sensitive telemetry.
 
 > The console records analyst-authored reasoning through the shared reasoning service. It does not generate conclusions from alerts or cases.
+
+## Web Reasoning Workflow
+
+The local web investigation detail screen includes a **Hypotheses and
+Decisions** section with reasoning counts, hypothesis creation and inspection,
+assessment and reopening, and append-only decision history.
+
+```text
+Open investigation
+-> Create hypothesis
+-> Attach selected evidence
+-> Assess with rationale
+-> Reopen if new evidence emerges
+-> Review durable decision history
+```
+
+The browser offers only persisted analyst-selected evidence. Supporting pickers
+show supporting-classified selections, contradicting pickers show
+contradicting-classified selections, and scope or context references are not
+offered for hypothesis relationships. General decisions may reference existing
+hypotheses and analyst-selected evidence.
+
+All reasoning mutations send the authoritative workspace revision. A conflict
+returns HTTP 409 with the latest durable workspace; the browser reloads it
+without retrying or merging and retains the drafted statement or rationale in
+memory where practical. Drafts are not stored in local storage.
+
+Hypotheses, decisions, and persisted evidence metadata remain readable when no
+matching analysis is active. Source payload inspection remains in the evidence
+workspace and requires matching analysis provenance.
+
+Reasoning responses use `Cache-Control: no-store`. Analyst-authored text is
+rendered through safe DOM text nodes, IDs are URL-encoded, and rationale is
+never placed in a URL. Reasoning may still remain visible in browser history,
+developer tools, or screenshots and should be handled as sensitive content.
+
+> Web reasoning routes use the shared reasoning service. They do not infer conclusions, alter analysis output, or perform response actions.

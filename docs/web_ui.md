@@ -132,3 +132,19 @@ POST   /api/investigations/{id}/evidence/selections
 PUT    /api/investigations/{id}/evidence/selections/{evidence_id}
 DELETE /api/investigations/{id}/evidence/selections/{evidence_id}
 ```
+
+## Investigation Reasoning
+
+The web investigation workspace exposes analyst-authored hypotheses separately
+from alerts, cases, and other machine findings. It displays the shared reasoning
+summary, controlled hypothesis states, compatible selected evidence,
+append-only assessments, reopening history, and broader analyst decisions.
+
+The browser continues to show persisted reasoning after a server restart or
+when source analysis is unavailable. Source details remain governed by the
+existing evidence provenance and sensitive-value reveal flow. All reasoning
+requests use optimistic revisions and no automatic conflict retry.
+
+See [Hypotheses and Decisions](hypotheses_and_decisions.md) and
+[Web Investigation Workspaces](web_investigation_workspaces.md) for the full
+workflow and route contracts.

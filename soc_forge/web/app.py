@@ -27,6 +27,23 @@ from soc_forge.investigations.evidence_service import (
 )
 from soc_forge.investigations.models import MissingInvestigationReferenceError
 from soc_forge.investigations.paths import resolve_workspace_root
+from soc_forge.investigations.reasoning_service import (
+    DuplicateHypothesisError,
+    DuplicateHypothesisEvidenceError,
+    DuplicateReasoningDecisionError,
+    HypothesisEvidenceNotFoundError,
+    HypothesisEvidenceRelationshipNotFoundError,
+    HypothesisNotFoundError,
+    InvalidAssessmentRationaleError,
+    InvalidDecisionRationaleError,
+    InvalidDecisionTypeError,
+    InvalidEvidenceClassificationError as InvalidReasoningEvidenceClassificationError,
+    InvalidHypothesisStateError,
+    InvalidHypothesisStatementError,
+    InvalidHypothesisTransitionError,
+    InvalidReasoningAuthorError,
+    ReasoningReferenceError,
+)
 from soc_forge.investigations.repository import (
     CorruptInvestigationRecordError,
     InvestigationAlreadyExistsError,
@@ -49,6 +66,7 @@ from soc_forge.simulator import generate_scenario, write_events_jsonl
 from soc_forge.web.investigation_api import (
     EvidenceAnalysisProvenanceMismatchError,
     EvidenceAnalysisUnavailableError,
+    DecisionNotFoundError,
     InvestigationRequestError,
     InvestigationWebApplication,
     NoActiveAnalysisError,
@@ -411,6 +429,41 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         exc: Exception,
         investigation_id: str | None = None,
     ) -> None:
+        reasoning_errors = (
+            (InvalidHypothesisStatementError, "invalid_hypothesis_statement", 400),
+            (InvalidReasoningAuthorError, "invalid_reasoning_author", 400),
+            (InvalidHypothesisStateError, "invalid_hypothesis_state", 400),
+            (InvalidAssessmentRationaleError, "invalid_assessment_rationale", 400),
+            (InvalidDecisionTypeError, "invalid_decision_type", 400),
+            (InvalidDecisionRationaleError, "invalid_decision_rationale", 400),
+            (HypothesisEvidenceNotFoundError, "evidence_selection_not_found", 404),
+            (HypothesisNotFoundError, "hypothesis_not_found", 404),
+            (DecisionNotFoundError, "decision_not_found", 404),
+            (DuplicateHypothesisError, "duplicate_hypothesis", 409),
+            (DuplicateReasoningDecisionError, "duplicate_decision", 409),
+            (InvalidHypothesisTransitionError, "invalid_hypothesis_transition", 409),
+            (
+                InvalidReasoningEvidenceClassificationError,
+                "hypothesis_evidence_conflict",
+                409,
+            ),
+            (DuplicateHypothesisEvidenceError, "hypothesis_evidence_conflict", 409),
+            (
+                HypothesisEvidenceRelationshipNotFoundError,
+                "hypothesis_evidence_conflict",
+                409,
+            ),
+            (ReasoningReferenceError, "reasoning_reference_not_found", 404),
+        )
+        for error_type, code, status in reasoning_errors:
+            if isinstance(exc, error_type):
+                self.send_investigation_error(
+                    code,
+                    self._reasoning_error_message(code),
+                    status,
+                    investigation_id=investigation_id,
+                )
+                return
         evidence_errors = (
             (EvidenceAnalysisUnavailableError, "analysis_unavailable", 409),
             (
@@ -523,6 +576,25 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         )
 
     @staticmethod
+    def _reasoning_error_message(code: str) -> str:
+        return {
+            "invalid_hypothesis_statement": "Hypothesis statement must be nonblank.",
+            "invalid_reasoning_author": "Analyst author must be nonblank.",
+            "invalid_hypothesis_state": "Unsupported hypothesis state.",
+            "invalid_assessment_rationale": "Assessment rationale must be nonblank.",
+            "invalid_decision_type": "Unsupported decision type.",
+            "invalid_decision_rationale": "Decision rationale must be nonblank.",
+            "evidence_selection_not_found": "Selected evidence not found.",
+            "hypothesis_not_found": "Hypothesis not found.",
+            "decision_not_found": "Decision not found.",
+            "duplicate_hypothesis": "A hypothesis with this ID already exists.",
+            "duplicate_decision": "A decision with this ID already exists.",
+            "invalid_hypothesis_transition": "The hypothesis cannot make that transition.",
+            "hypothesis_evidence_conflict": "The evidence relationship is not compatible.",
+            "reasoning_reference_not_found": "A related reasoning reference was not found.",
+        }[code]
+
+    @staticmethod
     def _evidence_error_message(code: str) -> str:
         return {
             "analysis_unavailable": "Source evidence requires the matching active analysis.",
@@ -541,6 +613,10 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         self, segments: list[str], payload: Dict[str, Any]
     ) -> bool:
         investigation_id = segments[0] if segments else None
+        reasoning_mutation = (
+            len(segments) >= 2
+            and segments[1] in {"hypotheses", "reasoning"}
+        )
         try:
             if not segments:
                 self.send_json(
@@ -556,6 +632,53 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 result = self.investigation_app.reopen(investigation_id, payload)
             elif len(segments) == 2 and segments[1] == "annotations":
                 result = self.investigation_app.add_annotation(investigation_id, payload)
+            elif len(segments) == 2 and segments[1] == "hypotheses":
+                result = self.investigation_app.create_hypothesis(
+                    investigation_id, payload
+                )
+                self.send_json(result, status=201, no_store=True)
+                return True
+            elif (
+                len(segments) == 4
+                and segments[1] == "hypotheses"
+                and segments[3] in {
+                    "supporting-evidence",
+                    "contradicting-evidence",
+                }
+            ):
+                relationship = (
+                    "supporting"
+                    if segments[3] == "supporting-evidence"
+                    else "contradicting"
+                )
+                result = self.investigation_app.add_hypothesis_evidence(
+                    investigation_id, segments[2], relationship, payload
+                )
+            elif (
+                len(segments) == 4
+                and segments[1] == "hypotheses"
+                and segments[3] == "assess"
+            ):
+                result = self.investigation_app.assess_hypothesis(
+                    investigation_id, segments[2], payload
+                )
+            elif (
+                len(segments) == 4
+                and segments[1] == "hypotheses"
+                and segments[3] == "reopen"
+            ):
+                result = self.investigation_app.reopen_hypothesis(
+                    investigation_id, segments[2], payload
+                )
+            elif (
+                len(segments) == 3
+                and segments[1:] == ["reasoning", "decisions"]
+            ):
+                result = self.investigation_app.record_reasoning_decision(
+                    investigation_id, payload
+                )
+                self.send_json(result, status=201, no_store=True)
+                return True
             elif len(segments) == 2 and segments[1] == "decisions":
                 result = self.investigation_app.record_decision(investigation_id, payload)
             elif (
@@ -569,7 +692,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 return True
             else:
                 return False
-            self.send_json(result)
+            self.send_json(result, no_store=reasoning_mutation)
             return True
         except Exception as exc:
             self.handle_investigation_error(exc, investigation_id)
@@ -736,6 +859,48 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                         self.investigation_app.list_evidence_selections(segments[0])
                     )
                     return
+                if len(segments) == 2 and segments[1] == "reasoning":
+                    self.send_json(
+                        self.investigation_app.get_reasoning_summary(segments[0]),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 2 and segments[1] == "hypotheses":
+                    self.send_json(
+                        self.investigation_app.list_hypotheses(segments[0]),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 3 and segments[1] == "hypotheses":
+                    self.send_json(
+                        self.investigation_app.get_hypothesis(
+                            segments[0], segments[2]
+                        ),
+                        no_store=True,
+                    )
+                    return
+                if (
+                    len(segments) == 3
+                    and segments[1:] == ["reasoning", "decisions"]
+                ):
+                    self.send_json(
+                        self.investigation_app.list_reasoning_decisions(
+                            segments[0]
+                        ),
+                        no_store=True,
+                    )
+                    return
+                if (
+                    len(segments) == 4
+                    and segments[1:3] == ["reasoning", "decisions"]
+                ):
+                    self.send_json(
+                        self.investigation_app.get_reasoning_decision(
+                            segments[0], segments[3]
+                        ),
+                        no_store=True,
+                    )
+                    return
                 if len(segments) == 1:
                     self.send_json(
                         self.investigation_app.get_investigation(segments[0])
@@ -770,14 +935,19 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             len(segments) == 4
             and segments[1:3] == ["evidence", "selections"]
         )
-        if not (is_annotation or is_evidence):
+        is_hypothesis = len(segments) == 3 and segments[1] == "hypotheses"
+        if not (is_annotation or is_evidence or is_hypothesis):
             self.send_error(405, "Method not allowed")
             return
         payload = self.read_json_payload()
         if payload is None:
             return
         try:
-            if is_annotation:
+            if is_hypothesis:
+                result = self.investigation_app.edit_hypothesis(
+                    segments[0], segments[2], payload
+                )
+            elif is_annotation:
                 result = self.investigation_app.update_annotation(
                     segments[0], segments[2], payload
                 )
@@ -785,7 +955,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 result = self.investigation_app.update_evidence(
                     segments[0], segments[3], payload
                 )
-            self.send_json(result)
+            self.send_json(result, no_store=is_hypothesis)
         except Exception as exc:
             self.handle_investigation_error(exc, segments[0])
 
@@ -801,14 +971,28 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             len(segments) == 4
             and segments[1:3] == ["evidence", "selections"]
         )
-        if not (is_workspace or is_annotation or is_evidence):
+        is_hypothesis_evidence = (
+            len(segments) == 5
+            and segments[1] == "hypotheses"
+            and segments[3] in {"supporting-evidence", "contradicting-evidence"}
+        )
+        if not (is_workspace or is_annotation or is_evidence or is_hypothesis_evidence):
             self.send_error(405, "Method not allowed")
             return
         payload = self.read_json_payload()
         if payload is None:
             return
         try:
-            if is_workspace:
+            if is_hypothesis_evidence:
+                relationship = (
+                    "supporting"
+                    if segments[3] == "supporting-evidence"
+                    else "contradicting"
+                )
+                result = self.investigation_app.remove_hypothesis_evidence(
+                    segments[0], segments[2], segments[4], relationship, payload
+                )
+            elif is_workspace:
                 result = self.investigation_app.delete_investigation(segments[0], payload)
             elif is_annotation:
                 result = self.investigation_app.remove_annotation(
@@ -818,7 +1002,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 result = self.investigation_app.remove_evidence(
                     segments[0], segments[3], payload
                 )
-            self.send_json(result)
+            self.send_json(result, no_store=is_hypothesis_evidence)
         except Exception as exc:
             self.handle_investigation_error(exc, segments[0])
 
