@@ -34,6 +34,13 @@ class DecisionNotFoundError(InvestigationRequestError):
     pass
 
 
+class LegacyDecisionMutationError(InvestigationRequestError):
+    pass
+
+
+DECISION_RATIONALE_SUMMARY_LIMIT = 160
+
+
 def workspace_response(result: WorkspaceResult) -> Dict[str, Any]:
     return {
         "investigation": result.investigation.to_dict(),
@@ -177,20 +184,8 @@ class InvestigationWebApplication:
     def record_decision(
         self, investigation_id: str, payload: Mapping[str, Any]
     ) -> Dict[str, Any]:
-        return workspace_response(
-            self.workspace_service.record_decision(
-                investigation_id,
-                decision_id=self._required_text(payload, "decision_id"),
-                author=self._string_value(payload, "author"),
-                decision_type=self._required_text(payload, "decision_type"),
-                outcome=self._required_text(payload, "outcome"),
-                rationale=self._string_value(payload, "rationale"),
-                evidence_reference_ids=self._optional_list(
-                    payload, "evidence_reference_ids"
-                ),
-                hypothesis_ids=self._optional_list(payload, "hypothesis_ids"),
-                expected_revision=self._expected_revision(payload),
-            )
+        raise LegacyDecisionMutationError(
+            "Legacy decision creation is unavailable; use the reasoning decisions endpoint"
         )
 
     def list_evidence_candidates(
@@ -524,7 +519,9 @@ class InvestigationWebApplication:
                     "decision_type": item.decision_type,
                     "author": item.decided_by,
                     "decided_at": item.decided_at,
-                    "rationale": item.rationale,
+                    "rationale_summary": self._bounded_summary(
+                        item.rationale, DECISION_RATIONALE_SUMMARY_LIMIT
+                    ),
                     "outcome": item.outcome,
                     "related_hypothesis_count": len(item.hypothesis_ids),
                     "related_evidence_count": len(item.evidence_reference_ids),
@@ -549,6 +546,12 @@ class InvestigationWebApplication:
         if decision is None:
             raise DecisionNotFoundError("Decision not found.")
         return {"decision": decision.to_dict(), "revision": current.revision}
+
+    @staticmethod
+    def _bounded_summary(value: str, limit: int) -> str:
+        if len(value) <= limit:
+            return value
+        return value[: limit - 3] + "..."
 
     def record_reasoning_decision(
         self, investigation_id: str, payload: Mapping[str, Any]

@@ -116,7 +116,9 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     assert any("Selected case IDs: CASE-B" in line for line in messages)
     assert any("Annotations: 0" in line for line in messages)
     assert any("Decisions: 0" in line for line in messages)
-    assert "[10] Evidence workspace" in messages
+    assert "[9] Evidence workspace" in messages
+    assert "[10] Hypotheses and Decisions" in messages
+    assert "[9] Record decision" not in messages
 
 
 def test_create_override_cancel_and_missing_analysis_paths(tmp_path):
@@ -176,10 +178,17 @@ def test_annotation_crud_and_decision_display(tmp_path):
     current = controller._edit_annotation(current)
     assert current.investigation.annotations[0].body == "Updated note"
 
-    controller.input = ScriptedInput(
-        ["DEC-1", "disposition", "escalate", "Needs review", "alice", "case:CASE-A", ""]
+    current = controller.workspace_service.record_decision(
+        current.investigation.investigation_id,
+        decision_id="DEC-1",
+        decision_type="disposition",
+        outcome="escalate",
+        rationale="Needs review",
+        author="alice",
+        evidence_reference_ids=("case:CASE-A",),
+        hypothesis_ids=(),
+        expected_revision=current.revision,
     )
-    current = controller._record_decision(current)
     controller._view_decisions(current)
     assert current.investigation.decisions[0].evidence_reference_ids == ("case:CASE-A",)
     assert any("DEC-1 | alice | disposition:escalate" in line for line in messages)

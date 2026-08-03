@@ -160,7 +160,6 @@ function renderInvestigations() {
           ? '<button id="reopenInvestigationButton" type="button">Reopen</button>'
           : '<button id="changeStatusButton" type="button">Change Status</button>'}
         <button id="addAnnotationButton" type="button">Add Annotation</button>
-        <button id="recordDecisionButton" type="button">Record Decision</button>
       </div>
       <section class="brief-section reasoning-section">
         <div class="panel-head">
@@ -273,27 +272,6 @@ function bindInvestigationActions(investigation) {
       annotation_id: annotationId,
       author,
       text,
-    });
-  });
-  bind('#recordDecisionButton', async () => {
-    const decisionId = window.prompt('Decision ID');
-    if (decisionId === null) return;
-    const author = window.prompt('Author label');
-    if (author === null) return;
-    const decisionType = window.prompt('Decision type or disposition');
-    if (decisionType === null) return;
-    const outcome = window.prompt('Outcome');
-    if (outcome === null) return;
-    const rationale = window.prompt('Rationale');
-    if (rationale === null) return;
-    await updateActiveInvestigation('/decisions', {
-      decision_id: decisionId,
-      author,
-      decision_type: decisionType,
-      outcome,
-      rationale,
-      evidence_reference_ids: [],
-      hypothesis_ids: [],
     });
   });
   bind('#deleteInvestigationButton', async () => {
@@ -1206,10 +1184,25 @@ async function listWebDecisions() {
   if (!target) return;
   target.replaceChildren();
   for (const summary of asArray(payload.decisions)) {
-    const detail = await reasoningGet(
-      `${activeReasoningBase()}/reasoning/decisions/${encodeURIComponent(summary.decision_id)}`,
+    const row = evidenceElement("article", "workspace-record");
+    row.append(
+      evidenceElement("strong", "mono", summary.decision_id),
+      evidenceElement("span", "pill", summary.decision_type),
+      evidenceElement("div", "", "Outcome: " + summary.outcome),
+      evidenceElement("p", "", summary.rationale_summary),
+      evidenceElement("div", "muted", (summary.author || "Unknown") + " | " + (summary.decided_at || "Unknown")),
+      evidenceElement("div", "muted", "Hypotheses: " + summary.related_hypothesis_count + " | Evidence: " + summary.related_evidence_count),
     );
-    target.append(renderWebDecision(detail.decision));
+    const details = evidenceElement("button", "", "View Details");
+    details.type = "button";
+    details.addEventListener("click", async () => {
+      const detail = await reasoningGet(
+        activeReasoningBase() + "/reasoning/decisions/" + encodeURIComponent(summary.decision_id),
+      );
+      target.replaceChildren(renderWebDecision(detail.decision));
+    });
+    row.append(details);
+    target.append(row);
   }
   if (!target.children.length) {
     target.append(evidenceElement('div', 'muted', 'No analyst decisions.'));

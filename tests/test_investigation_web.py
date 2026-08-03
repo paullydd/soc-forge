@@ -337,46 +337,25 @@ def test_annotation_lifecycle_and_duplicate_id(investigation_server):
     assert current["investigation"]["annotations"] == []
 
 
-def test_append_only_decisions_and_duplicate_id(investigation_server):
+def test_legacy_decision_mutation_is_disabled(investigation_server):
     current, _ = create_investigation(investigation_server)
     decision = {
         "decision_id": "DEC-1",
         "author": "Analyst A",
         "decision_type": "disposition",
         "outcome": "escalate",
-        "rationale": "Review <credential> activity",
-        "evidence_reference_ids": [
-            current["investigation"]["evidence_references"][0]["reference_id"]
-        ],
+        "rationale": "Review credential activity",
+        "evidence_reference_ids": [],
         "hypothesis_ids": [],
         "expected_revision": current["revision"],
     }
-    status, current = json_request(
-        investigation_server,
-        "POST",
-        "/api/investigations/INV-WEB-001/decisions",
-        decision,
-    )
-    assert status == 200
-    assert current["investigation"]["decisions"][0]["decision_id"] == "DEC-1"
-    assert current["investigation"]["decisions"][0]["rationale"] == "Review <credential> activity"
-
-    decision["expected_revision"] = current["revision"]
     status, error = json_request(
-        investigation_server,
-        "POST",
-        "/api/investigations/INV-WEB-001/decisions",
-        decision,
+        investigation_server, "POST",
+        "/api/investigations/INV-WEB-001/decisions", decision,
     )
-    assert status == 400
-    assert error["error"]["code"] == "invalid_request"
-    assert request(
-        investigation_server,
-        "PUT",
-        "/api/investigations/INV-WEB-001/decisions/DEC-1",
-        payload={"expected_revision": current["revision"]},
-        headers={"Content-Type": "application/json"},
-    )[0] == 405
+    assert status == 410
+    assert error["error"]["code"] == "legacy_decision_mutation_disabled"
+    assert error["latest"]["revision"] == current["revision"]
 
 
 def test_revision_conflict_returns_latest_without_overwrite(investigation_server):

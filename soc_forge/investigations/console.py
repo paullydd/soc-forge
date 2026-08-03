@@ -183,9 +183,8 @@ class InvestigationConsoleController:
             self.output("[6] Edit annotation")
             self.output("[7] Remove annotation")
             self.output("[8] View decisions")
-            self.output("[9] Record decision")
-            self.output("[10] Evidence workspace")
-            self.output("[11] Hypotheses and Decisions")
+            self.output("[9] Evidence workspace")
+            self.output("[10] Hypotheses and Decisions")
             self.output("[0] Back")
 
             choice = self.input("\nSelect option: ").strip()
@@ -208,10 +207,8 @@ class InvestigationConsoleController:
             elif choice == "8":
                 self._view_decisions(current)
             elif choice == "9":
-                current = self._record_decision(current)
-            elif choice == "10":
                 current = self.evidence_controller.run(current)
-            elif choice == "11":
+            elif choice == "10":
                 current = self.reasoning_controller.run(current)
             else:
                 self.output("Invalid option.")
@@ -366,33 +363,6 @@ class InvestigationConsoleController:
                 "  Hypothesis IDs: "
                 + (", ".join(decision.hypothesis_ids) or "None")
             )
-
-    def _record_decision(self, current: WorkspaceResult) -> WorkspaceResult:
-        decision_id = self.input("Decision ID: ").strip()
-        decision_type = self.input("Decision type/disposition: ")
-        outcome = self.input("Outcome: ")
-        rationale = self.input("Rationale: ")
-        author = self.input("Author label: ")
-        evidence_ids = self._comma_ids(
-            self.input("Related evidence IDs (comma-separated, optional): ")
-        )
-        hypothesis_ids = self._comma_ids(
-            self.input("Related hypothesis IDs (comma-separated, optional): ")
-        )
-        return self._modify(
-            current,
-            lambda: self.workspace_service.record_decision(
-                current.investigation.investigation_id,
-                decision_id=decision_id,
-                decision_type=decision_type,
-                outcome=outcome,
-                rationale=rationale,
-                author=author,
-                evidence_reference_ids=evidence_ids,
-                hypothesis_ids=hypothesis_ids,
-                expected_revision=current.revision,
-            ),
-        )
 
     def _modify(
         self,

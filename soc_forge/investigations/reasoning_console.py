@@ -4,6 +4,7 @@ from typing import Callable, Iterable
 
 from soc_forge.investigations.models import Decision, EvidenceReference, Hypothesis
 from soc_forge.investigations.reasoning_service import (
+    GENERAL_DECISION_TYPES,
     InvestigationReasoningError,
     InvestigationReasoningService,
 )
@@ -16,13 +17,6 @@ from soc_forge.ui.screen import begin_screen
 
 
 DISPLAY_VALUE_LIMIT = 160
-GENERAL_DECISION_TYPES = (
-    "escalation",
-    "containment_recommendation",
-    "closure_rationale",
-    "investigative_conclusion",
-)
-
 
 class ReasoningConsoleController:
     """Terminal presentation for analyst-authored hypotheses and decisions."""
@@ -181,7 +175,8 @@ class ReasoningConsoleController:
                 self.output("Hypothesis is no longer available.")
                 return current
             self._render_hypothesis(current, hypothesis)
-            self.output("[1] Edit statement")
+            if hypothesis.state == "open":
+                self.output("[1] Edit statement")
             self.output("[2] Add supporting evidence")
             self.output("[3] Add contradicting evidence")
             self.output("[4] Remove supporting evidence")

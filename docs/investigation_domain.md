@@ -171,7 +171,8 @@ Responsibilities remain separated:
 
 - frozen domain models own investigation data and serialization validation
 - the repository owns file layout, atomic replacement, revisions, and storage errors
-- the workspace service owns creation and analyst workflow validation
+- the workspace service owns aggregate persistence and general workspace lifecycle validation
+- `InvestigationReasoningService` owns public hypothesis and analyst-decision semantics
 - future presentation layers call the service instead of editing files directly
 
 > The workspace service manages analyst-owned investigation workflow. It does not rerun analysis, rewrite generated cases, or alter pipeline-produced artifacts.
@@ -213,7 +214,7 @@ reopen operation. Requesting the current status is idempotent and does not
 change the timestamp or revision. Status does not imply containment,
 remediation, severity, or response action.
 
-### Owners, Annotations, and Decisions
+### Owners, Annotations, and Legacy Decisions
 
 An owner is an opaque local analyst label, not an authenticated username or
 email address. Labels are trimmed when assigned; `None` clears ownership;
@@ -225,7 +226,7 @@ target types, author labels, creation timestamps, and update timestamps.
 Duplicate IDs and empty text are rejected. Editing preserves creation time and
 position; removal affects only the selected annotation.
 
-Decisions are append-only analyst records with caller-supplied IDs, type,
+`InvestigationWorkspaceService.record_decision` is a lower-level compatibility primitive for existing records and internal callers; console and web mutation paths do not call it directly. New decisions flow through `InvestigationReasoningService`. Decisions remain append-only analyst records with caller-supplied IDs, type,
 outcome, rationale, author, timestamp, and optional evidence or hypothesis
 references. Duplicate IDs and empty rationales are rejected. Recording a
 decision does not automatically change investigation status.

@@ -418,11 +418,11 @@ def test_referenced_remove_missing_selection_and_request_boundaries(evidence_ser
     status, decision_state = request(
         evidence_server,
         "POST",
-        "/api/investigations/INV-EVIDENCE/decisions",
+        "/api/investigations/INV-EVIDENCE/reasoning/decisions",
         {
             "decision_id": "DEC-1",
             "author": "Analyst",
-            "decision_type": "disposition",
+            "decision_type": "escalation",
             "outcome": "escalate",
             "rationale": "Uses evidence",
             "evidence_reference_ids": [evidence_id],
@@ -430,7 +430,7 @@ def test_referenced_remove_missing_selection_and_request_boundaries(evidence_ser
             "expected_revision": selected["revision"],
         },
     )
-    assert status == 200
+    assert status == 201
     status, payload = request(
         evidence_server,
         "DELETE",

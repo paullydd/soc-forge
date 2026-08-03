@@ -18,15 +18,13 @@ from soc_forge.investigations.workspace_service import (
 
 
 TERMINAL_HYPOTHESIS_STATES = frozenset({"supported", "rejected", "inconclusive"})
-DECISION_TYPES = frozenset(
-    {
-        "hypothesis_assessment",
+GENERAL_DECISION_TYPES = (
         "escalation",
         "containment_recommendation",
         "closure_rationale",
         "investigative_conclusion",
-    }
 )
+DECISION_TYPES = frozenset(GENERAL_DECISION_TYPES) | {"hypothesis_assessment"}
 EVIDENCE_RELATIONSHIPS = frozenset({"supporting", "contradicting"})
 
 
@@ -51,6 +49,10 @@ class InvalidHypothesisTransitionError(InvestigationReasoningError):
 
 
 class InvalidHypothesisStatementError(InvestigationReasoningError):
+    pass
+
+
+class AssessedHypothesisNotEditableError(InvestigationReasoningError):
     pass
 
 
@@ -197,6 +199,10 @@ class InvestigationReasoningService:
         current = self._current(investigation_id, expected_revision)
         index = self._hypothesis_index(current, hypothesis_id)
         existing = current.investigation.hypotheses[index]
+        if existing.state != "open":
+            raise AssessedHypothesisNotEditableError(
+                f"Hypothesis {hypothesis_id!r} must be reopened before editing"
+            )
         normalized_statement = self._statement(statement)
         normalized_author = self._author(author)
         if existing.statement == normalized_statement and existing.author == normalized_author:
@@ -298,7 +304,9 @@ class InvestigationReasoningService:
         existing = current.investigation.hypotheses[index]
         normalized_state = self._state(state)
         if normalized_state == existing.state:
-            return current
+            raise InvalidHypothesisTransitionError(
+                f"Hypothesis {hypothesis_id!r} is already {existing.state!r}"
+            )
         if normalized_state not in TERMINAL_HYPOTHESIS_STATES:
             raise InvalidHypothesisTransitionError(
                 f"Hypothesis {hypothesis_id!r} must use reopen_hypothesis to return to open"
@@ -348,7 +356,9 @@ class InvestigationReasoningService:
         index = self._hypothesis_index(current, hypothesis_id)
         existing = current.investigation.hypotheses[index]
         if existing.state == "open":
-            return current
+            raise InvalidHypothesisTransitionError(
+                f"Hypothesis {hypothesis_id!r} is already open"
+            )
         timestamp = self._now()
         updated = replace(existing, state="open", updated_at=timestamp)
         decision = self._decision(

@@ -28,6 +28,7 @@ from soc_forge.investigations.evidence_service import (
 from soc_forge.investigations.models import MissingInvestigationReferenceError
 from soc_forge.investigations.paths import resolve_workspace_root
 from soc_forge.investigations.reasoning_service import (
+    AssessedHypothesisNotEditableError,
     DuplicateHypothesisError,
     DuplicateHypothesisEvidenceError,
     DuplicateReasoningDecisionError,
@@ -68,6 +69,7 @@ from soc_forge.web.investigation_api import (
     EvidenceAnalysisUnavailableError,
     DecisionNotFoundError,
     InvestigationRequestError,
+    LegacyDecisionMutationError,
     InvestigationWebApplication,
     NoActiveAnalysisError,
 )
@@ -431,6 +433,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
     ) -> None:
         reasoning_errors = (
             (InvalidHypothesisStatementError, "invalid_hypothesis_statement", 400),
+            (AssessedHypothesisNotEditableError, "assessed_hypothesis_not_editable", 409),
             (InvalidReasoningAuthorError, "invalid_reasoning_author", 400),
             (InvalidHypothesisStateError, "invalid_hypothesis_state", 400),
             (InvalidAssessmentRationaleError, "invalid_assessment_rationale", 400),
@@ -454,14 +457,22 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 409,
             ),
             (ReasoningReferenceError, "reasoning_reference_not_found", 404),
+            (LegacyDecisionMutationError, "legacy_decision_mutation_disabled", 410),
         )
         for error_type, code, status in reasoning_errors:
             if isinstance(exc, error_type):
+                latest = None
+                if investigation_id and isinstance(
+                    exc, (AssessedHypothesisNotEditableError, LegacyDecisionMutationError)
+                ):
+                    current = self.investigation_app.get_investigation(investigation_id)
+                    latest = {"revision": current["revision"]}
                 self.send_investigation_error(
                     code,
                     self._reasoning_error_message(code),
                     status,
                     investigation_id=investigation_id,
+                    latest=latest,
                 )
                 return
         evidence_errors = (
@@ -592,6 +603,8 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             "invalid_hypothesis_transition": "The hypothesis cannot make that transition.",
             "hypothesis_evidence_conflict": "The evidence relationship is not compatible.",
             "reasoning_reference_not_found": "A related reasoning reference was not found.",
+            "assessed_hypothesis_not_editable": "Reopen the hypothesis before editing its statement.",
+            "legacy_decision_mutation_disabled": "Use the reasoning decisions endpoint to record analyst decisions.",
         }[code]
 
     @staticmethod

@@ -135,6 +135,8 @@ DELETE /api/investigations/{id}/evidence/selections/{evidence_id}
 
 ## Investigation Reasoning
 
+Analyst decisions are created through `InvestigationReasoningService`. Legacy records may remain readable, but legacy public mutation paths do not bypass the controlled reasoning contract. The older `/decisions` mutation route returns `410`; the Hypotheses and Decisions section is the only decision-creation UI.
+
 The web investigation workspace exposes analyst-authored hypotheses separately
 from alerts, cases, and other machine findings. It displays the shared reasoning
 summary, controlled hypothesis states, compatible selected evidence,

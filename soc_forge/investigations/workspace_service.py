@@ -375,6 +375,7 @@ class InvestigationWorkspaceService:
         hypothesis_ids: Iterable[str] = (),
     ) -> WorkspaceResult:
         current = self._load_for_update(investigation_id, expected_revision)
+        """Persist a legacy decision; public interfaces use the reasoning service."""
         if any(
             decision.decision_id == decision_id
             for decision in current.investigation.decisions

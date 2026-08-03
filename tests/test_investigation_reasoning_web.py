@@ -450,6 +450,82 @@ def test_general_decisions_and_detail(reasoning_server, decision_type):
     assert detail["decision"]["hypothesis_ids"] == ["HYP-001"]
 
 
+def test_legacy_mutation_rejected_and_decision_list_is_bounded(reasoning_server):
+    current = reasoning_server["current"]
+    status, payload = request(
+        reasoning_server, "POST",
+        "/api/investigations/INV-REASONING/decisions",
+        {
+            "decision_id": "DEC-LEGACY",
+            "decision_type": "unrestricted_type",
+            "outcome": "anything",
+            "rationale": "legacy",
+            "author": "Analyst",
+            "expected_revision": current.revision,
+        },
+    )
+    assert (status, payload["error"]["code"]) == (410, "legacy_decision_mutation_disabled")
+    assert payload["latest"]["revision"] == current.revision
+
+    long_rationale = "sensitive reasoning " * 40
+    status, recorded = request(
+        reasoning_server, "POST",
+        "/api/investigations/INV-REASONING/reasoning/decisions",
+        {
+            "decision_id": "DEC-LONG",
+            "decision_type": "escalation",
+            "rationale": long_rationale,
+            "author": "Web Analyst",
+            "expected_revision": current.revision,
+        },
+    )
+    assert status == 201
+    status, listing = request(
+        reasoning_server, "GET",
+        "/api/investigations/INV-REASONING/reasoning/decisions",
+    )
+    assert status == 200
+    summary = listing["decisions"][0]
+    assert len(summary["rationale_summary"]) == 160
+    assert summary["rationale_summary"].endswith("...")
+    assert "rationale" not in summary
+    assert long_rationale not in json.dumps(listing)
+
+    status, detail = request(
+        reasoning_server, "GET",
+        "/api/investigations/INV-REASONING/reasoning/decisions/DEC-LONG",
+    )
+    assert status == 200
+    assert detail["decision"]["rationale"] == long_rationale.strip()
+    assert recorded["investigation"]["metadata"]["status"] == "open"
+
+
+def test_assessed_hypothesis_edit_is_rejected_until_reopened(reasoning_server):
+    created = create_hypothesis(reasoning_server)
+    status, assessed = request(
+        reasoning_server, "POST",
+        "/api/investigations/INV-REASONING/hypotheses/HYP-001/assess",
+        {
+            "state": "supported",
+            "rationale": "Current evidence supports this",
+            "author": "Web Analyst",
+            "decision_id": "DEC-ASSESS",
+            "expected_revision": created["revision"],
+        },
+    )
+    assert status == 200
+    status, rejected = request(
+        reasoning_server, "PUT",
+        "/api/investigations/INV-REASONING/hypotheses/HYP-001",
+        {
+            "statement": "Changed assessed statement",
+            "expected_revision": assessed["revision"],
+        },
+    )
+    assert (status, rejected["error"]["code"]) == (409, "assessed_hypothesis_not_editable")
+    assert rejected["latest"]["revision"] == assessed["revision"]
+
+
 def test_general_decision_validation(reasoning_server):
     created = create_hypothesis(reasoning_server)
     base = {
@@ -619,6 +695,18 @@ def test_reasoning_ui_source_contract_uses_safe_dom_and_controlled_vocabulary():
     general_form = source.split("async function recordWebDecision()", 1)[1]
     general_form = general_form.split("function bindReasoningActions()", 1)[0]
     assert "hypothesis_assessment" not in general_form
+
+
+def test_public_interfaces_have_one_reasoning_decision_workflow():
+    console_source = Path("soc_forge/investigations/console.py").read_text(encoding="utf-8")
+    web_api_source = Path("soc_forge/web/investigation_api.py").read_text(encoding="utf-8")
+    web_ui_source = Path("soc_forge/web/static/investigations.js").read_text(encoding="utf-8")
+
+    assert "[9] Record decision" not in console_source
+    assert "workspace_service.record_decision" not in console_source
+    assert "workspace_service.record_decision" not in web_api_source
+    assert "recordDecisionButton" not in web_ui_source
+    assert "/reasoning/decisions" in web_ui_source
 
 
 def test_reasoning_web_boundary_does_not_construct_domain_models_or_write_json():

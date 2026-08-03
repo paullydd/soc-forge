@@ -19,6 +19,7 @@ from soc_forge.investigations.reasoning_service import (
     DuplicateReasoningDecisionError,
     HypothesisEvidenceNotFoundError,
     HypothesisEvidenceRelationshipNotFoundError,
+    AssessedHypothesisNotEditableError,
     InvalidAssessmentRationaleError,
     InvalidDecisionRationaleError,
     InvalidDecisionTypeError,
@@ -312,13 +313,51 @@ def test_assessment_transition_rationale_and_idempotency_policy(tmp_path):
             author="Analyst", decision_id="DECISION-001",
             expected_revision=current.revision,
         )
-    unchanged = reasoning.assess_hypothesis(
-        "INVESTIGATION-001", "HYP-001", state="open", rationale="ignored",
-        author="Analyst", decision_id="DECISION-IGNORED",
-        expected_revision=current.revision,
-    )
-    assert unchanged == current
+    with pytest.raises(InvalidHypothesisTransitionError):
+        reasoning.assess_hypothesis(
+            "INVESTIGATION-001", "HYP-001", state="open", rationale="ignored",
+            author="Analyst", decision_id="DECISION-IGNORED",
+            expected_revision=current.revision,
+        )
+    with pytest.raises(InvalidHypothesisTransitionError):
+        reasoning.reopen_hypothesis(
+            "INVESTIGATION-001", "HYP-001", rationale="Not applicable",
+            author="Analyst", decision_id="DECISION-REOPEN",
+            expected_revision=current.revision,
+        )
     assert workspace.get_investigation("INVESTIGATION-001") == current
+
+
+
+def test_assessed_hypothesis_requires_reopen_before_statement_edit(tmp_path):
+    reasoning, workspace, _, prepared = build_services(tmp_path)
+    current = create_hypothesis(reasoning, prepared.revision)
+    assessed = reasoning.assess_hypothesis(
+        "INVESTIGATION-001", "HYP-001", state="supported",
+        rationale="Supported by selected evidence", author="Analyst",
+        decision_id="DECISION-ASSESS", expected_revision=current.revision,
+    )
+    history = assessed.investigation.decisions
+
+    with pytest.raises(AssessedHypothesisNotEditableError):
+        reasoning.edit_hypothesis_statement(
+            "INVESTIGATION-001", "HYP-001", statement="Changed after assessment",
+            author="Analyst", expected_revision=assessed.revision,
+        )
+    assert workspace.get_investigation("INVESTIGATION-001") == assessed
+
+    reopened = reasoning.reopen_hypothesis(
+        "INVESTIGATION-001", "HYP-001", rationale="New evidence requires review",
+        author="Analyst", decision_id="DECISION-REOPEN",
+        expected_revision=assessed.revision,
+    )
+    edited = reasoning.edit_hypothesis_statement(
+        "INVESTIGATION-001", "HYP-001", statement="Revised open hypothesis",
+        author="Analyst", expected_revision=reopened.revision,
+    )
+    assert edited.investigation.hypotheses[0].statement == "Revised open hypothesis"
+    assert edited.investigation.decisions[:1] == history
+    assert edited.investigation.decisions[1].outcome == "reopened"
 
 
 def test_terminal_reassessment_requires_explicit_reopen_and_preserves_history(tmp_path):

@@ -34,7 +34,7 @@ body.
 | `POST` | `/api/investigations/{id}/annotations` | Add an annotation |
 | `PUT` | `/api/investigations/{id}/annotations/{annotation_id}` | Edit annotation text |
 | `DELETE` | `/api/investigations/{id}/annotations/{annotation_id}` | Remove an annotation |
-| `POST` | `/api/investigations/{id}/decisions` | Append an analyst decision |
+| `POST` | `/api/investigations/{id}/decisions` | Deprecated mutation; returns `410` |
 
 Workspace reads and successful modifications return:
 
@@ -123,16 +123,13 @@ The web reasoning API is nested under the durable investigation resource:
 | `POST` | `/api/investigations/{id}/reasoning/decisions` | Record a controlled general decision |
 | `GET` | `/api/investigations/{id}/reasoning/decisions/{decision_id}` | Read an immutable decision |
 
-The existing `POST /api/investigations/{id}/decisions` route remains for
-backward compatibility. New reasoning UI flows use
-`/reasoning/decisions`, which accepts escalation, containment recommendation,
+The legacy `POST /api/investigations/{id}/decisions` route is retained only as an explicit compatibility boundary and returns `410 legacy_decision_mutation_disabled`. Existing stored legacy decisions remain readable. New decisions use `/reasoning/decisions`, which accepts escalation, containment recommendation,
 closure rationale, and investigative conclusion. Hypothesis assessment is
 available only through the dedicated assessment route.
 
 Requests use JSON and modifying requests require `expected_revision`.
 Reasoning errors use the existing stable error envelope. Stale revisions return
-`revision_conflict` and the latest workspace where available. Detail and
-reasoning mutation responses use `Cache-Control: no-store`.
+`revision_conflict` and the latest workspace where available. Decision list responses contain a rationale summary bounded to 160 characters; decision detail retains the complete stored rationale and references. Detail and reasoning mutation responses use `Cache-Control: no-store`.
 
 A supported or rejected state records current analyst assessment, not objective
 certainty. Decisions document reasoning and do not execute containment,

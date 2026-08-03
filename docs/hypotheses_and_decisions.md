@@ -27,16 +27,11 @@ status. A decision is not an automated response.
 New hypotheses begin open. An open hypothesis can be assessed as supported,
 rejected, or inconclusive. An assessed hypothesis must be explicitly reopened
 before another terminal assessment. Reopening records why review resumed.
-Requesting the current state is idempotent and creates no revision or decision.
+Assessing to the current state and reopening an already-open hypothesis are invalid transitions. They append no decision and do not increment the revision.
 
 > A supported hypothesis reflects the analyst's assessment of the current evidence. It does not establish objective or legal certainty.
 
-Hypotheses are durable and cannot be deleted through this service. Corrections
-occur through statement editing, relationship changes, reopening, and
-Editing a statement preserves its creation timestamp, state, and evidence
-relationships while recording the editing analyst as the current author.
-
-reassessment. This preserves the reasoning history.
+Hypotheses are durable and cannot be deleted through this service. Open hypothesis statements may be edited. Assessed hypotheses must be reopened before editing so prior assessments continue to refer to the statement they evaluated. Editing preserves the creation timestamp and evidence relationships while recording the editing analyst as the current author. Reassessment preserves the reasoning history.
 
 ## Evidence Relationships
 
@@ -74,9 +69,9 @@ investigation status.
 
 ## Decision Types
 
-The initial controlled vocabulary is:
+The public general-decision vocabulary is:
 
-- hypothesis assessment
+- hypothesis assessment (created only by assess and reopen operations)
 - escalation
 - containment recommendation
 - closure rationale
@@ -107,7 +102,6 @@ single-writer limitation remains.
 
 ## Known Limits
 
-- No hypothesis or decision web controls exist in Slice 2.
 - No hypothesis deletion or archival workflow exists.
 - No machine-generated hypotheses, confidence scoring, or automated conclusions.
 - No containment, response execution, timeline pivots, handoff export, or
