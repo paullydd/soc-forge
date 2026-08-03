@@ -45,6 +45,7 @@ def build_investigation_console_controller(workspace_root=WORKSPACE_ROOT):
         analysis_provider=get_current_analysis_result,
         workspace_root=workspace_root,
         screen_func=begin_screen,
+        pause_func=pause,
     )
 
 

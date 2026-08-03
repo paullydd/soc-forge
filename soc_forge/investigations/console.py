@@ -35,6 +35,7 @@ class InvestigationConsoleController:
         input_func: Callable[[str], str] = input,
         output_func: Callable[[str], None] = print,
         screen_func: Callable[[str], None] = begin_screen,
+        pause_func: Callable[[], None] | None = None,
         evidence_controller: EvidenceConsoleController | None = None,
         reasoning_controller: ReasoningConsoleController | None = None,
     ):
@@ -45,6 +46,7 @@ class InvestigationConsoleController:
         self.input = input_func
         self.output = output_func
         self.screen = screen_func
+        self.pause = pause_func or (lambda: self.input("\nPress Enter to return..."))
         self.evidence_controller = evidence_controller or EvidenceConsoleController(
             catalog=AnalysisEvidenceCatalog(),
             evidence_service=InvestigationEvidenceService(workspace_service),
@@ -75,12 +77,16 @@ class InvestigationConsoleController:
             choice = self.input("\nSelect option: ").strip()
             if choice == "1":
                 self.create_flow()
+                self.pause()
             elif choice == "2":
                 self.list_screen()
+                self.pause()
             elif choice == "3":
                 self.open_flow()
+                self.pause()
             elif choice == "4":
                 self.delete_flow()
+                self.pause()
             elif choice == "0":
                 return
             else:

@@ -81,6 +81,7 @@ def build_controller(tmp_path, inputs=(), analysis=None):
         input_func=ScriptedInput(inputs),
         output_func=messages.append,
         screen_func=lambda _title: None,
+        pause_func=lambda: None,
     )
     return controller, service, messages
 
@@ -89,6 +90,105 @@ def create_workspace(controller):
     result = controller.create_flow()
     assert result is not None
     return result
+
+
+@pytest.mark.parametrize(
+    ("choice", "handler_name"),
+    [
+        (" 1 ", "create_flow"),
+        ("2", "list_screen"),
+        ("3", "open_flow"),
+        ("4", "delete_flow"),
+    ],
+)
+def test_workspace_menu_dispatches_each_handler_once_and_pauses(
+    tmp_path, choice, handler_name
+):
+    analysis = build_analysis(tmp_path)
+    controller, _, messages = build_controller(tmp_path, analysis=analysis)
+    calls = []
+    pauses = []
+    screens = []
+    controller.input = ScriptedInput([choice, "0"])
+    controller.screen = screens.append
+    controller.pause = lambda: pauses.append(tuple(messages))
+    setattr(controller, handler_name, lambda: calls.append(handler_name))
+
+    controller.run()
+
+    assert calls == [handler_name]
+    assert len(pauses) == 1
+    assert len(screens) == 2
+
+
+def test_workspace_menu_back_and_invalid_input_are_not_consumed_twice(tmp_path):
+    controller, _, messages = build_controller(tmp_path)
+    screens = []
+    pauses = []
+    controller.input = ScriptedInput([" invalid ", "0"])
+    controller.screen = screens.append
+    controller.pause = lambda: pauses.append("paused")
+
+    controller.run()
+
+    assert messages.count("Invalid option.") == 1
+    assert len(screens) == 2
+    assert pauses == []
+
+
+def test_workspace_menu_create_uses_active_analysis(tmp_path):
+    analysis = build_analysis(tmp_path)
+    controller, service, _ = build_controller(
+        tmp_path,
+        ["1", "1", "INV-MENU", "", "", "y", "0"],
+        analysis,
+    )
+
+    controller.run()
+
+    created = service.get_investigation("INV-MENU")
+    assert created.investigation.provenance.normalized_input_name == analysis.input_name
+    assert [item.source_id for item in created.investigation.evidence_references if item.origin == "scope"] == ["CASE-A"]
+
+
+def test_workspace_menu_list_does_not_require_active_analysis(tmp_path):
+    controller, _, messages = build_controller(tmp_path, ["2", "0"])
+
+    controller.run()
+
+    assert "No durable investigations found." in messages
+
+
+def test_workspace_evidence_and_reasoning_options_still_dispatch(tmp_path):
+    analysis = build_analysis(tmp_path)
+    controller, _, _ = build_controller(
+        tmp_path,
+        ["1", "INV-NESTED", "", "", "y"],
+        analysis,
+    )
+    current = create_workspace(controller)
+    calls = []
+
+    class NestedController:
+        def __init__(self, name):
+            self.name = name
+
+        def run(self, value):
+            calls.append(self.name)
+            return value
+
+        def render_workspace_counts(self, _value):
+            return None
+
+        def render_counts(self, _value):
+            return None
+
+    controller.evidence_controller = NestedController("evidence")
+    controller.reasoning_controller = NestedController("reasoning")
+    controller.input = ScriptedInput(["9", "10", "0"])
+
+    assert controller.workspace_loop(current) == current
+    assert calls == ["evidence", "reasoning"]
 
 
 def test_create_list_and_open_completed_analysis_workspace(tmp_path):
