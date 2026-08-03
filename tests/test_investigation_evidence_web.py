@@ -184,8 +184,10 @@ def test_candidate_detail_hides_and_explicitly_reveals_sensitive_values(
         "/api/investigations/INV-EVIDENCE/evidence/candidates/"
         + item["evidence_id"]
     )
-    status, hidden = request(evidence_server, "GET", path)
+    status, hidden_headers, hidden = request(
+        evidence_server, "GET", path, include_headers=True)
     assert status == 200
+    assert hidden_headers["Cache-Control"] == "no-store"
     sensitive = [
         field for field in hidden["details"]["fields"] if field["sensitive"]
     ]

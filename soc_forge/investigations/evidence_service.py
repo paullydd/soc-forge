@@ -134,13 +134,16 @@ class InvestigationEvidenceService:
                 "At least one evidence selection field must be updated"
             )
         timestamp = self._required_text(self.clock(), "selection update timestamp")
+        updated_classification = (
+            self._classification(classification)
+            if classification is not None
+            else existing.classification
+        )
+        self._validate_hypothesis_classification(
+            current, evidence_id, updated_classification)
         updated_reference = replace(
             existing,
-            classification=(
-                self._classification(classification)
-                if classification is not None
-                else existing.classification
-            ),
+            classification=updated_classification,
             rationale=(
                 self._rationale(rationale)
                 if rationale is not None
@@ -244,6 +247,30 @@ class InvestigationEvidenceService:
             )
         )
 
+
+    @staticmethod
+    def _validate_hypothesis_classification(
+        current: WorkspaceResult,
+        evidence_id: str,
+        classification: str,
+    ) -> None:
+        for hypothesis in current.investigation.hypotheses:
+            if (
+                evidence_id in hypothesis.supporting_evidence_reference_ids
+                and classification != "supporting"
+            ):
+                raise InvalidEvidenceClassificationError(
+                    f"Evidence {evidence_id!r} supports hypothesis "
+                    f"{hypothesis.hypothesis_id!r} and must remain supporting"
+                )
+            if (
+                evidence_id in hypothesis.contradicting_evidence_reference_ids
+                and classification != "contradicting"
+            ):
+                raise InvalidEvidenceClassificationError(
+                    f"Evidence {evidence_id!r} contradicts hypothesis "
+                    f"{hypothesis.hypothesis_id!r} and must remain contradicting"
+                )
     @staticmethod
     def _classification(value: str) -> str:
         normalized = value.strip().lower() if isinstance(value, str) else ""

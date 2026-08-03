@@ -814,3 +814,52 @@ def test_legacy_evidence_id_resolves_only_when_unambiguous(tmp_path):
     )
     with pytest.raises(AmbiguousLegacyEvidenceIdentityError, match="ambiguous"):
         catalog.get_candidate(analysis, colliding_id)
+
+
+def test_reconstruction_step_identity_includes_owning_case(tmp_path):
+    analysis = build_analysis_result(tmp_path)
+    shared_step = deepcopy(analysis.reconstructions[0]["attack_path"][0])
+    analysis.reconstructions[1]["attack_path"] = [shared_step]
+    candidates = [
+        item for item in AnalysisEvidenceCatalog().list_candidates(analysis)
+        if item.evidence_type == "reconstruction_step"
+    ]
+
+    assert len(candidates) == 2
+    assert {item.case_ids for item in candidates} == {
+        ("CASE-001",), ("CASE-002",)
+    }
+    assert len({item.source_id for item in candidates}) == 2
+    assert len({item.evidence_id for item in candidates}) == 2
+
+
+def test_legacy_selected_evidence_rationale_updates_without_migration(tmp_path):
+    analysis, catalog, service, workspace, repository, created = build_services(tmp_path)
+    candidate = candidate_of_type(catalog, analysis, "alert")
+    selected_result = service.select_evidence(
+        "INVESTIGATION-001",
+        candidate,
+        classification="supporting",
+        rationale="Initial legacy rationale",
+        author="Analyst",
+        expected_revision=created.revision,
+    )
+    before = repository.load("INVESTIGATION-001")
+    assert before.provenance is None
+
+    updated = service.update_evidence_rationale(
+        "INVESTIGATION-001",
+        candidate.evidence_id,
+        rationale="Updated legacy rationale",
+        expected_revision=selected_result.revision,
+    )
+    after = repository.load("INVESTIGATION-001")
+
+    assert updated.investigation.provenance is None
+    assert after.analysis_id == before.analysis_id
+    assert after.provenance is None
+    assert next(
+        item for item in after.evidence_references
+        if item.reference_id == candidate.evidence_id
+    ).rationale == "Updated legacy rationale"
+    assert workspace.get_investigation("INVESTIGATION-001").revision == 3

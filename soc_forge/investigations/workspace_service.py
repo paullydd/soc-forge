@@ -9,6 +9,7 @@ from soc_forge.investigations.models import (
     Annotation,
     Decision,
     EvidenceReference,
+    Hypothesis,
     INTERNAL_ANNOTATION_TARGET_TYPES,
     Investigation,
     WorkspaceMetadata,
@@ -171,6 +172,41 @@ class InvestigationWorkspaceService:
                 updated_at=timestamp,
             ),
             evidence_references=normalized,
+        )
+        return self._save(updated, expected_revision)
+
+    def replace_reasoning(
+        self,
+        investigation_id: str,
+        hypotheses: Iterable[Hypothesis],
+        decisions: Iterable[Decision],
+        *,
+        expected_revision: int,
+    ) -> WorkspaceResult:
+        current = self._load_for_update(investigation_id, expected_revision)
+        normalized_hypotheses = tuple(hypotheses)
+        normalized_decisions = tuple(decisions)
+        if any(not isinstance(item, Hypothesis) for item in normalized_hypotheses):
+            raise InvalidWorkspaceOperationError(
+                "hypotheses must contain Hypothesis objects"
+            )
+        if any(not isinstance(item, Decision) for item in normalized_decisions):
+            raise InvalidWorkspaceOperationError(
+                "decisions must contain Decision objects"
+            )
+        if (
+            normalized_hypotheses == current.investigation.hypotheses
+            and normalized_decisions == current.investigation.decisions
+        ):
+            return current
+        updated = replace(
+            current.investigation,
+            metadata=replace(
+                current.investigation.metadata,
+                updated_at=self._now(),
+            ),
+            hypotheses=normalized_hypotheses,
+            decisions=normalized_decisions,
         )
         return self._save(updated, expected_revision)
 

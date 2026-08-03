@@ -271,6 +271,7 @@ class Hypothesis(SerializableModel):
     contradicting_evidence_reference_ids: Tuple[str, ...] = ()
     created_at: str | None = None
     updated_at: str | None = None
+    author: str | None = None
     schema_version: str = INVESTIGATION_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -281,6 +282,12 @@ class Hypothesis(SerializableModel):
             raise ValueError(
                 "Hypothesis.state must be one of: " + ", ".join(sorted(HYPOTHESIS_STATES))
             )
+        if self.author is not None:
+            _require_text(self.author, "Hypothesis.author")
+        if self.created_at is not None:
+            _require_text(self.created_at, "Hypothesis.created_at")
+        if self.updated_at is not None:
+            _require_text(self.updated_at, "Hypothesis.updated_at")
         object.__setattr__(
             self,
             "supporting_evidence_reference_ids",

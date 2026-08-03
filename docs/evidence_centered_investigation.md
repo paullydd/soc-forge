@@ -52,7 +52,6 @@ Every candidate ID is a bounded SHA-256-derived identifier over:
 - canonical completed-analysis provenance ID
 - evidence type
 - stable source identifier
-
 - canonical source-content qualifier
 Native event record IDs and alert IDs are used when present. An event without a
 native record identifier receives a source ID derived from canonical event
@@ -72,6 +71,10 @@ catalog construction raises an explicit identity-collision error rather than
 retaining one payload. Legacy pre-hardening evidence IDs remain lookup aliases:
 one unambiguous match resolves to the hardened candidate, while multiple matches
 raise an ambiguity error. Persisted records are not automatically migrated.
+Because the legacy v1 provenance algorithm retained completed-analysis list
+order, legacy alias reproduction requires the same collection order used when
+the legacy record was created. Failed legacy resolution never rewrites or
+guesses at persisted identity.
 
 The evidence type participates in the digest, so identical source IDs in
 different type namespaces remain unambiguous. Absolute paths, report content,
