@@ -44,7 +44,16 @@ def evidence_server(tmp_path):
         server.server_close()
 
 
-def request(info, method, path, payload=None, *, content_type="application/json", raw=None):
+def request(
+    info,
+    method,
+    path,
+    payload=None,
+    *,
+    content_type="application/json",
+    raw=None,
+    include_headers=False,
+):
     body = raw if raw is not None else (
         json.dumps(payload).encode("utf-8") if payload is not None else None
     )
@@ -60,6 +69,8 @@ def request(info, method, path, payload=None, *, content_type="application/json"
             if data and kind.startswith("application/json")
             else data
         )
+        if include_headers:
+            return response.status, dict(response.getheaders()), parsed
         return response.status, parsed
     finally:
         connection.close()
@@ -183,13 +194,14 @@ def test_candidate_detail_hides_and_explicitly_reveals_sensitive_values(
     assert hidden["sensitive_values_included"] is False
     assert hidden["source_resolvable"] is True
 
-    status, revealed = request(
-        evidence_server, "GET", path + "?include_sensitive=true"
+    status, response_headers, revealed = request(
+        evidence_server, "GET", path + "?include_sensitive=true", include_headers=True
     )
     assert status == 200
     sensitive = [
         field for field in revealed["details"]["fields"] if field["sensitive"]
     ]
+    assert response_headers["Cache-Control"] == "no-store"
     assert any(field["value"] for field in sensitive)
     assert all(not field["value_hidden"] for field in sensitive)
     assert revealed["sensitive_values_included"] is True

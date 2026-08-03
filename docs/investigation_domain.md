@@ -265,7 +265,7 @@ files directly.
 
 The adapter creates a frozen `AnalysisProvenance` manifest for every newly
 bootstrapped investigation. Its derivation algorithm is
-`sha256-canonical-json-v1`. The manifest records:
+`sha256-canonical-unordered-collections-v2`. The manifest records:
 
 - provenance schema version `1.0`
 - input basename normalized across Windows and POSIX separators
@@ -274,9 +274,11 @@ bootstrapped investigation. Its derivation algorithm is
 - the sorted logical artifact keys present
 - the resulting source-analysis ID
 
-Nested mappings are normalized by sorted string keys before hashing. Sequence
-order is retained because completed event and result order can be meaningful;
-set-like values and artifact keys are sorted. The source-analysis ID is the
+Nested mappings are normalized by sorted string keys before hashing. Events,
+alerts, cases, reconstructions, observed rule IDs, and logical artifact keys
+are treated as unordered completed-analysis collections. Each member is
+canonicalized independently before member digests are sorted. Lists and tuples
+inside an individual member retain their order. The source-analysis ID is the
 first 20 hexadecimal characters of the SHA-256 digest of the canonical
 provenance manifest, prefixed with `analysis-`.
 
@@ -286,6 +288,10 @@ cases, and reconstructions are hashed for identity but are not copied into the
 investigation.
 
 > The source-analysis identifier represents canonical completed-analysis provenance, not a filesystem location or presentation artifact.
+> Collection ordering does not define completed-analysis identity unless an individual object's contract explicitly treats order as meaningful.
+
+The earlier v1 derivation remains explicitly labeled as legacy and is calculated
+only for controlled, unambiguous reference lookup.
 
 Changing normalized event content, alert content, case membership, case
 content, reconstruction content, observed rule IDs, or logical artifact keys

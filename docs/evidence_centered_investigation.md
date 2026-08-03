@@ -53,11 +53,25 @@ Every candidate ID is a bounded SHA-256-derived identifier over:
 - evidence type
 - stable source identifier
 
+- canonical source-content qualifier
 Native event record IDs and alert IDs are used when present. An event without a
 native record identifier receives a source ID derived from canonical event
 content. Alerts without native IDs receive a source ID derived from canonical
 alert content. Cases use their stable case IDs. Reconstruction-step source IDs
 include the owning case ID and canonical step content.
+
+Native identifiers are contextualized or content-qualified before they are used
+as evidence identity. Materially different records are never silently merged
+solely because they share a native identifier. Host, channel, provider, event
+ID, timestamp, rule context, case context, and the canonical payload contribute
+through the source-content qualifier when present; absolute paths do not.
+
+Identical same-type duplicates deliberately deduplicate and merge proven case
+relationships. If the bounded ID ever matches while canonical payloads differ,
+catalog construction raises an explicit identity-collision error rather than
+retaining one payload. Legacy pre-hardening evidence IDs remain lookup aliases:
+one unambiguous match resolves to the hardened candidate, while multiple matches
+raise an ambiguity error. Persisted records are not automatically migrated.
 
 The evidence type participates in the digest, so identical source IDs in
 different type namespaces remain unambiguous. Absolute paths, report content,
@@ -65,6 +79,9 @@ object identity, analyst state, and candidate presentation order do not
 participate. IDs use truncated SHA-256 digests; collision resistance follows
 the assumptions of a 96-bit truncated digest and is not a substitute for an
 external evidence-signing system.
+
+Candidate-detail HTTP responses use Cache-Control: no-store, including explicit
+sensitive-value reveals. Sensitive values are never placed in URLs.
 
 ## Case-Scoped Discovery
 

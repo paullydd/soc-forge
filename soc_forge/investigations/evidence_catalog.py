@@ -16,6 +16,7 @@ from soc_forge.investigations.provenance import (
     canonical_json,
     content_digest,
     derive_analysis_provenance,
+    derive_legacy_analysis_provenance,
 )
 
 
@@ -29,6 +30,14 @@ EVENT_REFERENCE_FIELDS = (
 
 
 class EvidenceCatalogError(Exception):
+    pass
+
+
+class EvidenceIdentityCollisionError(EvidenceCatalogError):
+    pass
+
+
+class AmbiguousLegacyEvidenceIdentityError(EvidenceCatalogError):
     pass
 
 
@@ -94,17 +103,16 @@ class AnalysisEvidenceCatalog:
         for entry in self._catalog_entries(analysis_result):
             if entry.candidate.evidence_id == evidence_id:
                 return entry.candidate
-        raise EvidenceCandidateNotFoundError(
-            f"Evidence candidate {evidence_id!r} was not found"
-        )
+        return self._legacy_candidate(analysis_result, evidence_id)
 
     def resolve_details(
         self,
         analysis_result: AnalysisResult,
         evidence_id: str,
     ) -> EvidenceDetails:
+        resolved_id = self.get_candidate(analysis_result, evidence_id).evidence_id
         for entry in self._catalog_entries(analysis_result):
-            if entry.candidate.evidence_id != evidence_id:
+            if entry.candidate.evidence_id != resolved_id:
                 continue
             details = []
             for provenance in entry.candidate.field_provenance:
@@ -122,7 +130,7 @@ class AnalysisEvidenceCatalog:
                         truncated=truncated,
                     )
                 )
-            return EvidenceDetails(evidence_id=evidence_id, fields=tuple(details))
+            return EvidenceDetails(evidence_id=resolved_id, fields=tuple(details))
         raise EvidenceCandidateNotFoundError(
             f"Evidence candidate {evidence_id!r} was not found"
         )
@@ -153,6 +161,49 @@ class AnalysisEvidenceCatalog:
             artifact_keys=artifact_keys,
         )
         return provenance
+
+    def _legacy_candidate(
+        self,
+        analysis_result: AnalysisResult,
+        evidence_id: str,
+    ) -> EvidenceCandidate:
+        artifact_keys = tuple(
+            sorted(
+                str(key).strip()
+                for key, path in analysis_result.artifacts.items()
+                if str(key).strip() and path is not None
+            )
+        )
+        input_name = (
+            str(analysis_result.input_name).replace("\\", "/").rsplit("/", 1)[-1]
+        )
+        legacy = derive_legacy_analysis_provenance(
+            normalized_input_name=input_name,
+            events=analysis_result.events,
+            alerts=analysis_result.alerts,
+            cases=analysis_result.cases,
+            reconstructions=analysis_result.reconstructions,
+            artifact_keys=artifact_keys,
+        )
+        matches = [
+            entry.candidate
+            for entry in self._catalog_entries(analysis_result)
+            if self._legacy_evidence_id(
+                legacy.source_analysis_id,
+                entry.candidate.evidence_type,
+                entry.candidate.source_id,
+            )
+            == evidence_id
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise AmbiguousLegacyEvidenceIdentityError(
+                f"Legacy evidence identity {evidence_id!r} is ambiguous"
+            )
+        raise EvidenceCandidateNotFoundError(
+            f"Evidence candidate {evidence_id!r} was not found"
+        )
 
     def _entries_for_analysis(
         self,
@@ -204,6 +255,11 @@ class AnalysisEvidenceCatalog:
             if previous is None:
                 entries_by_id[candidate.evidence_id] = entry
             else:
+                if canonical_json(previous.payload) != canonical_json(entry.payload):
+                    raise EvidenceIdentityCollisionError(
+                        "Materially different evidence candidates derived the same "
+                        f"identity {candidate.evidence_id!r}"
+                    )
                 entries_by_id[candidate.evidence_id] = _CatalogEntry(
                     candidate=replace(
                         previous.candidate,
@@ -423,7 +479,12 @@ class AnalysisEvidenceCatalog:
         tactic: str | None = None,
         technique: str | None = None,
     ) -> EvidenceCandidate:
-        evidence_id = self._evidence_id(analysis_id, evidence_type, source_id)
+        evidence_id = self._evidence_id(
+            analysis_id,
+            evidence_type,
+            source_id,
+            content_digest(payload, f"{evidence_type} identity content"),
+        )
         field_provenance = self._field_provenance(
             payload,
             evidence_type=evidence_type,
@@ -568,9 +629,26 @@ class AnalysisEvidenceCatalog:
             if value:
                 return value
         return "alert-" + content_digest(alert, "alert")[:24]
+    @staticmethod
+
+    def _evidence_id(
+        analysis_id: str,
+        evidence_type: str,
+        source_id: str,
+        identity_qualifier: str,
+    ) -> str:
+        manifest = {
+            "source_analysis_id": analysis_id,
+            "evidence_type": evidence_type,
+            "source_id": source_id,
+            "identity_qualifier": identity_qualifier,
+        }
+        return "evidence-" + sha256(
+            canonical_json(manifest).encode("utf-8")
+        ).hexdigest()[:24]
 
     @staticmethod
-    def _evidence_id(
+    def _legacy_evidence_id(
         analysis_id: str,
         evidence_type: str,
         source_id: str,
@@ -583,9 +661,9 @@ class AnalysisEvidenceCatalog:
         return "evidence-" + sha256(
             canonical_json(manifest).encode("utf-8")
         ).hexdigest()[:24]
-
     @classmethod
     def _alert_signature(cls, alert: Mapping) -> str:
+
         return content_digest(
             {
                 "rule_id": alert.get("rule_id"),

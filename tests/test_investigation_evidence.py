@@ -6,6 +6,7 @@ import pytest
 
 from soc_forge.investigations.evidence_catalog import (
     AnalysisEvidenceCatalog,
+    AmbiguousLegacyEvidenceIdentityError,
     EvidenceCandidateNotFoundError,
     UnsupportedEvidenceTypeError,
 )
@@ -22,6 +23,7 @@ from soc_forge.investigations.evidence_service import (
     InvalidEvidenceRationaleError,
     InvestigationEvidenceService,
 )
+from soc_forge.investigations.provenance import derive_legacy_analysis_provenance
 from soc_forge.investigations.repository import (
     InvestigationConflictError,
     InvestigationRepository,
@@ -654,3 +656,161 @@ def test_candidate_is_frozen(tmp_path):
 
     with pytest.raises(FrozenInstanceError):
         candidate.title = "changed"
+
+
+@pytest.mark.parametrize(
+    "collection_name",
+    ["events", "alerts", "cases", "reconstructions"],
+)
+def test_completed_analysis_collection_order_does_not_change_identity(
+    tmp_path, collection_name
+):
+    original = build_analysis_result(tmp_path)
+    reordered = deepcopy(original)
+    setattr(reordered, collection_name, list(reversed(getattr(reordered, collection_name))))
+    catalog = AnalysisEvidenceCatalog()
+
+    assert catalog.source_analysis_id(original) == catalog.source_analysis_id(reordered)
+    assert {
+        item.evidence_id for item in catalog.list_candidates(original)
+    } == {
+        item.evidence_id for item in catalog.list_candidates(reordered)
+    }
+
+
+def test_rule_and_artifact_order_do_not_change_identity(tmp_path):
+    original = build_analysis_result(tmp_path)
+    reordered = deepcopy(original)
+    reordered.alerts = list(reversed(reordered.alerts))
+    reordered.artifacts = dict(reversed(tuple(reordered.artifacts.items())))
+    catalog = AnalysisEvidenceCatalog()
+
+    assert catalog.source_analysis_id(original) == catalog.source_analysis_id(reordered)
+
+
+@pytest.mark.parametrize(
+    "mutator",
+    [
+        lambda result: result.events[0].update({"command_line": "changed"}),
+        lambda result: result.alerts[0].update({"severity": "critical"}),
+        lambda result: result.cases[0]["items"].append({"rule_id": "SOCF-022"}),
+        lambda result: result.reconstructions[0]["attack_path"][0].update(
+            {"stage": "Changed stage"}
+        ),
+    ],
+)
+def test_material_completed_analysis_changes_change_identity(tmp_path, mutator):
+    original = build_analysis_result(tmp_path)
+    changed = deepcopy(original)
+    mutator(changed)
+    catalog = AnalysisEvidenceCatalog()
+
+    assert catalog.source_analysis_id(original) != catalog.source_analysis_id(changed)
+
+
+def test_order_inside_one_analysis_member_remains_meaningful(tmp_path):
+    original = build_analysis_result(tmp_path)
+    original.events[0]["ordered_values"] = ["first", "second"]
+    changed = deepcopy(original)
+    changed.events[0]["ordered_values"].reverse()
+    catalog = AnalysisEvidenceCatalog()
+
+    assert catalog.source_analysis_id(original) != catalog.source_analysis_id(changed)
+
+
+@pytest.mark.parametrize(
+    "field,first,second",
+    [
+        ("host", "WS-ONE", "WS-TWO"),
+        ("channel", "Security", "System"),
+        ("provider", "Microsoft-Windows-Security-Auditing", "Sysmon"),
+    ],
+)
+def test_same_event_record_id_with_different_context_stays_distinct(
+    tmp_path, field, first, second
+):
+    analysis = build_analysis_result(tmp_path)
+    analysis.events[0][field] = first
+    duplicate = deepcopy(analysis.events[0])
+    duplicate[field] = second
+    analysis.events.append(duplicate)
+    candidates = [
+        item for item in AnalysisEvidenceCatalog().list_candidates(analysis)
+        if item.evidence_type == "event" and item.source_id == "EVENT-001"
+    ]
+
+    assert len(candidates) == 2
+    assert len({item.evidence_id for item in candidates}) == 2
+
+
+def test_identical_duplicate_event_is_deliberately_deduplicated(tmp_path):
+    analysis = build_analysis_result(tmp_path)
+    analysis.events.append(deepcopy(analysis.events[0]))
+    candidates = [
+        item for item in AnalysisEvidenceCatalog().list_candidates(analysis)
+        if item.evidence_type == "event" and item.source_id == "EVENT-001"
+    ]
+
+    assert len(candidates) == 1
+
+
+def test_same_alert_id_with_different_rule_stays_distinct(tmp_path):
+    analysis = build_analysis_result(tmp_path)
+    duplicate = deepcopy(analysis.alerts[0])
+    duplicate["rule_id"] = "SOCF-022"
+    analysis.alerts.append(duplicate)
+    candidates = [
+        item for item in AnalysisEvidenceCatalog().list_candidates(analysis)
+        if item.evidence_type == "alert" and item.source_id == "ALERT-001"
+    ]
+
+    assert len(candidates) == 2
+    assert len({item.evidence_id for item in candidates}) == 2
+
+
+def test_duplicate_case_id_with_different_content_stays_distinct(tmp_path):
+    analysis = build_analysis_result(tmp_path)
+    duplicate = deepcopy(analysis.cases[0])
+    duplicate["title"] = "Different case content"
+    analysis.cases.append(duplicate)
+    candidates = [
+        item for item in AnalysisEvidenceCatalog().list_candidates(analysis)
+        if item.evidence_type == "case" and item.source_id == "CASE-001"
+    ]
+
+    assert len(candidates) == 2
+    assert len({item.evidence_id for item in candidates}) == 2
+
+
+def test_legacy_evidence_id_resolves_only_when_unambiguous(tmp_path):
+    analysis = build_analysis_result(tmp_path)
+    catalog = AnalysisEvidenceCatalog()
+    artifact_keys = tuple(sorted(analysis.artifacts))
+    legacy = derive_legacy_analysis_provenance(
+        normalized_input_name="evidence.jsonl",
+        events=analysis.events,
+        alerts=analysis.alerts,
+        cases=analysis.cases,
+        reconstructions=analysis.reconstructions,
+        artifact_keys=artifact_keys,
+    )
+    legacy_id = catalog._legacy_evidence_id(legacy.source_analysis_id, "event", "EVENT-001")
+
+    assert catalog.get_candidate(analysis, legacy_id).source_id == "EVENT-001"
+
+    duplicate = deepcopy(analysis.events[0])
+    duplicate["host"] = "WS-COLLISION"
+    analysis.events.append(duplicate)
+    colliding_legacy = derive_legacy_analysis_provenance(
+        normalized_input_name="evidence.jsonl",
+        events=analysis.events,
+        alerts=analysis.alerts,
+        cases=analysis.cases,
+        reconstructions=analysis.reconstructions,
+        artifact_keys=artifact_keys,
+    )
+    colliding_id = catalog._legacy_evidence_id(
+        colliding_legacy.source_analysis_id, "event", "EVENT-001"
+    )
+    with pytest.raises(AmbiguousLegacyEvidenceIdentityError, match="ambiguous"):
+        catalog.get_candidate(analysis, colliding_id)

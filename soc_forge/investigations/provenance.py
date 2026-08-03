@@ -9,7 +9,8 @@ from typing import Mapping
 from soc_forge.investigations.models import AnalysisProvenance
 
 
-DERIVATION_ALGORITHM = "sha256-canonical-json-v1"
+LEGACY_DERIVATION_ALGORITHM = "sha256-canonical-json-v1"
+DERIVATION_ALGORITHM = "sha256-canonical-unordered-collections-v2"
 
 
 class ProvenanceDerivationError(ValueError):
@@ -53,6 +54,25 @@ def content_digest(value: object, field_name: str) -> str:
         ) from exc
 
 
+def canonical_member_digest(value: object, field_name: str) -> str:
+    """Digest one collection member while preserving order inside that member."""
+    return content_digest(value, field_name)
+
+
+def canonical_unordered_collection_digest(
+    values: object,
+    field_name: str,
+) -> str:
+    if not isinstance(values, (list, tuple, set, frozenset)):
+        raise ProvenanceDerivationError(
+            f"Completed analysis {field_name} must be a collection"
+        )
+    member_digests = sorted(
+        canonical_member_digest(value, f"{field_name} member") for value in values
+    )
+    return content_digest(member_digests, field_name)
+
+
 def derive_analysis_provenance(
     *,
     normalized_input_name: str,
@@ -62,6 +82,57 @@ def derive_analysis_provenance(
     reconstructions: object,
     artifact_keys: tuple[str, ...],
 ) -> AnalysisProvenance:
+    event_digest = canonical_unordered_collection_digest(events, "events")
+    alert_digest = canonical_unordered_collection_digest(alerts, "alerts")
+    case_digest = canonical_unordered_collection_digest(cases, "cases")
+    reconstruction_digest = canonical_unordered_collection_digest(
+        reconstructions, "reconstructions"
+    )
+    rule_ids = sorted(
+        {
+            str(alert["rule_id"]).strip()
+            for alert in alerts
+            if isinstance(alert, Mapping) and str(alert.get("rule_id") or "").strip()
+        }
+    )
+    rule_set_digest = content_digest(rule_ids, "rule IDs")
+    manifest = {
+        "provenance_schema_version": "1.0",
+        "derivation_algorithm": DERIVATION_ALGORITHM,
+        "normalized_input_name": normalized_input_name,
+        "event_digest": event_digest,
+        "alert_digest": alert_digest,
+        "case_digest": case_digest,
+        "reconstruction_digest": reconstruction_digest,
+        "rule_set_digest": rule_set_digest,
+        "artifact_keys": tuple(sorted(set(artifact_keys))),
+    }
+    source_analysis_id = "analysis-" + sha256(
+        canonical_json(manifest).encode("utf-8")
+    ).hexdigest()[:20]
+    return AnalysisProvenance(
+        source_analysis_id=source_analysis_id,
+        normalized_input_name=normalized_input_name,
+        event_digest=event_digest,
+        alert_digest=alert_digest,
+        case_digest=case_digest,
+        reconstruction_digest=reconstruction_digest,
+        rule_set_digest=rule_set_digest,
+        artifact_keys=tuple(sorted(set(artifact_keys))),
+        derivation_algorithm=DERIVATION_ALGORITHM,
+    )
+
+
+def derive_legacy_analysis_provenance(
+    *,
+    normalized_input_name: str,
+    events: object,
+    alerts: object,
+    cases: object,
+    reconstructions: object,
+    artifact_keys: tuple[str, ...],
+) -> AnalysisProvenance:
+    """Reproduce v1 provenance only for unambiguous persisted-reference lookup."""
     event_digest = content_digest(events, "events")
     alert_digest = content_digest(alerts, "alerts")
     case_digest = content_digest(cases, "cases")
@@ -76,7 +147,7 @@ def derive_analysis_provenance(
     rule_set_digest = content_digest(rule_ids, "rule IDs")
     manifest = {
         "provenance_schema_version": "1.0",
-        "derivation_algorithm": DERIVATION_ALGORITHM,
+        "derivation_algorithm": LEGACY_DERIVATION_ALGORITHM,
         "normalized_input_name": normalized_input_name,
         "event_digest": event_digest,
         "alert_digest": alert_digest,
@@ -97,5 +168,5 @@ def derive_analysis_provenance(
         reconstruction_digest=reconstruction_digest,
         rule_set_digest=rule_set_digest,
         artifact_keys=artifact_keys,
-        derivation_algorithm=DERIVATION_ALGORITHM,
+        derivation_algorithm=LEGACY_DERIVATION_ALGORITHM,
     )

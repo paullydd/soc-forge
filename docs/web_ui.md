@@ -113,8 +113,9 @@ evidence are displayed separately.
 Candidate and source-detail access requires the matching completed analysis to
 remain active. Persisted selection metadata remains visible when it is not
 active. Sensitive values are hidden by default and require an explicit reveal;
-revealed values can remain in browser history, developer tools, or screen
-captures. SOC-Forge does not automatically redact them.
+revealed values can remain in developer tools or screen captures. Candidate
+detail responses, including sensitive reveals, send Cache-Control: no-store.
+SOC-Forge does not automatically redact displayed values.
 
 Evidence requests use the current workspace revision. A conflict refreshes the
 latest authoritative workspace without automatic retry. The browser keeps
@@ -125,6 +126,7 @@ Additional local routes:
 ```text
 GET    /api/investigations/{id}/evidence/candidates?type={type}
 GET    /api/investigations/{id}/evidence/candidates/{evidence_id}
+GET    /api/investigations/{id}/evidence/candidates/{evidence_id}?include_sensitive=true
 GET    /api/investigations/{id}/evidence/selections
 POST   /api/investigations/{id}/evidence/selections
 PUT    /api/investigations/{id}/evidence/selections/{evidence_id}

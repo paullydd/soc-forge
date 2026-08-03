@@ -324,11 +324,19 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         return
 
-    def send_json(self, payload: Any, status: int = 200) -> None:
+    def send_json(
+        self,
+        payload: Any,
+        status: int = 200,
+        *,
+        no_store: bool = False,
+    ) -> None:
         body = json.dumps(payload, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        if no_store:
+            self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
@@ -716,7 +724,8 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                             segments[0],
                             segments[3],
                             include_sensitive=raw_sensitive == "true",
-                        )
+                        ),
+                        no_store=True,
                     )
                     return
                 if (
