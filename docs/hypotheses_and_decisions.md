@@ -107,9 +107,61 @@ single-writer limitation remains.
 
 ## Known Limits
 
-- No hypothesis or decision console or web controls exist in Slice 1.
+- No hypothesis or decision web controls exist in Slice 2.
 - No hypothesis deletion or archival workflow exists.
 - No machine-generated hypotheses, confidence scoring, or automated conclusions.
 - No containment, response execution, timeline pivots, handoff export, or
   hosted multi-user behavior.
 - Analyst labels are opaque local metadata rather than authenticated identities.
+
+
+## Analyst Console Workflow
+
+The durable investigation workspace exposes **Hypotheses and Decisions** as a
+separate reasoning area. Its summary is produced by the shared reasoning
+service and shows hypothesis state counts, evidence gaps, mixed-evidence
+hypotheses, decision totals, and the latest reasoning update.
+
+The terminal workflow is:
+
+```text
+Open investigation
+-> Open Hypotheses and Decisions
+-> Create hypothesis
+-> Attach selected evidence
+-> Assess with rationale
+-> Reopen if new evidence emerges
+-> Review durable decision history
+```
+
+Hypotheses are analyst-authored plain text. Creation and later relationship
+changes offer only durable analyst-selected evidence. Supporting relationships
+offer supporting-classified evidence, contradicting relationships offer
+contradicting-classified evidence, and context or bootstrap scope references are
+excluded. Relationship removal leaves the selected evidence in the
+investigation.
+
+Open hypothesis statements can be edited without changing their IDs, state,
+creation time, evidence relationships, or decision history. Assessment records
+supported, rejected, or inconclusive with a rationale and an append-only
+assessment decision. Reopening is explicit, preserves prior evidence and
+decisions, and records another assessment-history entry.
+
+The general decision form supports escalation, containment recommendation,
+closure rationale, and investigative conclusion. It cannot create a hypothesis
+assessment. General decisions may reference existing hypotheses and
+analyst-selected evidence, remain read-only after creation, and never execute a
+response action or change investigation status.
+
+Hypotheses, decisions, and persisted evidence metadata remain viewable without
+an active analysis. Underlying source detail still requires the existing
+evidence workspace, a matching active analysis provenance identity, and the
+sensitive-value reveal confirmation. The console does not open artifact paths
+directly or substitute a different analysis.
+
+On a revision conflict, the console does not retry or merge. It reloads and
+shows the authoritative revision and keeps the analyst's drafted statement or
+rationale visible where practical. Analyst reasoning and evidence values may
+remain in terminal scrollback and should be handled as sensitive telemetry.
+
+> The console records analyst-authored reasoning through the shared reasoning service. It does not generate conclusions from alerts or cases.
