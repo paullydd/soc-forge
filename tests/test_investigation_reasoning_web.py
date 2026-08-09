@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from soc_forge.investigations.models import EvidenceReference
+from soc_forge.investigations.models import Decision, EvidenceReference
 from soc_forge.investigations.reasoning_service import InvestigationReasoningService
 from soc_forge.web.app import make_server
 
@@ -498,6 +498,62 @@ def test_legacy_mutation_rejected_and_decision_list_is_bounded(reasoning_server)
     assert status == 200
     assert detail["decision"]["rationale"] == long_rationale.strip()
     assert recorded["investigation"]["metadata"]["status"] == "open"
+
+
+def test_persisted_unknown_legacy_decision_renders_in_web(reasoning_server):
+    current = reasoning_server["current"]
+    legacy = Decision(
+        decision_id="DEC-UNKNOWN-LEGACY",
+        decision_type="legacy_review",
+        outcome="retained",
+        rationale="Historical rationale remains readable",
+        decided_at="2026-08-12T11:30:00Z",
+        decided_by="Legacy Analyst",
+    )
+    reasoning_server["workspace"].replace_reasoning(
+        "INV-REASONING",
+        current.investigation.hypotheses,
+        (legacy,),
+        expected_revision=current.revision,
+    )
+    status, listing = request(reasoning_server, "GET", "/api/investigations/INV-REASONING/reasoning/decisions")
+    assert status == 200
+    assert listing["decisions"][0]["decision_type"] == "legacy_review"
+    status, detail = request(reasoning_server, "GET", "/api/investigations/INV-REASONING/reasoning/decisions/DEC-UNKNOWN-LEGACY")
+    assert status == 200
+    assert detail["decision"] == legacy.to_dict()
+
+
+@pytest.mark.parametrize(
+    "rationale",
+    (
+        "a" * 159,
+        "b" * 160,
+        "c" * 161,
+        "line one\nline two " + "d" * 170,
+        "\u5206\u6790" * 90,
+    ),
+)
+def test_rationale_summary_boundaries_are_deterministic(reasoning_server, rationale):
+    current = reasoning_server["current"]
+    service = InvestigationReasoningService(reasoning_server["workspace"])
+    service.record_investigation_decision(
+        "INV-REASONING",
+        decision_id="DEC-BOUNDARY",
+        decision_type="escalation",
+        outcome="review",
+        rationale=rationale,
+        author="Web Analyst",
+        expected_revision=current.revision,
+    )
+    status, listing = request(reasoning_server, "GET", "/api/investigations/INV-REASONING/reasoning/decisions")
+    assert status == 200
+    expected = rationale if len(rationale) <= 160 else rationale[:157] + "..."
+    assert listing["decisions"][0]["rationale_summary"] == expected
+    assert len(listing["decisions"][0]["rationale_summary"]) <= 160
+    status, detail = request(reasoning_server, "GET", "/api/investigations/INV-REASONING/reasoning/decisions/DEC-BOUNDARY")
+    assert status == 200
+    assert detail["decision"]["rationale"] == rationale
 
 
 def test_assessed_hypothesis_edit_is_rejected_until_reopened(reasoning_server):
