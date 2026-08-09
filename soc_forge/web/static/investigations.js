@@ -9,10 +9,12 @@ async function investigationRequest(method, path, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const payload = await response.json();
-  if (response.status === 409 && payload.latest) {
-    state.activeInvestigation = payload.latest;
-    await loadInvestigationSummaries();
-    renderInvestigations();
+  if (
+    response.status === 409
+    && payload?.error?.code === 'revision_conflict'
+    && payload.error.investigation_id
+  ) {
+    await refreshInvestigationAfterConflict(payload.error.investigation_id);
   }
   if (!response.ok) {
     throw new Error(
@@ -20,6 +22,19 @@ async function investigationRequest(method, path, body) {
     );
   }
   return payload;
+}
+
+async function refreshInvestigationAfterConflict(investigationId) {
+  const response = await fetch(
+    `/api/investigations/${encodeURIComponent(investigationId)}`,
+    { cache: 'no-store' },
+  );
+  if (!response.ok) return;
+  state.activeInvestigation = await response.json();
+  await loadInvestigationSummaries();
+  await loadEvidenceSelections();
+  await loadReasoning();
+  renderInvestigations();
 }
 
 async function loadInvestigationSummaries() {
@@ -262,17 +277,27 @@ function bindInvestigationActions(investigation) {
   bind('#reopenInvestigationButton', () =>
     updateActiveInvestigation('/reopen', {}));
   bind('#addAnnotationButton', async () => {
-    const annotationId = window.prompt('Annotation ID');
+    const draft = state.investigationDraft?.kind === 'annotation'
+      ? state.investigationDraft
+      : {};
+    const annotationId = window.prompt('Annotation ID', draft.annotation_id || '');
     if (annotationId === null) return;
-    const author = window.prompt('Author label');
+    const author = window.prompt('Author label', draft.author || '');
     if (author === null) return;
-    const text = window.prompt('Annotation text');
+    const text = window.prompt('Annotation text', draft.text || '');
     if (text === null) return;
+    state.investigationDraft = {
+      kind: 'annotation',
+      annotation_id: annotationId,
+      author,
+      text,
+    };
     await updateActiveInvestigation('/annotations', {
       annotation_id: annotationId,
       author,
       text,
     });
+    state.investigationDraft = null;
   });
   bind('#deleteInvestigationButton', async () => {
     if (!window.confirm(
@@ -291,13 +316,19 @@ function bindInvestigationActions(investigation) {
     button.addEventListener('click', () => {
       const annotation = asArray(investigation.annotations)
         .find((item) => item.annotation_id === button.dataset.editAnnotation);
-      const text = window.prompt('Annotation text', annotation?.body || '');
+      const text = window.prompt(
+        'Annotation text',
+        state.investigationDraft?.text || annotation?.body || '',
+      );
       if (text === null) return;
+      state.investigationDraft = { kind: 'annotation', text };
       updateActiveInvestigation(
         `/annotations/${encodeURIComponent(button.dataset.editAnnotation)}`,
         { text },
         'PUT',
-      ).catch((error) => alert(error.message));
+      ).then(() => {
+        state.investigationDraft = null;
+      }).catch((error) => alert(error.message));
     });
   });
   document.querySelectorAll('[data-delete-annotation]').forEach((button) => {

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from soc_forge.investigations.models import (
+    Decision,
     EvidenceReference,
     Investigation,
     MissingInvestigationReferenceError,
@@ -139,6 +140,63 @@ def test_create_with_classification_compatible_evidence(
 
     assert hypothesis.supporting_evidence_reference_ids == supporting
     assert hypothesis.contradicting_evidence_reference_ids == contradicting
+
+
+@pytest.mark.parametrize(
+    "decision_type",
+    (
+        "escalation",
+        "containment_recommendation",
+        "closure_rationale",
+        "investigative_conclusion",
+    ),
+)
+def test_general_decision_accepts_controlled_types(tmp_path, decision_type):
+    reasoning, _, _, prepared = build_services(tmp_path)
+    current = reasoning.record_investigation_decision(
+        "INVESTIGATION-001",
+        decision_id=f"DECISION-{decision_type}",
+        decision_type=decision_type,
+        outcome="recorded",
+        rationale="Documented analyst reasoning",
+        author="Analyst",
+        expected_revision=prepared.revision,
+    )
+    assert current.investigation.decisions[-1].decision_type == decision_type
+
+
+def test_general_decision_rejects_assessment_without_persisting(tmp_path):
+    reasoning, workspace, _, prepared = build_services(tmp_path)
+    before = workspace.get_investigation("INVESTIGATION-001")
+    workspace_file = next((tmp_path / "workspace").rglob("*.json"))
+    before_bytes = workspace_file.read_bytes()
+    with pytest.raises(InvalidDecisionTypeError):
+        reasoning.record_investigation_decision(
+            "INVESTIGATION-001",
+            decision_id="DECISION-ASSESSMENT-BYPASS",
+            decision_type="hypothesis_assessment",
+            outcome="supported",
+            rationale="Must use the assessment workflow",
+            author="Analyst",
+            expected_revision=prepared.revision,
+        )
+    after = workspace.get_investigation("INVESTIGATION-001")
+    assert after == before
+    assert after.revision == prepared.revision
+    assert after.investigation.metadata.status == before.investigation.metadata.status
+    assert after.investigation.decisions == ()
+    assert workspace_file.read_bytes() == before_bytes
+
+
+@pytest.mark.parametrize("decision_type", ("hypothesis_assessment", "legacy_review"))
+def test_persisted_decision_types_remain_read_compatible(decision_type):
+    decision = Decision.from_dict({
+        "decision_id": "DECISION-LEGACY",
+        "decision_type": decision_type,
+        "outcome": "recorded",
+        "rationale": "Historical rationale",
+    })
+    assert decision.decision_type == decision_type
 
 
 @pytest.mark.parametrize(

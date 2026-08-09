@@ -265,9 +265,10 @@ selection metadata remains available after a server restart without active
 analysis, but source details report unavailable until the matching analysis is
 run again. The server does not reopen arbitrary artifact paths.
 
-On revision conflict, the API returns the latest workspace. The browser refreshes
-the authoritative revision without automatic retry or silent merge and retains
-the attempted selection fields in transient memory where practical.
+On revision conflict, the API returns only a bounded error with the investigation
+ID and authoritative current revision. The browser fetches the latest workspace
+separately without automatic retry or silent merge and retains the attempted
+selection fields in transient memory.
 `localStorage` is not a source of truth.
 
 The evidence routes are:

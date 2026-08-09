@@ -18,13 +18,16 @@ from soc_forge.investigations.workspace_service import (
 
 
 TERMINAL_HYPOTHESIS_STATES = frozenset({"supported", "rejected", "inconclusive"})
+HYPOTHESIS_ASSESSMENT_DECISION_TYPE = "hypothesis_assessment"
 GENERAL_DECISION_TYPES = (
-        "escalation",
-        "containment_recommendation",
-        "closure_rationale",
-        "investigative_conclusion",
+    "escalation",
+    "containment_recommendation",
+    "closure_rationale",
+    "investigative_conclusion",
 )
-DECISION_TYPES = frozenset(GENERAL_DECISION_TYPES) | {"hypothesis_assessment"}
+_INTERNAL_DECISION_TYPES = (
+    frozenset(GENERAL_DECISION_TYPES) | {HYPOTHESIS_ASSESSMENT_DECISION_TYPE}
+)
 EVIDENCE_RELATIONSHIPS = frozenset({"supporting", "contradicting"})
 
 
@@ -327,7 +330,7 @@ class InvestigationReasoningService:
         decision = self._decision(
             current,
             decision_id=decision_id,
-            decision_type="hypothesis_assessment",
+            decision_type=HYPOTHESIS_ASSESSMENT_DECISION_TYPE,
             outcome=normalized_state,
             rationale=self._assessment_rationale(rationale),
             author=author,
@@ -364,7 +367,7 @@ class InvestigationReasoningService:
         decision = self._decision(
             current,
             decision_id=decision_id,
-            decision_type="hypothesis_assessment",
+            decision_type=HYPOTHESIS_ASSESSMENT_DECISION_TYPE,
             outcome="reopened",
             rationale=self._assessment_rationale(rationale),
             author=author,
@@ -398,11 +401,17 @@ class InvestigationReasoningService:
         evidence_reference_ids: Iterable[str] = (),
         hypothesis_ids: Iterable[str] = (),
     ) -> WorkspaceResult:
+        normalized_type = self._text(decision_type, "decision type")
+        if normalized_type not in GENERAL_DECISION_TYPES:
+            raise InvalidDecisionTypeError(
+                "Decision type must be one of: "
+                + ", ".join(sorted(GENERAL_DECISION_TYPES))
+            )
         current = self._current(investigation_id, expected_revision)
         decision = self._decision(
             current,
             decision_id=decision_id,
-            decision_type=decision_type,
+            decision_type=normalized_type,
             outcome=outcome,
             rationale=rationale,
             author=author,
@@ -518,9 +527,10 @@ class InvestigationReasoningService:
                 f"{current.investigation.investigation_id!r}"
             )
         normalized_type = self._text(decision_type, "decision type")
-        if normalized_type not in DECISION_TYPES:
+        if normalized_type not in _INTERNAL_DECISION_TYPES:
             raise InvalidDecisionTypeError(
-                "Decision type must be one of: " + ", ".join(sorted(DECISION_TYPES))
+                "Decision type must be one of: "
+                + ", ".join(sorted(_INTERNAL_DECISION_TYPES))
             )
         known_evidence = {
             item.reference_id for item in current.investigation.evidence_references

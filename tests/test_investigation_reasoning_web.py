@@ -590,9 +590,40 @@ def test_revision_conflict_returns_latest_without_retry(reasoning_server):
         },
     )
     assert status == 409
-    assert payload["error"]["code"] == "revision_conflict"
-    assert payload["latest"]["revision"] == created["revision"] + 1
-    assert payload["latest"]["investigation"]["hypotheses"][0]["statement"] != (
+    assert payload == {
+        "error": {
+            "code": "revision_conflict",
+            "message": "The investigation changed in another session.",
+            "investigation_id": "INV-REASONING",
+            "current_revision": created["revision"] + 1,
+        }
+    }
+    encoded = json.dumps(payload)
+    assert "Draft statement retained by browser" not in encoded
+    assert "PowerShell activity was used to impair defenses" not in encoded
+    assert "supporting evidence" not in encoded
+    assert "Traceback" not in encoded
+    assert "/tmp/" not in encoded
+
+    status, latest = request(
+        reasoning_server,
+        "GET",
+        "/api/investigations/INV-REASONING",
+    )
+    assert status == 200
+    assert latest["revision"] == payload["error"]["current_revision"]
+
+    status, resubmitted = request(
+        reasoning_server,
+        "PUT",
+        "/api/investigations/INV-REASONING/hypotheses/HYP-001",
+        {
+            "statement": "Draft statement retained by browser",
+            "expected_revision": latest["revision"],
+        },
+    )
+    assert status == 200
+    assert resubmitted["hypothesis"]["statement"] == (
         "Draft statement retained by browser"
     )
 
@@ -691,6 +722,9 @@ def test_reasoning_ui_source_contract_uses_safe_dom_and_controlled_vocabulary():
     assert "origin === 'analyst_selection'" in source
     assert "item.classification === classification" in source
     assert "state.reasoningDraft" in source
+    assert "refreshInvestigationAfterConflict" in source
+    assert "payload.latest" not in source
+    assert "state.activeInvestigation = await response.json()" in source
     assert "localStorage" not in source
     general_form = source.split("async function recordWebDecision()", 1)[1]
     general_form = general_form.split("function bindReasoningActions()", 1)[0]
@@ -707,6 +741,12 @@ def test_public_interfaces_have_one_reasoning_decision_workflow():
     assert "workspace_service.record_decision" not in web_api_source
     assert "recordDecisionButton" not in web_ui_source
     assert "/reasoning/decisions" in web_ui_source
+    app_source = Path("soc_forge/web/app.py").read_text(encoding="utf-8")
+    conflict_branch = app_source.split(
+        "if isinstance(exc, InvestigationConflictError):", 1
+    )[1].split("if isinstance(exc, InvestigationAlreadyExistsError):", 1)[0]
+    assert "send_revision_conflict" in conflict_branch
+    assert "workspace_response" not in conflict_branch
 
 
 def test_reasoning_web_boundary_does_not_construct_domain_models_or_write_json():

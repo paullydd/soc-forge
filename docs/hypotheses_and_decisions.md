@@ -31,7 +31,7 @@ Assessing to the current state and reopening an already-open hypothesis are inva
 
 > A supported hypothesis reflects the analyst's assessment of the current evidence. It does not establish objective or legal certainty.
 
-Hypotheses are durable and cannot be deleted through this service. Open hypothesis statements may be edited. Assessed hypotheses must be reopened before editing so prior assessments continue to refer to the statement they evaluated. Editing preserves the creation timestamp and evidence relationships while recording the editing analyst as the current author. Reassessment preserves the reasoning history.
+Hypotheses are durable and cannot be deleted through this service. Open hypothesis statements may be edited. Assessment decisions preserve the hypothesis reference and analyst rationale, but do not snapshot the hypothesis statement. Assessed hypotheses must be reopened before editing, which creates an explicit history boundary; statement-level historical reconstruction requires separately retained repository history or exports. Editing preserves the creation timestamp and evidence relationships while recording the editing analyst as the current author. Reassessment preserves the reasoning history.
 
 ## Evidence Relationships
 

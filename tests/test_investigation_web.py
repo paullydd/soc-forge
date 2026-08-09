@@ -376,9 +376,60 @@ def test_revision_conflict_returns_latest_without_overwrite(investigation_server
         {"owner": "Stale writer", "expected_revision": current["revision"]},
     )
     assert status == 409
-    assert conflict["error"]["code"] == "revision_conflict"
-    assert conflict["latest"] == updated
-    assert conflict["latest"]["investigation"]["metadata"]["owner"] == "First writer"
+    assert conflict == {
+        "error": {
+            "code": "revision_conflict",
+            "message": "The investigation changed in another session.",
+            "investigation_id": "INV-WEB-001",
+            "current_revision": updated["revision"],
+        }
+    }
+
+
+def test_annotation_and_delete_conflicts_use_private_contract(investigation_server):
+    current, _ = create_investigation(investigation_server)
+    status, annotated = json_request(
+        investigation_server,
+        "POST",
+        "/api/investigations/INV-WEB-001/annotations",
+        {
+            "annotation_id": "NOTE-PRIVATE",
+            "author": "Analyst",
+            "text": "Stored private annotation",
+            "expected_revision": current["revision"],
+        },
+    )
+    assert status == 200
+
+    for method, path, payload, submitted_secret in (
+        (
+            "PUT",
+            "/api/investigations/INV-WEB-001/annotations/NOTE-PRIVATE",
+            {
+                "text": "Unsent private annotation",
+                "expected_revision": current["revision"],
+            },
+            "Unsent private annotation",
+        ),
+        (
+            "DELETE",
+            "/api/investigations/INV-WEB-001",
+            {"expected_revision": current["revision"]},
+            "",
+        ),
+    ):
+        status, conflict = json_request(
+            investigation_server, method, path, payload,
+        )
+        assert status == 409
+        assert conflict["error"]["current_revision"] == annotated["revision"]
+        assert set(conflict) == {"error"}
+        encoded = json.dumps(conflict)
+        assert "Stored private annotation" not in encoded
+        if submitted_secret:
+            assert submitted_secret not in encoded
+        assert "Traceback" not in encoded
+        assert str(investigation_server["workspace_root"]) not in encoded
 
 
 def test_delete_preserves_analysis_artifacts(investigation_server):

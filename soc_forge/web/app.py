@@ -381,6 +381,23 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             payload["latest"] = latest
         self.send_json(payload, status=status)
 
+    def send_revision_conflict(
+        self,
+        investigation_id: str | None,
+    ) -> None:
+        error: Dict[str, Any] = {
+            "code": "revision_conflict",
+            "message": "The investigation changed in another session.",
+        }
+        if investigation_id:
+            error["investigation_id"] = investigation_id
+            try:
+                current = self.investigation_app.get_investigation(investigation_id)
+                error["current_revision"] = current["revision"]
+            except InvestigationRepositoryError:
+                pass
+        self.send_json({"error": error}, status=409, no_store=True)
+
     def read_json_payload(self) -> Dict[str, Any] | None:
         if self.request_content_type() != "application/json":
             self.send_investigation_error(
@@ -501,19 +518,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 )
                 return
         if isinstance(exc, InvestigationConflictError):
-            latest = None
-            if investigation_id:
-                try:
-                    latest = self.investigation_app.get_investigation(investigation_id)
-                except InvestigationRepositoryError:
-                    latest = None
-            self.send_investigation_error(
-                "revision_conflict",
-                "The investigation changed in another session.",
-                409,
-                investigation_id=investigation_id,
-                latest=latest,
-            )
+            self.send_revision_conflict(investigation_id)
             return
         if isinstance(exc, InvestigationAlreadyExistsError):
             self.send_investigation_error(

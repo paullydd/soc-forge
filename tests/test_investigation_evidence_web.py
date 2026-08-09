@@ -294,7 +294,9 @@ def test_selection_validation_duplicate_and_revision_conflict(evidence_server):
         {"rationale": "Stale draft", "expected_revision": 1},
     )
     assert (status, payload["error"]["code"]) == (409, "revision_conflict")
-    assert payload["latest"]["revision"] == updated["revision"]
+    assert payload["error"]["current_revision"] == updated["revision"]
+    assert set(payload) == {"error"}
+    assert "Stale draft" not in json.dumps(payload)
 
 
 def test_update_remove_and_cross_interface_parity_preserve_artifacts(evidence_server):
@@ -560,6 +562,8 @@ def test_evidence_ui_preserves_conflict_draft_and_separates_reference_origins():
 
     assert "state.evidenceDraft = { classification, rationale, author }" in source
     assert "state.evidenceDraft = null" in source
+    assert "refreshInvestigationAfterConflict" in source
+    assert "payload.latest" not in source
     assert "Investigation Scope References" in source
     assert "Analyst-Selected Evidence" in source
     assert "scope-evidence" in source

@@ -54,10 +54,11 @@ complete cases, repository filenames, or absolute paths.
 ## Revisions and Errors
 
 The browser uses the revision returned by the server; it never predicts the
-next revision. A stale write returns `409` with code `revision_conflict` and,
-when the record still exists, the latest workspace and revision. The server
-does not retry or merge. The browser replaces stale state with that latest
-response.
+next revision. A stale write returns `409` with code `revision_conflict`, the
+investigation ID, and the authoritative current revision. The bounded conflict
+response does not contain the investigation aggregate. The browser fetches the
+latest workspace separately, retains the unsent draft in transient memory, and
+does not retry or merge automatically.
 
 Investigation API errors use:
 
@@ -66,7 +67,8 @@ Investigation API errors use:
   "error": {
     "code": "revision_conflict",
     "message": "The investigation changed in another session.",
-    "investigation_id": "INV-001"
+    "investigation_id": "INV-001",
+    "current_revision": 8
   }
 }
 ```
@@ -129,7 +131,11 @@ available only through the dedicated assessment route.
 
 Requests use JSON and modifying requests require `expected_revision`.
 Reasoning errors use the existing stable error envelope. Stale revisions return
-`revision_conflict` and the latest workspace where available. Decision list responses contain a rationale summary bounded to 160 characters; decision detail retains the complete stored rationale and references. Detail and reasoning mutation responses use `Cache-Control: no-store`.
+the bounded `revision_conflict` response; the browser retrieves the latest
+workspace separately. Decision list responses contain a rationale summary
+bounded to 160 characters; decision detail retains the complete stored rationale
+and references. Detail and reasoning mutation responses use
+`Cache-Control: no-store`.
 
 A supported or rejected state records current analyst assessment, not objective
 certainty. Decisions document reasoning and do not execute containment,
