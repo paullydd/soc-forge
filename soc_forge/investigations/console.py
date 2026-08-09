@@ -12,6 +12,7 @@ from soc_forge.investigations.evidence_console import EvidenceConsoleController
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
 from soc_forge.investigations.reasoning_console import ReasoningConsoleController
 from soc_forge.investigations.reasoning_service import InvestigationReasoningService
+from soc_forge.investigations.query_console import InvestigationQueryConsoleController
 from soc_forge.investigations.repository import (
     InvestigationConflictError,
     InvestigationRepositoryError,
@@ -38,6 +39,7 @@ class InvestigationConsoleController:
         pause_func: Callable[[], None] | None = None,
         evidence_controller: EvidenceConsoleController | None = None,
         reasoning_controller: ReasoningConsoleController | None = None,
+        query_controller: InvestigationQueryConsoleController | None = None,
     ):
         self.bootstrap_adapter = bootstrap_adapter
         self.workspace_service = workspace_service
@@ -58,6 +60,15 @@ class InvestigationConsoleController:
 
         self.reasoning_controller = reasoning_controller or ReasoningConsoleController(
             reasoning_service=InvestigationReasoningService(workspace_service),
+            input_func=input_func,
+            output_func=output_func,
+            screen_func=screen_func,
+        )
+        self.query_controller = query_controller or InvestigationQueryConsoleController(
+            workspace_service=workspace_service,
+            analysis_provider=analysis_provider,
+            evidence_controller=self.evidence_controller,
+            reasoning_controller=self.reasoning_controller,
             input_func=input_func,
             output_func=output_func,
             screen_func=screen_func,
@@ -191,6 +202,7 @@ class InvestigationConsoleController:
             self.output("[8] View decisions")
             self.output("[9] Evidence workspace")
             self.output("[10] Hypotheses and Decisions")
+            self.output("[11] Timeline and Pivot Workbench (Read Only)")
             self.output("[0] Back")
 
             choice = self.input("\nSelect option: ").strip()
@@ -216,6 +228,8 @@ class InvestigationConsoleController:
                 current = self.evidence_controller.run(current)
             elif choice == "10":
                 current = self.reasoning_controller.run(current)
+            elif choice == "11":
+                current = self.query_controller.run(current)
             else:
                 self.output("Invalid option.")
 

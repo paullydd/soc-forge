@@ -365,6 +365,37 @@ class ReasoningConsoleController:
             self._render_decision(item)
         return decisions
 
+    def show_hypothesis_details(
+        self,
+        current: WorkspaceResult,
+        hypothesis_id: str,
+    ) -> None:
+        """Render an existing hypothesis without entering its write-action loop."""
+        hypothesis = self._hypothesis(current, hypothesis_id)
+        if hypothesis is None:
+            self.output("Hypothesis is no longer available.")
+            return
+        self._render_hypothesis(current, hypothesis)
+
+    def show_decision_details(
+        self,
+        current: WorkspaceResult,
+        decision_id: str,
+    ) -> None:
+        """Render an existing decision, including unknown legacy decision types."""
+        decision = next(
+            (
+                item
+                for item in current.investigation.decisions
+                if item.decision_id == decision_id
+            ),
+            None,
+        )
+        if decision is None:
+            self.output("Decision is no longer available.")
+            return
+        self._render_decision(decision)
+
     def record_decision(self, current: WorkspaceResult) -> WorkspaceResult:
         decision_id = self.input("Decision ID (blank to cancel): ").strip()
         if not decision_id:

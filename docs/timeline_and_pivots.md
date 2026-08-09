@@ -129,3 +129,66 @@ This slice is an in-memory local query foundation. It adds no persistence,
 database, locking, UI, HTTP routes, exports, detections, correlations, case
 construction, causal inference, risk scoring, graph centrality, enrichment, or
 hosted behavior.
+
+
+## Analyst Console Workbench
+
+Open a durable investigation from **Investigation Workspaces**, then choose
+**Timeline and Pivot Workbench (Read Only)**. The workbench requires the active
+completed analysis whose provenance matches the investigation. It does not
+rerun analysis or substitute another result. If the analysis is unavailable or
+does not match, the durable workspace remains intact and the query session does
+not open.
+
+The console workflow is:
+
+```text
+Open investigation
+  -> Timeline and Pivot Workbench
+  -> Review chronology
+  -> Filter to host/user/rule
+  -> Pivot into entity
+  -> Inspect related evidence
+  -> Return to timeline
+```
+
+The canonical timeline keeps service ordering unchanged and presents timed and
+untimed entries in separate sections. Compact rows distinguish telemetry and
+machine findings from analyst reasoning context. They show bounded summaries,
+stable identifiers, evidence classifications, reasoning-overlay indicators,
+and sensitive-field warnings without displaying command lines, raw messages,
+annotation bodies, or analyst rationale.
+
+Timeline filters cover time range, entry type, host, user, IP, process, rule,
+ATT&CK tactic and technique, severity, evidence classification, hypothesis,
+and case. Filters retain the query service's AND semantics. They are transient
+to one workbench session, can be adjusted or cleared, and are never stored in
+the investigation.
+
+The entity browser presents query-layer identities for hosts, users, IPs,
+processes, services, rules, ATT&CK techniques, cases, evidence, and hypotheses.
+Pivots render only service-provided matches and relationship explanations.
+Related entities mean directly co-observed source records; the console does not
+describe them as causal or infer relationships from timing or similarity.
+
+Evidence overlays remain explicitly labeled Supporting, Contradicting, or
+Context. Hypothesis overlays retain their analyst-authored relationship and
+state without becoming machine certainty. Decision overlays show ID and type,
+including unknown legacy types, but omit rationale. Evidence, hypothesis, and
+decision details delegate to the existing detail controllers rather than
+copying their resolution or sensitive-value handling.
+
+The workbench provides an explicit refresh action. If the durable investigation
+revision changes during a session, further queries pause until refresh. If the
+active analysis changes to mismatched provenance, the analyst must leave and
+reopen the workbench with the matching completed analysis.
+
+> The analyst console workbench is a read-only consumer of the shared
+> investigation query layer. It does not create relationships, detections,
+> cases, evidence selections, hypotheses, or decisions.
+
+Opening, filtering, pivoting, viewing details, and refreshing do not change the
+investigation revision, repository record, analysis result, or artifact files.
+Sensitive source values remain governed by the existing evidence detail
+confirmation. Analysts should remember that terminal scrollback can retain any
+values they explicitly choose to reveal.

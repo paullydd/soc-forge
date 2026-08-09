@@ -185,6 +185,25 @@ class EvidenceConsoleController:
             self.output(f"  Normalized: {'yes' if provenance.normalized else 'no'}")
             self.output(f"  Sensitive: {'yes' if field.sensitive else 'no'}")
 
+    def show_evidence_details(
+        self,
+        current: WorkspaceResult,
+        evidence_id: str,
+    ) -> None:
+        """Render one selected evidence item through the established detail path."""
+        analysis = self._matching_analysis(current, explain=False)
+        if analysis is None:
+            self.output(
+                "Source details cannot be resolved until the matching analysis is loaded or rerun."
+            )
+            return
+        try:
+            candidate = self.catalog.get_candidate(analysis, evidence_id)
+        except EvidenceCatalogError:
+            self.output("The selected source evidence is not currently available.")
+            return
+        self.show_candidate_details(analysis, candidate)
+
     def select_candidate(
         self,
         current: WorkspaceResult,

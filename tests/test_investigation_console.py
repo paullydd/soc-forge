@@ -191,6 +191,28 @@ def test_workspace_evidence_and_reasoning_options_still_dispatch(tmp_path):
     assert calls == ["evidence", "reasoning"]
 
 
+def test_workspace_timeline_and_pivot_option_dispatches_read_only_controller(tmp_path):
+    analysis = build_analysis(tmp_path)
+    controller, _, _ = build_controller(
+        tmp_path,
+        ["1", "INV-QUERY", "", "", "y"],
+        analysis,
+    )
+    current = create_workspace(controller)
+    calls = []
+
+    class QueryController:
+        def run(self, value):
+            calls.append(value.revision)
+            return value
+
+    controller.query_controller = QueryController()
+    controller.input = ScriptedInput(["11", "0"])
+
+    assert controller.workspace_loop(current) == current
+    assert calls == [current.revision]
+
+
 def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     analysis = build_analysis(tmp_path)
     controller, service, messages = build_controller(
@@ -218,6 +240,7 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     assert any("Decisions: 0" in line for line in messages)
     assert "[9] Evidence workspace" in messages
     assert "[10] Hypotheses and Decisions" in messages
+    assert "[11] Timeline and Pivot Workbench (Read Only)" in messages
     assert "[9] Record decision" not in messages
 
 
