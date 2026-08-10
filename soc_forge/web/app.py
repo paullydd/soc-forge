@@ -391,7 +391,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         payload: Dict[str, Any] = {"error": error}
         if latest is not None:
             payload["latest"] = latest
-        self.send_json(payload, status=status)
+        self.send_json(payload, status=status, no_store=True)
 
     def send_revision_conflict(
         self,

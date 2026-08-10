@@ -539,6 +539,7 @@ def test_only_bootstrap_imports_concrete_pipeline_result():
     assert set(concrete_importers) == {
         "bootstrap.py",
         "evidence_catalog.py",
+        "handoff.py",
         "query_context.py",
     }
     assert "soc_forge.pipeline" not in imported_modules(

@@ -425,6 +425,21 @@ def test_sensitive_literals_stay_out_of_real_http_entity_urls(
             assert status == 200
             assert "Location" not in headers
 
+    error_path = base("entities/entity-host-000000000000000000000000/events")
+    status, headers, error = request(
+        query_web_server,
+        error_path,
+        include_headers=True,
+    )
+    assert status == 404
+    assert headers["Cache-Control"] == "no-store"
+    assert "Location" not in headers
+    encoded_error = json.dumps(error)
+    for _, value in sensitive:
+        assert value not in encoded_error
+        assert quote(value, safe="") not in encoded_error
+
+
 def test_opaque_entity_collision_fails_explicitly(query_web_server, monkeypatch):
     monkeypatch.setattr(
         investigation_api,
