@@ -81,6 +81,11 @@ annotation IDs, and timeline-selection IDs. It does not include output paths,
 temporary paths, dictionary insertion order, file ordering, or an export-only
 clock value.
 
+Handoff IDs identify an investigation revision and its selected investigation
+identities. They are not a cryptographic content address for every byte in the
+bundle. Revision-aware workspace services remain authoritative for material
+investigation changes.
+
 Workbench opaque entity IDs are not exported because they are transient browser
 transport identifiers, not durable investigation references.
 
@@ -169,6 +174,11 @@ transaction isolation.
 - decision-to-evidence and decision-to-hypothesis references
 - timeline hypothesis and decision references
 
+Future validator hardening may additionally check annotation targets,
+scope-to-case references, remaining timeline evidence and case references,
+identity-manifest recomputation, and handoff-ID recomputation. These checks are
+not claims of cryptographic authenticity and are not performed in v3.0.
+
 The integrity manifest is not a digital signature and does not establish
 authenticity against a malicious party who can rewrite both files and manifest.
 Digital signing is outside Slice 1.
@@ -183,9 +193,9 @@ hypothesis, decision, annotation, and timeline serializers so a later explicit
 redaction policy can be applied without changing analysis or investigation
 models.
 
-The handoff foundation provides no upload, cloud sharing, email delivery,
-authentication, digital signature, archive packaging, UI control, or hosted
-behavior.
+The handoff capability provides console and local web controls, but no upload,
+cloud sharing, email delivery, authentication, digital signature, archive
+packaging, or hosted behavior.
 ## Analyst Console Workflow
 
 Open a durable investigation in **Investigation Workspaces**, then select

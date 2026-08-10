@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+import soc_forge.investigations.handoff as handoff_module
+
 from query_fixtures import build_query_analysis, build_query_investigation
 from soc_forge.investigations.handoff import (
     HANDOFF_SCHEMA_VERSION,
@@ -319,6 +321,45 @@ def test_output_path_and_reexport_policy_are_explicit(tmp_path):
     outside = tmp_path / "outside.txt"
     outside.write_text("unchanged", encoding="utf-8")
     assert outside.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_failed_overwrite_publication_restores_previous_bundle(tmp_path, monkeypatch):
+    result, analysis, investigation, repository, _ = build_export(tmp_path)
+    before = file_hashes(result.output_path)
+    real_replace = handoff_module.os.replace
+    failure_injected = False
+
+    def fail_staging_publication(source, destination):
+        nonlocal failure_injected
+        source_path = Path(source)
+        destination_path = Path(destination)
+        if (
+            not failure_injected
+            and source_path.name.startswith(f".{investigation.investigation_id}.")
+            and destination_path == result.output_path
+        ):
+            failure_injected = True
+            raise OSError("injected publication failure")
+        return real_replace(source, destination)
+
+    monkeypatch.setattr(handoff_module.os, "replace", fail_staging_publication)
+
+    with pytest.raises(OSError, match="injected publication failure"):
+        InvestigationHandoffService(repository).export(
+            investigation.investigation_id,
+            analysis,
+            tmp_path / "handoffs",
+            overwrite=True,
+        )
+
+    assert failure_injected is True
+    assert file_hashes(result.output_path) == before
+    assert validate_handoff_bundle(result.output_path) is True
+    assert not (result.output_path.parent / f".{result.output_path.name}.previous").exists()
+    assert not any(
+        path.name.startswith(f".{investigation.investigation_id}.")
+        for path in result.output_path.parent.iterdir()
+    )
 
 
 @pytest.mark.parametrize("unsafe_id", ["../INV-QUERY", "/tmp/INV-QUERY", r"INV\QUERY"])

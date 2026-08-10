@@ -2,6 +2,32 @@
 
 SOC-Forge is organized around one shared local analysis pipeline. Input events can come from a CLI file input or from a web demo scenario, but both paths use the same detection, correlation, hunt, risk, case, reconstruction, artifact, and report behavior.
 
+## V3 Investigation Lifecycle
+
+```text
+Inputs / Scenarios
+  -> Shared Analysis Pipeline
+  -> AnalysisResult + Artifacts
+  -> Durable Investigation Workspace
+  -> Evidence / Provenance
+  -> Hypotheses / Decisions
+  -> Timeline / Pivots
+  -> Investigation Handoff
+  -> Console / Web / Portable Bundle
+```
+
+Ownership remains one-way:
+
+- `soc_forge.pipeline` owns deterministic analysis and source artifacts.
+- `InvestigationRepository` and `InvestigationWorkspaceService` own durable analyst state and revisions.
+- `InvestigationEvidenceService` owns analyst evidence selection while the evidence catalog resolves immutable analysis references.
+- `InvestigationReasoningService` owns hypotheses, assessments, reopening, and investigation decisions.
+- `InvestigationTimelineService` and `InvestigationPivotService` own read-only chronology and relationship projections.
+- `InvestigationHandoffService` owns deterministic portable serialization, artifact copying, hashing, publication, and offline validation.
+- Console and web layers parse requests and present results; they do not reproduce domain or handoff logic.
+
+The pipeline is unaware of investigations. Investigation models reference completed analysis by stable provenance and logical IDs rather than embedding mutable `AnalysisResult` payloads.
+
 ## Pipeline View
 
 ```mermaid

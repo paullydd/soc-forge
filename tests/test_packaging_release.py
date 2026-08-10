@@ -61,8 +61,37 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
     )
     assert len(rule_names) == expected_rule_count
     assert "soc_forge/rules/SOCF-021.yml" in rule_names
-    assert "soc_forge/web/static/index.html" in names
-    assert not any(name.startswith("tests/") or "/fixtures/" in name for name in names)
+    static_names = sorted(
+        name for name in names if name.startswith("soc_forge/web/static/")
+    )
+    assert static_names == [
+        "soc_forge/web/static/app.js",
+        "soc_forge/web/static/index.html",
+        "soc_forge/web/static/investigations.js",
+        "soc_forge/web/static/query_workbench.js",
+        "soc_forge/web/static/styles.css",
+    ]
+    for module in (
+        "soc_forge/investigations/workspace_service.py",
+        "soc_forge/investigations/evidence_service.py",
+        "soc_forge/investigations/reasoning_service.py",
+        "soc_forge/investigations/timeline_query.py",
+        "soc_forge/investigations/pivots.py",
+        "soc_forge/investigations/handoff.py",
+    ):
+        assert module in names
+    metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+    with zipfile.ZipFile(wheel) as archive:
+        metadata = archive.read(metadata_name).decode("utf-8")
+    assert "Version: 3.0.0" in metadata
+    assert not any(
+        name.startswith("tests/")
+        or "/fixtures/" in name
+        or "__pycache__" in name
+        or name.endswith(".pyc")
+        or name.startswith(("out/", "build/", "dist/"))
+        for name in names
+    )
 
     environment = tmp_path / "venv"
     venv.EnvBuilder(with_pip=True, system_site_packages=True).create(environment)
@@ -104,6 +133,6 @@ print(json.dumps({"version": __version__, "rule_count": len(rules), "rule_ids": 
         text=True,
     )
     result = json.loads(completed.stdout)
-    assert result["version"] == "2.3.0"
+    assert result["version"] == "3.0.0"
     assert result["rule_count"] == expected_rule_count
     assert "SOCF-021" in result["rule_ids"]

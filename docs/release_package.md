@@ -6,7 +6,7 @@ This package is the recommended way to present SOC-Forge to reviewers, recruiter
 
 ```text
 Project: SOC-Forge
-Version: 2.3.0
+Version: 3.0.0
 Primary demo: Local analyst web UI guided demo
 Secondary demo: Terminal analyst console investigation workflow
 Test status: pytest -q
@@ -42,6 +42,20 @@ The guided path walks through:
 Generate -> Dashboard -> Case -> Graph -> Scorecard -> Report
 ```
 
+For the v3 investigation lifecycle, continue with one selected case:
+
+```text
+Generate Analysis
+  -> Open Case
+  -> Create Investigation
+  -> Select Evidence
+  -> Create and Assess Hypothesis
+  -> Open Timeline and Pivot Workbench
+  -> Export and Validate Handoff
+```
+
+This focused path demonstrates the durable analyst workflow in roughly 5-10 minutes without requiring every investigation feature.
+
 ## Reviewer Checklist
 
 A reviewer should be able to confirm:
@@ -55,6 +69,9 @@ A reviewer should be able to confirm:
 - The scorecard makes detection engineering quality visible
 - HTML and JSON artifacts are generated for review
 - Tests cover the major workflows
+- Durable workspaces preserve revision-aware analyst state
+- Evidence, hypotheses, decisions, timeline, pivots, and handoff use shared domain services
+- Handoff validation detects changed or missing exported files without changing source analysis
 
 ## Screenshots To Include
 
@@ -105,6 +122,7 @@ soc_forge/report/html_report.py  HTML report generation
 soc_forge/web/app.py             Local web API and scenario runner
 soc_forge/web/static/            Web UI
 soc_forge/core/investigation_graph.py  Graph model
+soc_forge/investigations/        Durable workspace, evidence, reasoning, query, and handoff services
 samples/attack_chain_demo/       Reviewable sample output
 ```
 
@@ -133,7 +151,7 @@ python -m soc_forge.web.app --port 8765
 
 ## Positioning
 
-SOC-Forge is best described as a compact local SOC investigation platform and detection engineering portfolio project. It is not trying to replace a SIEM or operate as a hosted multi-user product. The guided web demo is the primary portfolio experience, the terminal analyst console is an optional deep-dive interface, and the CLI is the automation, simulation, coverage, and detection-engineering interface.
+SOC-Forge is best described as a local, analyst-centric security investigation platform and detection engineering portfolio project. It is not trying to replace a SIEM or operate as a hosted multi-user product. The guided web demo is the primary portfolio experience, the terminal analyst console is an optional deep-dive interface, and the CLI is the automation, simulation, coverage, and detection-engineering interface.
 
 ## Local Safety
 
@@ -151,7 +169,7 @@ These ideas are postponed future work, not current release capability:
 
 ## Distribution Validation
 
-SOC-Forge v2.3.0 packages 21 built-in YAML rules. Installed CLI, pipeline, and web scorecard paths discover those rules from the installed `soc_forge.rules` package rather than the current working directory.
+SOC-Forge v3.0.0 packages 21 built-in YAML rules. Installed CLI, pipeline, and web scorecard paths discover those rules from the installed `soc_forge.rules` package rather than the current working directory.
 
 Build and validate from a clean repository root:
 
@@ -165,8 +183,8 @@ pytest -q tests/test_packaging_release.py
 Expected release artifacts:
 
 ```text
-dist/soc_forge-2.3.0-py3-none-any.whl
-dist/soc_forge-2.3.0.tar.gz
+dist/soc_forge-3.0.0-py3-none-any.whl
+dist/soc_forge-3.0.0.tar.gz
 ```
 
 The packaging contract verifies that the wheel contains all 21 YAML rules and the web static assets, both distributions exclude test fixtures and test modules, and the wheel installs into an isolated environment, discovers built-in rules outside the source checkout, reports the installed package version, and triggers SOCF-021 from a known Security Event ID 4688 event.

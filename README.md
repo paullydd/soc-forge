@@ -1,8 +1,18 @@
 # SOC-Forge
 
-SOC-Forge is a lightweight Security Operations Center (SOC) investigation platform written in Python. It processes security events, applies detection rules, correlates related alerts into cases, reconstructs attack activity, scores risk, and produces analyst-friendly reports and investigation artifacts.
+SOC-Forge is a local, analyst-centric security investigation platform written in Python. It combines deterministic telemetry analysis with durable investigation workspaces, evidence-grounded reasoning, timeline and pivot exploration, and integrity-checked handoff packages.
 
-The project is designed as a portfolio-ready SOC workflow: it shows detection engineering depth, analyst triage, attack reconstruction, case quality, graph analysis, and report export in one repeatable demo.
+The project is designed as a portfolio-ready analyst workflow: it shows how repeatable detection output becomes durable investigative state without turning SOC-Forge into a hosted SIEM or multi-user service.
+
+```text
+Analyze telemetry
+  -> Review cases
+  -> Create investigation
+  -> Select evidence
+  -> Record hypotheses and decisions
+  -> Explore timeline and pivots
+  -> Export validated handoff
+```
 
 ## What It Does
 
@@ -18,7 +28,11 @@ The project is designed as a portfolio-ready SOC workflow: it shows detection en
 - Includes attack simulation scenarios for demos and regression testing
 - Provides a local web UI with scenario switching, guided demo flow, case review, graph view, alerts, hunts, and scorecard
 - Provides a terminal analyst console for deeper case review workflows
-- Supports case filtering, sorting, owner/status persistence, closure workflow, and investigation bundle export
+- Supports durable revision-aware investigations with owner, status, annotations, and decisions
+- Preserves stable evidence identities, field-level provenance, and analyst supporting, contradicting, or context selections
+- Supports analyst-authored hypotheses, controlled assessment and reopening, and append-only decision history
+- Provides a canonical investigation timeline, deterministic filters, normalized entities, and explainable pivots
+- Exports deterministic handoff packages with an artifact allowlist, SHA-256 inventory, offline validation, and tamper detection
 - Adds case quality briefs with executive summaries, key findings, evidence rationale, containment guidance, and quality gaps
 - Includes process-chain, credential-access, lateral-movement, persistence, and collection detections
 - Scores detection engineering maturity across rule quality, MITRE coverage, evidence context, correlation depth, and demo readiness
@@ -27,7 +41,7 @@ The project is designed as a portfolio-ready SOC workflow: it shows detection en
 
 The guided local web demo is the primary portfolio experience. It gives reviewers a fast, visual path through scenario generation, dashboard triage, case review, graph analysis, the detection scorecard, and the HTML incident report.
 
-The terminal analyst console remains an optional deep-dive interface for replay, relationship exploration, lifecycle actions, and case export. The CLI remains the automation, simulation, coverage, and detection-engineering interface.
+The terminal analyst console is the deep investigation interface for durable workspaces, evidence, reasoning, timeline and pivots, and handoff validation. The CLI remains the ingestion, analysis, simulation, coverage, detection-engineering, and automation interface.
 
 ## Shared Analysis Pipeline
 
@@ -157,6 +171,11 @@ SOC-Forge now includes a portfolio-ready demo package that shows both analyst wo
 - [Detection engineering](docs/detection_engineering.md)
 - [Rule quality](docs/rule_quality.md)
 - [Web UI](docs/web_ui.md)
+- [Investigation domain](docs/investigation_domain.md)
+- [Evidence-centered investigation](docs/evidence_centered_investigation.md)
+- [Hypotheses and decisions](docs/hypotheses_and_decisions.md)
+- [Timeline and pivots](docs/timeline_and_pivots.md)
+- [Investigation handoff](docs/investigation_handoff.md)
 - [Checked-in sample artifacts](samples/attack_chain_demo/)
 
 The attack-chain scenario demonstrates RDP activity, scheduled task persistence, service-style admin account creation, privileged group assignment, log clearing, correlated case generation, investigation replay, graph review, lifecycle tracking, and case export.
