@@ -13,6 +13,7 @@ from soc_forge.investigations.query_models import (
     DecisionOverlay,
     HypothesisOverlay,
     InvestigationEntity,
+    InvestigationEntityNotFoundError,
     PivotMatch,
     PivotResult,
     RelatedEntitiesResult,
@@ -26,6 +27,40 @@ MAX_RELATED_ENTITIES = 100
 
 
 class InvestigationPivotService:
+    def entities(
+        self, context: InvestigationQueryContext
+    ) -> Tuple[InvestigationEntity, ...]:
+        discovered = {
+            (entity.entity_type, entity.normalized_value, entity.secondary_key): entity
+            for source in context.sources.values()
+            for entity in source.entities
+        }
+        for hypothesis in context.hypotheses:
+            entity = normalize_entity("hypothesis", hypothesis.hypothesis_id)
+            discovered[
+                (entity.entity_type, entity.normalized_value, entity.secondary_key)
+            ] = entity
+        return tuple(discovered[key] for key in sorted(discovered))
+
+    def resolve_entity(
+        self,
+        context: InvestigationQueryContext,
+        entity_type: str,
+        value: object,
+    ) -> InvestigationEntity:
+        requested = normalize_entity(entity_type, value)
+        entity = next(
+            (
+                item
+                for item in self.entities(context)
+                if self._entity_equal(requested, item)
+            ),
+            None,
+        )
+        if entity is None:
+            raise InvestigationEntityNotFoundError("Entity not found")
+        return entity
+
     def events_for_entity(self, context, entity_type, value) -> PivotResult:
         return self._source_result(context, entity_type, value, {"event"})
 

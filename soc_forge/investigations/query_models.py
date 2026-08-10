@@ -68,6 +68,10 @@ class InvalidEntityValueError(InvestigationQueryError):
     pass
 
 
+class InvestigationEntityNotFoundError(InvestigationQueryError):
+    pass
+
+
 class UnsupportedTimelineFilterError(InvestigationQueryError):
     pass
 

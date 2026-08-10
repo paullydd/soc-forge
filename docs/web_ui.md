@@ -150,3 +150,47 @@ requests use optimistic revisions and no automatic conflict retry.
 See [Hypotheses and Decisions](hypotheses_and_decisions.md) and
 [Web Investigation Workspaces](web_investigation_workspaces.md) for the full
 workflow and route contracts.
+
+
+## Web Timeline and Pivot Workbench
+
+Open an investigation and use **Timeline and Pivot Workbench - Read Only** to
+review the canonical chronology or browse normalized entities. Timed and
+untimed entries are separate. Controlled filters support time, entry type,
+host, user, IP, process, rule, ATT&CK tactic and technique, severity, evidence
+classification, hypothesis, and case. Multiple filters use shared AND
+semantics and remain only in browser memory.
+
+Entity pivots expose events, alerts, cases, evidence, hypotheses, related
+entities, and the entity timeline. Relationship reasons come directly from the
+shared query service. Evidence classifications remain analyst overlays;
+hypothesis states remain analyst assessments; decision lists show ID and type
+without rationale. The UI navigates to existing evidence, hypothesis, and
+decision details instead of duplicating those contracts.
+
+The workbench requires the matching active completed analysis. It does not
+rerun analysis. Each response includes the current investigation revision; a
+revision difference displays **Workbench data may be stale** and the analyst
+can refresh explicitly. Workbench responses use `Cache-Control: no-store`,
+render untrusted values with safe DOM text insertion, and never persist source
+content in local storage.
+
+Read-only routes:
+
+```text
+GET /api/investigations/{id}/timeline
+GET /api/investigations/{id}/timeline/{entry_id}
+GET /api/investigations/{id}/entities?type={entity_type}
+GET /api/investigations/{id}/entities/{entity_type}/{entity_value}
+GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/events
+GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/alerts
+GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/cases
+GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/evidence
+GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/hypotheses
+GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/timeline
+GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/related
+```
+
+> The web workbench is a read-only presentation of shared timeline and pivot
+> query results. It does not create new relationships, detections, cases,
+> evidence selections, hypotheses, or decisions.

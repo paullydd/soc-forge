@@ -306,20 +306,7 @@ class InvestigationQueryConsoleController:
         return selected
 
     def entities(self, context: InvestigationQueryContext) -> tuple[InvestigationEntity, ...]:
-        discovered = {
-            (entity.entity_type, entity.normalized_value, entity.secondary_key): entity
-            for source in context.sources.values()
-            for entity in source.entities
-        }
-        for hypothesis in context.hypotheses:
-            entity = InvestigationEntity(
-                "hypothesis",
-                hypothesis.hypothesis_id,
-                hypothesis.hypothesis_id,
-                hypothesis.hypothesis_id,
-            )
-            discovered[(entity.entity_type, entity.normalized_value, None)] = entity
-        return tuple(discovered[key] for key in sorted(discovered))
+        return self.pivot_service.entities(context)
 
     def render_entity_summary(
         self, context: InvestigationQueryContext, entity: InvestigationEntity

@@ -192,6 +192,23 @@ function renderInvestigations() {
         <div id="reasoningStatus" class="muted evidence-status"></div>
         <div id="reasoningWorkspace" class="workspace-records"></div>
       </section>
+      <section class="brief-section workbench-section">
+        <div class="panel-head">
+          <h3>Timeline and Pivot Workbench</h3>
+          <span class="pill">Read Only</span>
+        </div>
+        <p class="muted">Canonical chronology and explainable entity relationships from the matching completed analysis.</p>
+        <div class="workspace-actions">
+          <button id="openTimelineWorkbenchButton" type="button">Open Timeline</button>
+          <button id="browseWorkbenchEntitiesButton" type="button">Browse Entities</button>
+          <button id="refreshWorkbenchButton" type="button">Refresh</button>
+        </div>
+        <div id="workbenchStaleWarning" class="evidence-warning"></div>
+        <div id="workbenchStatus" class="muted evidence-status"></div>
+        <div id="workbenchFilters"></div>
+        <div id="workbenchActiveFilters" class="pill-row"></div>
+        <div id="workbenchContent" class="workbench-content"></div>
+      </section>
       <section class="brief-section evidence-section">
         <div class="panel-head">
           <h3>Evidence</h3>
@@ -244,6 +261,7 @@ function renderInvestigations() {
   bindInvestigationActions(investigation);
   bindEvidenceActions();
   bindReasoningActions();
+  bindInvestigationWorkbench();
   renderEvidenceSummary();
   renderReasoningSummary();
 }

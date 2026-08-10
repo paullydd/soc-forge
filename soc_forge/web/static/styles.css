@@ -116,6 +116,13 @@ ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); line-height: 1.55
 .workspace-metadata span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
 .workspace-metadata strong { display: block; margin-top: 6px; overflow-wrap: anywhere; }
 .workspace-actions, .record-actions, .record-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.workbench-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0; }
+.workbench-filter { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+.workbench-filter input { width: 100%; }
+.workbench-content { margin-top: 14px; border-top: 1px solid var(--line); }
+.workbench-row { display: grid; width: 100%; gap: 5px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; }
+.workbench-detail-row { display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.workbench-pivot-row { display: grid; gap: 5px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .workspace-records { display: grid; gap: 8px; margin-top: 10px; }
 .workspace-record p { margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .record-head .muted { margin-left: auto; }

@@ -15,6 +15,7 @@ from soc_forge.investigations.bootstrap import (
     InvestigationBootstrapError,
 )
 from soc_forge.investigations.evidence_catalog import (
+    AmbiguousLegacyEvidenceIdentityError,
     EvidenceCandidateNotFoundError,
     UnsupportedEvidenceTypeError,
 )
@@ -26,6 +27,15 @@ from soc_forge.investigations.evidence_service import (
     InvalidEvidenceRationaleError,
 )
 from soc_forge.investigations.models import MissingInvestigationReferenceError
+from soc_forge.investigations.query_models import (
+    AnalysisProvenanceMismatchError,
+    InvalidEntityValueError,
+    InvestigationEntityNotFoundError,
+    InvalidTimelineRangeError,
+    QuerySourceReferenceNotFoundError,
+    UnsupportedEntityTypeError,
+    UnsupportedTimelineFilterError,
+)
 from soc_forge.investigations.paths import resolve_workspace_root
 from soc_forge.investigations.reasoning_service import (
     AssessedHypothesisNotEditableError,
@@ -70,6 +80,7 @@ from soc_forge.web.investigation_api import (
     DecisionNotFoundError,
     InvestigationRequestError,
     LegacyDecisionMutationError,
+    TimelineEntryNotFoundError,
     InvestigationWebApplication,
     NoActiveAnalysisError,
 )
@@ -492,6 +503,38 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                     latest=latest,
                 )
                 return
+        query_errors = (
+            (InvalidTimelineRangeError, "invalid_time_range", 400),
+            (UnsupportedTimelineFilterError, "invalid_filter", 400),
+            (UnsupportedEntityTypeError, "unsupported_entity_type", 400),
+            (InvalidEntityValueError, "invalid_entity_value", 400),
+            (InvestigationEntityNotFoundError, "entity_not_found", 404),
+            (TimelineEntryNotFoundError, "timeline_entry_not_found", 404),
+            (
+                AmbiguousLegacyEvidenceIdentityError,
+                "ambiguous_legacy_evidence",
+                409,
+            ),
+            (
+                AnalysisProvenanceMismatchError,
+                "analysis_provenance_mismatch",
+                409,
+            ),
+            (
+                QuerySourceReferenceNotFoundError,
+                "source_reference_not_found",
+                409,
+            ),
+        )
+        for error_type, code, status in query_errors:
+            if isinstance(exc, error_type):
+                self.send_investigation_error(
+                    code,
+                    self._query_error_message(code),
+                    status,
+                    investigation_id=investigation_id,
+                )
+                return
         evidence_errors = (
             (EvidenceAnalysisUnavailableError, "analysis_unavailable", 409),
             (
@@ -611,6 +654,71 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             "assessed_hypothesis_not_editable": "Reopen the hypothesis before editing its statement.",
             "legacy_decision_mutation_disabled": "Use the reasoning decisions endpoint to record analyst decisions.",
         }[code]
+
+    @staticmethod
+    def _query_error_message(code: str) -> str:
+        return {
+            "invalid_time_range": "The timeline time range is invalid.",
+            "invalid_filter": "A timeline filter is unsupported or invalid.",
+            "unsupported_entity_type": "Unsupported entity type.",
+            "invalid_entity_value": "Invalid entity value.",
+            "entity_not_found": "Entity not found.",
+            "timeline_entry_not_found": "Timeline entry not found.",
+            "ambiguous_legacy_evidence": "Legacy evidence identity is ambiguous.",
+            "analysis_provenance_mismatch": "The active analysis does not match this investigation.",
+            "source_reference_not_found": "An investigation source reference is unavailable.",
+        }[code]
+
+    @staticmethod
+    def timeline_filters(query: str) -> Dict[str, Any]:
+        values = parse_qs(query, keep_blank_values=True)
+        supported = {
+            "start_time",
+            "end_time",
+            "entry_type",
+            "host",
+            "user",
+            "ip",
+            "process",
+            "rule_id",
+            "attack_tactic",
+            "attack_technique",
+            "severity",
+            "evidence_classification",
+            "hypothesis_id",
+            "case_id",
+        }
+        unknown = sorted(set(values).difference(supported))
+        if unknown:
+            raise UnsupportedTimelineFilterError(
+                f"Unsupported timeline filter: {unknown[0]}"
+            )
+        controlled = {
+            "severity": {"critical", "high", "medium", "low"},
+            "evidence_classification": {
+                "supporting",
+                "contradicting",
+                "context",
+            },
+        }
+        for key, allowed in controlled.items():
+            if key in values and any(
+                item.casefold() not in allowed for item in values[key] if item
+            ):
+                raise UnsupportedTimelineFilterError(
+                    f"Invalid value for timeline filter: {key}"
+                )
+        result: Dict[str, Any] = {}
+        for key, items in values.items():
+            if key == "entry_type":
+                result["entry_types"] = tuple(item for item in items if item)
+            elif len(items) != 1:
+                raise UnsupportedTimelineFilterError(
+                    f"Timeline filter {key} must appear once"
+                )
+            elif items[0]:
+                result[key] = items[0]
+        return result
 
     @staticmethod
     def _evidence_error_message(code: str) -> str:
@@ -837,6 +945,56 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             try:
                 if not segments:
                     self.send_json(self.investigation_app.list_investigations())
+                    return
+                if len(segments) == 2 and segments[1] == "timeline":
+                    self.send_json(
+                        self.investigation_app.get_timeline(
+                            segments[0], self.timeline_filters(parsed.query)
+                        ),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 3 and segments[1] == "timeline":
+                    self.send_json(
+                        self.investigation_app.get_timeline_entry(
+                            segments[0], unquote(segments[2])
+                        ),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 2 and segments[1] == "entities":
+                    entity_type = (
+                        parse_qs(parsed.query, keep_blank_values=True)
+                        .get("type", [None])[0]
+                        or None
+                    )
+                    self.send_json(
+                        self.investigation_app.list_query_entities(
+                            segments[0], entity_type
+                        ),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 4 and segments[1] == "entities":
+                    self.send_json(
+                        self.investigation_app.get_query_entity(
+                            segments[0],
+                            unquote(segments[2]),
+                            unquote(segments[3]),
+                        ),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 5 and segments[1] == "entities":
+                    self.send_json(
+                        self.investigation_app.get_entity_pivot(
+                            segments[0],
+                            unquote(segments[2]),
+                            unquote(segments[3]),
+                            unquote(segments[4]),
+                        ),
+                        no_store=True,
+                    )
                     return
                 if (
                     len(segments) == 3

@@ -6,6 +6,13 @@ from typing import Any, Callable, Dict, Mapping
 from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
+from soc_forge.investigations.pivots import InvestigationPivotService
+from soc_forge.investigations.query_context import InvestigationQueryContext
+from soc_forge.investigations.query_models import (
+    ENTITY_TYPES,
+    UnsupportedEntityTypeError,
+)
+from soc_forge.investigations.timeline_query import InvestigationTimelineService
 from soc_forge.investigations.reasoning_service import InvestigationReasoningService
 from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
@@ -35,6 +42,10 @@ class DecisionNotFoundError(InvestigationRequestError):
 
 
 class LegacyDecisionMutationError(InvestigationRequestError):
+    pass
+
+
+class TimelineEntryNotFoundError(InvestigationRequestError):
     pass
 
 
@@ -77,6 +88,8 @@ class InvestigationWebApplication:
         self.reasoning_service = reasoning_service or InvestigationReasoningService(
             workspace_service
         )
+        self.timeline_service = InvestigationTimelineService()
+        self.pivot_service = InvestigationPivotService()
 
     def list_investigations(self) -> list[Dict[str, Any]]:
         return [asdict(summary) for summary in self.workspace_service.list_investigations()]
@@ -628,6 +641,188 @@ class InvestigationWebApplication:
                 f"Hypothesis {hypothesis_id!r} was not found"
             )
         return hypothesis
+
+    def get_timeline(
+        self,
+        investigation_id: str,
+        filters: Mapping[str, Any] | None = None,
+    ) -> Dict[str, Any]:
+        current, context = self._query_context(investigation_id)
+        timeline = self.timeline_service.timeline(context, filters=filters)
+        return {
+            "investigation_id": timeline.investigation_id,
+            "source_analysis_id": timeline.source_analysis_id,
+            "revision": current.revision,
+            "timed_entries": [asdict(item) for item in timeline.entries],
+            "untimed_entries": [asdict(item) for item in timeline.untimed_entries],
+            "applied_filters": asdict(timeline.applied_filters),
+            "limitations": list(timeline.limitations),
+        }
+
+    def get_timeline_entry(
+        self, investigation_id: str, entry_id: str
+    ) -> Dict[str, Any]:
+        payload = self.get_timeline(investigation_id)
+        entry = next(
+            (
+                item
+                for item in payload["timed_entries"] + payload["untimed_entries"]
+                if item["entry_id"] == entry_id
+            ),
+            None,
+        )
+        if entry is None:
+            raise TimelineEntryNotFoundError("Timeline entry not found")
+        return {
+            "investigation_id": payload["investigation_id"],
+            "source_analysis_id": payload["source_analysis_id"],
+            "revision": payload["revision"],
+            "entry": entry,
+            "navigation": {
+                "evidence_id": entry["evidence_id"],
+                "hypothesis_ids": entry["related_hypothesis_ids"],
+                "decision_ids": entry["related_decision_ids"],
+            },
+        }
+
+    def list_query_entities(
+        self, investigation_id: str, entity_type: str | None = None
+    ) -> Dict[str, Any]:
+        current, context = self._query_context(investigation_id)
+        if entity_type is not None and entity_type not in ENTITY_TYPES:
+            raise UnsupportedEntityTypeError(
+                f"Unsupported entity type: {entity_type}"
+            )
+        entities = tuple(
+            item
+            for item in self.pivot_service.entities(context)
+            if entity_type is None or item.entity_type == entity_type
+        )
+        return {
+            "investigation_id": investigation_id,
+            "source_analysis_id": context.source_analysis_id,
+            "revision": current.revision,
+            "entity_type": entity_type,
+            "entities": [self._entity_summary(context, item) for item in entities],
+            "limitations": [],
+        }
+
+    def get_query_entity(
+        self, investigation_id: str, entity_type: str, entity_value: str
+    ) -> Dict[str, Any]:
+        current, context = self._query_context(investigation_id)
+        entity = self._resolve_entity(context, entity_type, entity_value)
+        return {
+            "investigation_id": investigation_id,
+            "source_analysis_id": context.source_analysis_id,
+            "revision": current.revision,
+            "entity": self._entity_summary(context, entity),
+        }
+
+    def get_entity_pivot(
+        self,
+        investigation_id: str,
+        entity_type: str,
+        entity_value: str,
+        category: str,
+    ) -> Dict[str, Any]:
+        current, context = self._query_context(investigation_id)
+        entity = self._resolve_entity(context, entity_type, entity_value)
+        if category == "timeline":
+            timeline = self.pivot_service.timeline_for_entity(
+                context, entity.entity_type, entity.value
+            )
+            return {
+                "investigation_id": investigation_id,
+                "source_analysis_id": context.source_analysis_id,
+                "revision": current.revision,
+                "entity": asdict(entity),
+                "timed_entries": [asdict(item) for item in timeline.entries],
+                "untimed_entries": [asdict(item) for item in timeline.untimed_entries],
+                "applied_filters": asdict(timeline.applied_filters),
+                "limitations": list(timeline.limitations),
+            }
+        if category == "related":
+            result = self.pivot_service.related_entities(
+                context, entity.entity_type, entity.value
+            )
+            return {
+                "investigation_id": result.investigation_id,
+                "source_analysis_id": result.source_analysis_id,
+                "revision": current.revision,
+                "entity": asdict(result.entity),
+                "relationships": [asdict(item) for item in result.relationships],
+                "limitations": list(result.limitations),
+            }
+        operations = {
+            "events": self.pivot_service.events_for_entity,
+            "alerts": self.pivot_service.alerts_for_entity,
+            "cases": self.pivot_service.cases_for_entity,
+            "evidence": self.pivot_service.evidence_for_entity,
+            "hypotheses": self.pivot_service.hypotheses_for_entity,
+        }
+        operation = operations.get(category)
+        if operation is None:
+            raise InvestigationRequestError("Unsupported entity pivot category")
+        result = operation(context, entity.entity_type, entity.value)
+        return {
+            "investigation_id": result.investigation_id,
+            "source_analysis_id": result.source_analysis_id,
+            "revision": current.revision,
+            "entity": asdict(result.entity),
+            "matches": [asdict(item) for item in result.matches],
+            "limitations": list(result.limitations),
+        }
+
+    def _query_context(self, investigation_id: str):
+        current, analysis = self._evidence_context(investigation_id)
+        return current, InvestigationQueryContext(
+            analysis,
+            current.investigation,
+            evidence_catalog=self.evidence_catalog,
+        )
+
+    def _resolve_entity(self, context, entity_type: str, entity_value: str):
+        return self.pivot_service.resolve_entity(
+            context, entity_type, entity_value
+        )
+
+    def _entity_summary(self, context, entity) -> Dict[str, Any]:
+        results = (
+            self.pivot_service.events_for_entity(
+                context, entity.entity_type, entity.value
+            ),
+            self.pivot_service.alerts_for_entity(
+                context, entity.entity_type, entity.value
+            ),
+            self.pivot_service.cases_for_entity(
+                context, entity.entity_type, entity.value
+            ),
+            self.pivot_service.evidence_for_entity(
+                context, entity.entity_type, entity.value
+            ),
+        )
+        timestamps = sorted(
+            value
+            for result in results
+            for match in result.matches
+            for value in (match.first_seen, match.last_seen)
+            if value
+        )
+        return {
+            **asdict(entity),
+            "observed_counts": {
+                "events": len(results[0].matches),
+                "alerts": len(results[1].matches),
+                "cases": len(results[2].matches),
+                "evidence": len(results[3].matches),
+                "evidence_selections": sum(
+                    item.analyst_selected for item in results[3].matches
+                ),
+            },
+            "first_seen": timestamps[0] if timestamps else None,
+            "last_seen": timestamps[-1] if timestamps else None,
+        }
 
     def _matching_analysis_available(self, current: WorkspaceResult) -> bool:
         analysis = self.analysis_provider()

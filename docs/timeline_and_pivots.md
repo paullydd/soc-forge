@@ -125,10 +125,9 @@ reasoning services rather than this source-query layer.
 
 ## Limitations
 
-This slice is an in-memory local query foundation. It adds no persistence,
-database, locking, UI, HTTP routes, exports, detections, correlations, case
-construction, causal inference, risk scoring, graph centrality, enrichment, or
-hosted behavior.
+The shared query foundation remains in-memory and adds no persistence, database,
+locking, exports, detections, correlations, case construction, causal inference,
+risk scoring, graph centrality, enrichment, or hosted behavior.
 
 
 ## Analyst Console Workbench
@@ -192,3 +191,47 @@ investigation revision, repository record, analysis result, or artifact files.
 Sensitive source values remain governed by the existing evidence detail
 confirmation. Analysts should remember that terminal scrollback can retain any
 values they explicitly choose to reveal.
+
+
+## Web Timeline and Pivot Workbench
+
+The investigation detail page includes **Timeline and Pivot Workbench - Read
+Only**. It consumes the same `InvestigationQueryContext`,
+`InvestigationTimelineService`, and `InvestigationPivotService` used by the
+analyst console. Web and console results therefore share timeline IDs,
+timed/untimed partitioning, ordering, normalized entities, filters, relationship
+reasons, and analyst overlays.
+
+The web workflow is:
+
+```text
+Open investigation
+  -> Timeline and Pivot Workbench
+  -> Review chronology
+  -> Filter by host/rule
+  -> Pivot from entity
+  -> Inspect related evidence or hypothesis
+  -> Refresh if workspace changes
+```
+
+Timeline filters are typed query parameters and retain shared AND semantics.
+Filter values stay in browser memory and can be adjusted or cleared. Timed and
+untimed entries remain separate. Entity pivots expose events, alerts, cases,
+evidence, hypotheses, entity timelines, and directly observed related entities.
+Every displayed relationship reason comes from the query service; the browser
+does not infer relationships, intent, compromise, or causality.
+
+All workbench APIs require the matching active completed analysis. Missing or
+mismatched analysis returns a controlled unavailable state without rerunning
+analysis or reopening arbitrary artifacts. Responses include the current
+investigation revision. The browser shows a stale warning when its open
+workspace revision differs and refreshes only on analyst request.
+
+Workbench API responses use `Cache-Control: no-store`. Lists contain bounded
+query projections and sensitive-field indicators, not raw payloads, command
+lines, analyst rationale, or annotation bodies. Evidence and reasoning
+navigation reuses the existing detail APIs and their sensitive-value controls.
+
+> The web workbench is a read-only presentation of shared timeline and pivot
+> query results. It does not create new relationships, detections, cases,
+> evidence selections, hypotheses, or decisions.
