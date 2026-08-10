@@ -1,11 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Callable, Dict, Mapping
 
 from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
+from soc_forge.investigations.handoff import (
+    HandoffArtifactDigestMismatchError,
+    HandoffBundleValidationError,
+    HandoffManifestSummary,
+    HandoffReferenceIntegrityError,
+    HandoffResult,
+    UnsupportedHandoffSchemaError,
+    InvestigationHandoffService,
+    read_handoff_manifest,
+    validate_handoff_bundle,
+)
 from soc_forge.investigations.pivots import InvestigationPivotService
 from soc_forge.investigations.query_context import (
     InvestigationQueryContext,
@@ -54,6 +66,16 @@ class TimelineEntryNotFoundError(InvestigationRequestError):
     pass
 
 
+class HandoffRevisionConflictError(InvestigationRequestError):
+    def __init__(self, investigation_id: str, authoritative_revision: int):
+        super().__init__("The investigation revision has changed.")
+        self.investigation_id = investigation_id
+        self.authoritative_revision = authoritative_revision
+
+
+class InvalidHandoffRequestError(InvestigationRequestError):
+    pass
+
 DECISION_RATIONALE_SUMMARY_LIMIT = 160
 
 
@@ -81,6 +103,8 @@ class InvestigationWebApplication:
         evidence_catalog: AnalysisEvidenceCatalog | None = None,
         evidence_service: InvestigationEvidenceService | None = None,
         reasoning_service: InvestigationReasoningService | None = None,
+        handoff_service: InvestigationHandoffService | None = None,
+        handoff_root: Path | None = None,
     ):
         self.bootstrap_adapter = bootstrap_adapter
         self.workspace_service = workspace_service
@@ -95,6 +119,144 @@ class InvestigationWebApplication:
         )
         self.timeline_service = InvestigationTimelineService()
         self.pivot_service = InvestigationPivotService()
+        self.handoff_service = handoff_service or InvestigationHandoffService(
+            workspace_service.repository
+        )
+        self.handoff_root = Path(handoff_root or "out/handoffs")
+
+    def preview_handoff(self, investigation_id: str) -> Dict[str, Any]:
+        analysis = self._active_handoff_analysis()
+        return asdict(self.handoff_service.preview(investigation_id, analysis))
+
+    def export_handoff(
+        self, investigation_id: str, payload: Mapping[str, Any]
+    ) -> Dict[str, Any]:
+        expected_revision = self._expected_revision(payload)
+        current = self.workspace_service.get_investigation(investigation_id)
+        if current.revision != expected_revision:
+            raise HandoffRevisionConflictError(investigation_id, current.revision)
+        if payload.get("output_root", "handoffs") != "handoffs":
+            raise InvalidHandoffRequestError("Unsupported handoff output root.")
+        overwrite = payload.get("overwrite", False)
+        acknowledged = payload.get("sensitive_data_acknowledged", False)
+        if not isinstance(overwrite, bool):
+            raise InvalidHandoffRequestError("overwrite must be true or false")
+        if acknowledged is not True:
+            raise InvalidHandoffRequestError(
+                "Sensitive-data acknowledgement is required."
+            )
+        allowed = {
+            "expected_revision",
+            "output_root",
+            "overwrite",
+            "sensitive_data_acknowledged",
+        }
+        if set(payload).difference(allowed):
+            raise InvalidHandoffRequestError("Unsupported handoff export input.")
+        analysis = self._active_handoff_analysis()
+        result = self.handoff_service.export(
+            investigation_id,
+            analysis,
+            self.handoff_root,
+            overwrite=overwrite,
+        )
+        return self._handoff_result_response(result)
+
+    def get_handoff_manifest(self, investigation_id: str) -> Dict[str, Any]:
+        return self._manifest_response(
+            read_handoff_manifest(self._handoff_bundle(investigation_id))
+        )
+
+    def validate_handoff(
+        self, investigation_id: str, payload: Mapping[str, Any]
+    ) -> Dict[str, Any]:
+        if payload:
+            raise InvalidHandoffRequestError(
+                "Handoff validation does not accept request fields."
+            )
+        bundle = self._handoff_bundle(investigation_id)
+        try:
+            validate_handoff_bundle(bundle)
+            manifest = read_handoff_manifest(bundle)
+        except HandoffBundleValidationError as exc:
+            if isinstance(exc, HandoffArtifactDigestMismatchError):
+                reason = "digest_mismatch"
+            elif isinstance(exc, UnsupportedHandoffSchemaError):
+                reason = "unsupported_schema"
+            elif isinstance(exc, HandoffReferenceIntegrityError):
+                reason = "reference_integrity_failure"
+            elif "missing" in str(exc).casefold():
+                reason = "missing_file"
+            else:
+                reason = "invalid_bundle"
+            return {
+                "valid": False,
+                "handoff_id": None,
+                "investigation_id": investigation_id,
+                "schema_version": None,
+                "file_count": 0,
+                "digest_status": "invalid",
+                "reference_integrity_status": (
+                    "invalid" if reason == "reference_integrity_failure" else "unknown"
+                ),
+                "warnings": [reason],
+                "failure_reason": reason,
+            }
+        return {
+            "valid": True,
+            "handoff_id": manifest.handoff_id,
+            "investigation_id": manifest.investigation_id,
+            "schema_version": manifest.schema_version,
+            "file_count": len(manifest.files),
+            "digest_status": "valid",
+            "reference_integrity_status": "valid",
+            "warnings": [],
+        }
+
+    def _active_handoff_analysis(self) -> object:
+        analysis = self.analysis_provider()
+        if analysis is None:
+            raise NoActiveAnalysisError(
+                "A matching active analysis is required for this handoff operation."
+            )
+        return analysis
+
+    def _handoff_bundle(self, investigation_id: str) -> Path:
+        if not investigation_id or any(
+            value in investigation_id for value in ("/", "\\", "\x00")
+        ) or investigation_id in {".", ".."}:
+            raise InvalidHandoffRequestError("Invalid investigation ID.")
+        return self.handoff_root / investigation_id
+
+    @staticmethod
+    def _handoff_result_response(result: HandoffResult) -> Dict[str, Any]:
+        return {
+            "handoff_id": result.handoff_id,
+            "investigation_id": result.investigation_id,
+            "revision": result.revision,
+            "bundle_location": f"handoffs/{result.investigation_id}",
+            "manifest_location": f"handoffs/{result.investigation_id}/manifest.json",
+            "file_count": len(result.files),
+            "validation_status": result.validation_status,
+            "warnings": list(result.warnings),
+        }
+
+    @staticmethod
+    def _manifest_response(summary: HandoffManifestSummary) -> Dict[str, Any]:
+        return {
+            "schema_version": summary.schema_version,
+            "handoff_id": summary.handoff_id,
+            "investigation_id": summary.investigation_id,
+            "source_analysis_id": summary.source_analysis_id,
+            "revision": summary.revision,
+            "owner": summary.owner,
+            "status": summary.status,
+            "selected_case_ids": list(summary.selected_case_ids),
+            "files": [asdict(item) for item in summary.files],
+            "warnings": [],
+            "limitations": list(summary.limitations),
+            "sensitive_data_warning": summary.sensitive_data_warning,
+        }
 
     def list_investigations(self) -> list[Dict[str, Any]]:
         return [asdict(summary) for summary in self.workspace_service.list_investigations()]

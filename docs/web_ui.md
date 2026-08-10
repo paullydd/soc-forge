@@ -213,3 +213,21 @@ GET /api/investigations/{id}/entities/{entity_id}/related
 > The web workbench is a read-only presentation of shared timeline and pivot
 > query results. It does not create new relationships, detections, cases,
 > evidence selections, hypotheses, or decisions.
+
+
+## Web Investigation Handoff
+
+The investigation detail view includes **Investigation Handoff - Read Only**. It supports preview, explicit sensitive-data acknowledgement, export to the fixed analysis-local `handoffs` root, explicit overwrite, bounded manifest inspection, and offline integrity validation. All handoff responses use `Cache-Control: no-store`, and the browser receives safe relative bundle identifiers rather than absolute filesystem paths.
+
+Routes:
+
+```text
+GET  /api/investigations/{id}/handoff/preview
+POST /api/investigations/{id}/handoff/export
+GET  /api/investigations/{id}/handoff/manifest
+POST /api/investigations/{id}/handoff/validate
+```
+
+Export accepts only the expected revision, the controlled `handoffs` root, explicit overwrite, and sensitive-data acknowledgement. Conflicts refresh the investigation separately without automatic retry. Manifest inspection and validation use the deterministic bundle at the controlled server root and do not accept a path query parameter.
+
+Web handoff controls delegate construction and validation to the shared `InvestigationHandoffService`. The browser does not serialize, hash, copy, or validate handoff files independently. There is no archive/download, upload, sharing, automatic redaction, or signing capability in this slice.

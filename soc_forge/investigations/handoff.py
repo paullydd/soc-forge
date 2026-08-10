@@ -88,22 +88,22 @@ class HandoffReferenceIntegrityError(HandoffBundleValidationError):
 
 @dataclass(frozen=True)
 class HandoffFile:
-    filename: st
-    logical_type: st
+    filename: str
+    logical_type: str
     size: int
-    sha256: st
+    sha256: str
 
 
 @dataclass(frozen=True)
 class HandoffResult:
-    handoff_id: st
-    investigation_id: st
+    handoff_id: str
+    investigation_id: str
     revision: int
     output_path: Path
     manifest_path: Path
     files: Tuple[HandoffFile, ...]
     warnings: Tuple[str, ...]
-    validation_status: st
+    validation_status: str
 
 
 @dataclass(frozen=True)

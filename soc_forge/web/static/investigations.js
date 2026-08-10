@@ -176,6 +176,30 @@ function renderInvestigations() {
           : '<button id="changeStatusButton" type="button">Change Status</button>'}
         <button id="addAnnotationButton" type="button">Add Annotation</button>
       </div>
+      <section class="brief-section handoff-section">
+        <div class="panel-head">
+          <h3>Investigation Handoff</h3>
+          <span class="pill">Read Only</span>
+        </div>
+        <p class="muted">Read-only export of this investigation revision.</p>
+        <div class="evidence-warning">
+          This bundle may contain usernames, hosts, IPs, evidence rationales, hypothesis statements, decision rationale, annotations, and case metadata. Review the generated handoff before sharing it outside the intended environment.
+        </div>
+        <div class="workspace-actions">
+          <button id="previewHandoffButton" type="button">Preview Handoff</button>
+          <select id="handoffOutputRoot" aria-label="Handoff output root">
+            <option value="handoffs">Analysis output / handoffs</option>
+          </select>
+          <label><input id="handoffSensitiveAcknowledgement" type="checkbox"> I reviewed the sensitive-data warning</label>
+          <label><input id="handoffOverwrite" type="checkbox"> Replace existing handoff</label>
+          <button id="exportHandoffButton" type="button">Export Handoff</button>
+          <button id="inspectHandoffManifestButton" type="button">Inspect Manifest</button>
+          <button id="validateHandoffButton" type="button">Validate Bundle</button>
+        </div>
+        <p class="muted">The existing handoff will be replaced only after a new bundle is fully staged and validated.</p>
+        <div id="handoffStatus" class="muted evidence-status"></div>
+        <div id="handoffWorkspace" class="workspace-records"></div>
+      </section>
       <section class="brief-section reasoning-section">
         <div class="panel-head">
           <h3>Hypotheses and Decisions</h3>
@@ -259,6 +283,7 @@ function renderInvestigations() {
       </section>
     </div>`;
   bindInvestigationActions(investigation);
+  bindHandoffActions();
   bindEvidenceActions();
   bindReasoningActions();
   bindInvestigationWorkbench();
@@ -364,6 +389,103 @@ function bindInvestigationActions(investigation) {
 }
 
 
+function handoffBase() {
+  const investigationId =
+    state.activeInvestigation?.investigation?.investigation_id;
+  if (!investigationId) throw new Error('Open an investigation first');
+  return `/api/investigations/${encodeURIComponent(investigationId)}/handoff`;
+}
+
+function renderHandoffPayload(title, payload) {
+  const workspace = $('#handoffWorkspace');
+  const status = $('#handoffStatus');
+  if (!workspace || !status) return;
+  workspace.replaceChildren();
+  status.textContent = title;
+  const record = evidenceElement('article', 'workspace-record');
+  record.appendChild(evidenceElement('strong', null, title));
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === null || value === undefined) return;
+    const row = evidenceElement('div', 'record-head');
+    row.appendChild(evidenceElement('span', 'muted', key.replaceAll('_', ' ')));
+    row.appendChild(evidenceElement(
+      'span',
+      Array.isArray(value) || typeof value === 'object' ? 'mono' : null,
+      Array.isArray(value) || typeof value === 'object'
+        ? JSON.stringify(value)
+        : value,
+    ));
+    record.appendChild(row);
+  });
+  workspace.appendChild(record);
+}
+
+async function handoffGet(action) {
+  const response = await fetch(`${handoffBase()}/${action}`, {
+    cache: 'no-store',
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(investigationErrorMessage(payload, 'Handoff request failed'));
+  }
+  return payload;
+}
+
+function bindHandoffActions() {
+  const bind = (selector, handler) => {
+    const element = $(selector);
+    if (!element) return;
+    element.addEventListener('click', () => {
+      handler().catch((error) => {
+        const status = $('#handoffStatus');
+        if (status) status.textContent = error.message;
+      });
+    });
+  };
+  bind('#previewHandoffButton', async () => {
+    renderHandoffPayload('Handoff Preview', await handoffGet('preview'));
+  });
+  bind('#exportHandoffButton', async () => {
+    const overwrite = Boolean($('#handoffOverwrite')?.checked);
+    const acknowledged = Boolean(
+      $('#handoffSensitiveAcknowledgement')?.checked,
+    );
+    state.handoffDraft = {
+      output_root: $('#handoffOutputRoot')?.value || 'handoffs',
+      overwrite,
+      sensitive_data_acknowledged: acknowledged,
+    };
+    if (!acknowledged) {
+      throw new Error('Review and acknowledge the sensitive-data warning first.');
+    }
+    if (overwrite && !window.confirm(
+      'Replace the existing handoff after a new bundle is staged and validated?',
+    )) return;
+    const result = await investigationRequest(
+      'POST',
+      `${handoffBase()}/export`,
+      {
+        expected_revision: state.activeInvestigation.revision,
+        ...state.handoffDraft,
+      },
+    );
+    renderHandoffPayload('Handoff Exported', result);
+  });
+  bind('#inspectHandoffManifestButton', async () => {
+    renderHandoffPayload('Handoff Manifest', await handoffGet('manifest'));
+  });
+  bind('#validateHandoffButton', async () => {
+    const result = await investigationRequest(
+      'POST',
+      `${handoffBase()}/validate`,
+      {},
+    );
+    renderHandoffPayload(
+      result.valid ? 'VALID' : 'INVALID',
+      result,
+    );
+  });
+}
 function evidenceElement(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;

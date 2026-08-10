@@ -26,6 +26,14 @@ from soc_forge.investigations.evidence_service import (
     InvalidEvidenceClassificationError,
     InvalidEvidenceRationaleError,
 )
+from soc_forge.investigations.handoff import (
+    HandoffBundleValidationError,
+    HandoffProvenanceMismatchError,
+    InvestigationChangedDuringHandoffError,
+    RequiredHandoffArtifactMissingError,
+    UnsafeHandoffArtifactPathError,
+    UnsafeHandoffOutputPathError,
+)
 from soc_forge.investigations.models import MissingInvestigationReferenceError
 from soc_forge.investigations.query_models import (
     AnalysisProvenanceMismatchError,
@@ -79,6 +87,8 @@ from soc_forge.web.investigation_api import (
     EvidenceAnalysisProvenanceMismatchError,
     EvidenceAnalysisUnavailableError,
     DecisionNotFoundError,
+    HandoffRevisionConflictError,
+    InvalidHandoffRequestError,
     InvestigationRequestError,
     LegacyDecisionMutationError,
     TimelineEntryNotFoundError,
@@ -460,6 +470,33 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         exc: Exception,
         investigation_id: str | None = None,
     ) -> None:
+        if isinstance(exc, HandoffRevisionConflictError):
+            self.send_investigation_error(
+                "revision_conflict",
+                "The investigation changed in another session.",
+                409,
+                investigation_id=exc.investigation_id,
+                latest={"revision": exc.authoritative_revision},
+            )
+            return
+        handoff_errors = (
+            (HandoffProvenanceMismatchError, "analysis_provenance_mismatch", 409),
+            (InvestigationChangedDuringHandoffError, "revision_conflict", 409),
+            (RequiredHandoffArtifactMissingError, "required_artifact_missing", 409),
+            (UnsafeHandoffOutputPathError, "handoff_target_conflict", 409),
+            (UnsafeHandoffArtifactPathError, "unsafe_source_artifact", 409),
+            (HandoffBundleValidationError, "invalid_handoff_bundle", 422),
+            (InvalidHandoffRequestError, "invalid_handoff_request", 400),
+        )
+        for error_type, code, status in handoff_errors:
+            if isinstance(exc, error_type):
+                self.send_investigation_error(
+                    code,
+                    self._handoff_error_message(code),
+                    status,
+                    investigation_id=investigation_id,
+                )
+                return
         reasoning_errors = (
             (InvalidHypothesisStatementError, "invalid_hypothesis_statement", 400),
             (AssessedHypothesisNotEditableError, "assessed_hypothesis_not_editable", 409),
@@ -641,6 +678,18 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         )
 
     @staticmethod
+    def _handoff_error_message(code: str) -> str:
+        return {
+            "analysis_provenance_mismatch": "The active analysis does not match this investigation.",
+            "revision_conflict": "The investigation changed during handoff export.",
+            "required_artifact_missing": "A required analysis artifact is unavailable.",
+            "handoff_target_conflict": "The handoff target already exists or is unavailable.",
+            "unsafe_source_artifact": "A source analysis artifact is unavailable for safe export.",
+            "invalid_handoff_bundle": "The handoff bundle is invalid.",
+            "invalid_handoff_request": "The handoff request is invalid.",
+        }[code]
+
+    @staticmethod
     def _reasoning_error_message(code: str) -> str:
         return {
             "invalid_hypothesis_statement": "Hypothesis statement must be nonblank.",
@@ -756,6 +805,16 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                     self.investigation_app.create_investigation(payload),
                     status=201,
                 )
+                return True
+            if len(segments) == 3 and segments[1:] == ["handoff", "export"]:
+                result = self.investigation_app.export_handoff(
+                    investigation_id, payload
+                )
+                self.send_json(result, no_store=True)
+                return True
+            if len(segments) == 3 and segments[1:] == ["handoff", "validate"]:
+                result = self.investigation_app.validate_handoff(investigation_id, payload)
+                self.send_json(result, no_store=True)
                 return True
             if len(segments) == 2 and segments[1] == "owner":
                 result = self.investigation_app.assign_owner(investigation_id, payload)
@@ -952,6 +1011,18 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             try:
                 if not segments:
                     self.send_json(self.investigation_app.list_investigations())
+                    return
+                if len(segments) == 3 and segments[1:] == ["handoff", "preview"]:
+                    self.send_json(
+                        self.investigation_app.preview_handoff(segments[0]),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 3 and segments[1:] == ["handoff", "manifest"]:
+                    self.send_json(
+                        self.investigation_app.get_handoff_manifest(segments[0]),
+                        no_store=True,
+                    )
                     return
                 if len(segments) == 2 and segments[1] == "timeline":
                     self.send_json(
@@ -1259,6 +1330,7 @@ def make_server(
         bootstrap_adapter=adapter,
         workspace_service=service,
         analysis_provider=lambda: server.active_analysis_result,  # type: ignore[attr-defined]
+        handoff_root=out_dir / "handoffs",
     )
     return server
 

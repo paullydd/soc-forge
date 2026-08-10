@@ -251,5 +251,34 @@ export writes only the new handoff bundle: repository bytes, investigation
 revision and state, completed `AnalysisResult`, and source artifacts remain
 unchanged. Terminal scrollback may retain displayed handoff metadata.
 
-Slice 2 adds no archive format, web controls, persistent handoff history,
+Slice 3 adds web controls but no archive format, persistent handoff history,
 automatic sharing, redaction, or signing.
+
+
+## Web Investigation Workflow
+
+Open a durable investigation and use **Investigation Handoff - Read Only**:
+
+```text
+Open investigation
+  -> Investigation Handoff
+  -> Preview
+  -> Review sensitivity warning
+  -> Export
+  -> Inspect manifest
+  -> Validate
+```
+
+Preview and export require the server-owned completed analysis whose provenance matches the investigation. Preview is bounded and performs no writes. The web export root is fixed to `<analysis-output>/handoffs`; the browser cannot submit an absolute path, parent traversal, source-artifact path, or bundle file list. Responses identify a bundle with a safe relative value such as `handoffs/INV-001`, never an absolute source path.
+
+Export requires the current investigation revision and explicit acknowledgement of the sensitive-data warning. Existing targets fail by default. Overwrite must be selected and confirmed explicitly; the shared service stages and validates the replacement before publication. A revision conflict refreshes the workspace separately and is never retried automatically.
+
+Manifest inspection returns schema and provenance metadata, selected cases, and the bounded file inventory with sizes and SHA-256 digests. Validation calls the shared offline validator and reports valid or invalid with bounded categories for digest mismatch, missing files, unsupported schema, and reference-integrity failure. It does not display tampered content, repair files, or require an active analysis, so an existing bundle can be validated after server restart.
+
+All handoff API responses use `Cache-Control: no-store`. Returned data is rendered with DOM text insertion. Analyst rationale, statements, annotations, source paths, and other handoff content are not put in request URLs or browser storage.
+
+> Web handoff controls delegate construction and validation to the shared `InvestigationHandoffService`. The browser does not serialize, hash, copy, or validate handoff files independently.
+
+Console and web exports of the same investigation revision and analysis have the same handoff ID, manifest semantics, file inventory, hashes, warnings, and validation result. Their selected output roots may differ.
+
+The web handoff has no archive or download endpoint, upload, email or cloud sharing, automatic redaction, digital signature, authentication, or hosted workflow. Review the generated handoff before sharing it outside the intended environment.

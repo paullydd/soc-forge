@@ -140,3 +140,10 @@ and references. Detail and reasoning mutation responses use
 A supported or rejected state records current analyst assessment, not objective
 certainty. Decisions document reasoning and do not execute containment,
 remediation, or other response actions.
+
+
+## Investigation Handoff
+
+Each investigation detail page provides a compact, read-only handoff section. The browser can preview the current revision, acknowledge the sensitivity warning, export to the server-controlled analysis `handoffs` directory, inspect the manifest, and run offline validation. Existing bundles are replaced only after explicit overwrite confirmation and successful staged validation.
+
+The browser retains export choices only in transient memory. It receives no absolute artifact paths and performs no handoff serialization, hashing, copying, or validation. Revision conflicts refresh the authoritative investigation without retrying export. See [Investigation Handoff Packages](investigation_handoff.md).
