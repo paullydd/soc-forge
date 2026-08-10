@@ -30,6 +30,7 @@ from soc_forge.investigations.models import MissingInvestigationReferenceError
 from soc_forge.investigations.query_models import (
     AnalysisProvenanceMismatchError,
     InvalidEntityValueError,
+    InvestigationEntityIdentityCollisionError,
     InvestigationEntityNotFoundError,
     InvalidTimelineRangeError,
     QuerySourceReferenceNotFoundError,
@@ -509,6 +510,11 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             (UnsupportedEntityTypeError, "unsupported_entity_type", 400),
             (InvalidEntityValueError, "invalid_entity_value", 400),
             (InvestigationEntityNotFoundError, "entity_not_found", 404),
+            (
+                InvestigationEntityIdentityCollisionError,
+                "entity_identity_collision",
+                409,
+            ),
             (TimelineEntryNotFoundError, "timeline_entry_not_found", 404),
             (
                 AmbiguousLegacyEvidenceIdentityError,
@@ -663,6 +669,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             "unsupported_entity_type": "Unsupported entity type.",
             "invalid_entity_value": "Invalid entity value.",
             "entity_not_found": "Entity not found.",
+            "entity_identity_collision": "Entity identity could not be resolved safely.",
             "timeline_entry_not_found": "Timeline entry not found.",
             "ambiguous_legacy_evidence": "Legacy evidence identity is ambiguous.",
             "analysis_provenance_mismatch": "The active analysis does not match this investigation.",
@@ -975,24 +982,47 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                         no_store=True,
                     )
                     return
-                if len(segments) == 4 and segments[1] == "entities":
+                if len(segments) == 3 and segments[1] == "entities":
                     self.send_json(
                         self.investigation_app.get_query_entity(
                             segments[0],
                             unquote(segments[2]),
-                            unquote(segments[3]),
+                        ),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 4 and segments[1] == "entities":
+                    category = unquote(segments[3])
+                    if category not in {
+                        "events", "alerts", "cases", "evidence",
+                        "hypotheses", "timeline", "related",
+                    }:
+                        self.send_json(
+                            {
+                                "error": {
+                                    "code": "deprecated_entity_route",
+                                    "message": (
+                                        "Raw-value entity routes are no longer supported."
+                                    ),
+                                }
+                            },
+                            status=410,
+                            no_store=True,
+                        )
+                        return
+                    self.send_json(
+                        self.investigation_app.get_entity_pivot(
+                            segments[0],
+                            unquote(segments[2]),
+                            category,
                         ),
                         no_store=True,
                     )
                     return
                 if len(segments) == 5 and segments[1] == "entities":
                     self.send_json(
-                        self.investigation_app.get_entity_pivot(
-                            segments[0],
-                            unquote(segments[2]),
-                            unquote(segments[3]),
-                            unquote(segments[4]),
-                        ),
+                        {"error": {"code": "deprecated_entity_route", "message": "Raw-value entity routes are no longer supported."}},
+                        status=410,
                         no_store=True,
                     )
                     return

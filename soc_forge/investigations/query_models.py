@@ -72,6 +72,10 @@ class InvestigationEntityNotFoundError(InvestigationQueryError):
     pass
 
 
+class InvestigationEntityIdentityCollisionError(InvestigationQueryError):
+    pass
+
+
 class UnsupportedTimelineFilterError(InvestigationQueryError):
     pass
 

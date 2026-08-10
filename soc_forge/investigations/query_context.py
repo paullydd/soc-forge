@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from hashlib import sha256
 from ipaddress import ip_address
 from pathlib import PureWindowsPath
 from types import MappingProxyType
@@ -53,6 +54,27 @@ def normalize_entity(entity_type: str, value: object) -> InvestigationEntity:
     if kind == "attack_technique":
         return InvestigationEntity(kind, text, text.upper(), text)
     raise UnsupportedEntityTypeError(f"Unsupported entity type: {entity_type}")
+
+
+OPAQUE_ENTITY_DIGEST_LENGTH = 24
+
+
+def opaque_entity_id(
+    source_analysis_id: str,
+    entity: InvestigationEntity,
+) -> str:
+    fields = (
+        source_analysis_id,
+        entity.entity_type,
+        entity.normalized_value,
+        entity.secondary_key or "",
+    )
+    encoded_fields = (str(value).encode("utf-8") for value in fields)
+    manifest = b"".join(
+        len(value).to_bytes(4, "big") + value for value in encoded_fields
+    )
+    digest = sha256(manifest).hexdigest()[:OPAQUE_ENTITY_DIGEST_LENGTH]
+    return f"entity-{entity.entity_type}-{digest}"
 
 
 class InvestigationQueryContext:

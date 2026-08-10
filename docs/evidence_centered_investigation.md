@@ -84,7 +84,9 @@ the assumptions of a 96-bit truncated digest and is not a substitute for an
 external evidence-signing system.
 
 Candidate-detail HTTP responses use Cache-Control: no-store, including explicit
-sensitive-value reveals. Sensitive values are never placed in URLs.
+sensitive-value reveals. Evidence values are never placed in URLs. The web workbench likewise uses
+opaque entity IDs for navigation, so source entity values appear only in
+response bodies and not URL paths or query parameters.
 
 ## Case-Scoped Discovery
 

@@ -8,9 +8,15 @@ from urllib.parse import quote, urlencode
 
 import pytest
 
+import soc_forge.web.investigation_api as investigation_api
+
 from query_fixtures import build_query_analysis, build_query_investigation
 from soc_forge.investigations.pivots import InvestigationPivotService
-from soc_forge.investigations.query_context import InvestigationQueryContext
+from soc_forge.investigations.query_context import (
+    InvestigationQueryContext,
+    normalize_entity,
+    opaque_entity_id,
+)
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.timeline_query import InvestigationTimelineService
 from soc_forge.web.app import make_server
@@ -79,6 +85,25 @@ def artifact_hashes(info):
         key: sha256(path.read_bytes()).hexdigest()
         for key, path in info["analysis"].artifacts.items()
     }
+
+
+def listed_entity(info, entity_type, display_value=None):
+    status, payload = request(info, base("entities"))
+    assert status == 200
+    return next(
+        item
+        for item in payload["entities"]
+        if item["entity_type"] == entity_type
+        and (display_value is None or item["display_value"] == display_value)
+    )
+
+
+def entity_route(info, entity_type, category=None, display_value=None):
+    entity = listed_entity(info, entity_type, display_value)
+    path = f"entities/{quote(entity['entity_id'], safe='')}"
+    if category:
+        path += f"/{category}"
+    return base(path)
 
 
 def test_full_timeline_contract_order_untimed_overlays_and_no_store(query_web_server):
@@ -151,6 +176,8 @@ def test_multiple_filters_use_shared_and_semantics(query_web_server):
     [
         ("free_text=anything", "invalid_filter"),
         ("entry_type=unsupported", "invalid_filter"),
+        ("severity=urgent", "invalid_filter"),
+        ("evidence_classification=unknown", "invalid_filter"),
         (
             urlencode(
                 {
@@ -214,12 +241,74 @@ def test_entity_list_is_deterministic_bounded_projection(query_web_server):
     assert host["first_seen"] <= host["last_seen"]
 
 
+def test_opaque_entity_ids_are_deterministic_bounded_and_source_private():
+    sensitive = (
+        ("host", "VERY-SENSITIVE-HOST"),
+        ("user", r"DOMAIN\SensitiveUser"),
+        ("ip", "203.0.113.77"),
+        ("ip", "2001:db8::77"),
+        ("process", r"C:\Sensitive\Path\powershell.exe"),
+        ("service", "SensitiveServiceName"),
+    )
+    for entity_type, value in sensitive:
+        entity = normalize_entity(entity_type, value)
+        entity_id = opaque_entity_id("analysis-sensitive", entity)
+        assert entity_id == opaque_entity_id("analysis-sensitive", entity)
+        assert entity_id.startswith(f"entity-{entity_type}-")
+        assert len(entity_id) <= 64
+        assert value.casefold() not in entity_id.casefold()
+        assert entity_id != opaque_entity_id("analysis-other", entity)
+
+
+def test_entity_list_ids_drive_private_http_routes(query_web_server):
+    _, listing = request(query_web_server, base("entities"))
+    for entity_type in ("host", "user", "ip", "process", "service"):
+        entity = next(
+            item for item in listing["entities"] if item["entity_type"] == entity_type
+        )
+        assert entity["display_value"]
+        assert entity["entity_id"].startswith(f"entity-{entity_type}-")
+        path = base(f"entities/{quote(entity['entity_id'], safe='')}/events")
+        assert entity["display_value"] not in path
+        assert "?" not in path
+        status, _, _ = request(query_web_server, path, include_headers=True)
+        assert status == 200
+
+
+def test_foreign_and_wrong_type_entity_ids_do_not_resolve(query_web_server):
+    foreign = opaque_entity_id(
+        "different-analysis",
+        normalize_entity("host", "WS-LAB-01"),
+    )
+    status, payload = request(query_web_server, base(f"entities/{foreign}/events"))
+    assert status == 404
+    assert payload["error"]["code"] == "entity_not_found"
+
+    host = listed_entity(query_web_server, "host", "WS-LAB-01")
+    wrong_type = host["entity_id"].replace("entity-host-", "entity-user-", 1)
+    status, payload = request(query_web_server, base(f"entities/{wrong_type}/events"))
+    assert status == 404
+    assert payload["error"]["code"] == "entity_not_found"
+
+def test_opaque_entity_collision_fails_explicitly(query_web_server, monkeypatch):
+    monkeypatch.setattr(
+        investigation_api,
+        "opaque_entity_id",
+        lambda source_analysis_id, entity: "entity-collision",
+    )
+    status, payload = request(
+        query_web_server,
+        base("entities/entity-collision/events"),
+    )
+    assert status == 409
+    assert payload["error"]["code"] == "entity_identity_collision"
+
 def test_entity_type_filter_detail_and_invalid_type(query_web_server):
     status, payload = request(query_web_server, base("entities?type=host"))
     assert status == 200
     assert {item["entity_type"] for item in payload["entities"]} == {"host"}
     host = payload["entities"][0]
-    path = "entities/host/" + quote(host["display_value"], safe="")
+    path = "entities/" + quote(host["entity_id"], safe="")
     status, detail = request(query_web_server, base(path))
     assert status == 200
     assert detail["entity"]["normalized_value"] == host["normalized_value"]
@@ -249,8 +338,7 @@ def test_entity_pivot_categories(query_web_server, entity_type, category):
     path = "/".join(
         [
             "entities",
-            quote(entity_type, safe=""),
-            quote(entity["display_value"], safe=""),
+            quote(entity["entity_id"], safe=""),
             category,
         ]
     )
@@ -261,9 +349,9 @@ def test_entity_pivot_categories(query_web_server, entity_type, category):
 
 
 def test_related_entities_and_entity_timeline_are_explainable(query_web_server):
-    value = quote("WS-LAB-01", safe="")
+    entity_id = quote(listed_entity(query_web_server, "host", "WS-LAB-01")["entity_id"], safe="")
     status, related = request(
-        query_web_server, base(f"entities/host/{value}/related")
+        query_web_server, base(f"entities/{entity_id}/related")
     )
     assert status == 200
     assert related["relationships"]
@@ -271,7 +359,7 @@ def test_related_entities_and_entity_timeline_are_explainable(query_web_server):
     assert "caused by" not in json.dumps(related).casefold()
 
     status, timeline = request(
-        query_web_server, base(f"entities/host/{value}/timeline")
+        query_web_server, base(f"entities/{entity_id}/timeline")
     )
     assert status == 200
     assert all(item["host"] == "WS-LAB-01" for item in timeline["timed_entries"])
@@ -279,15 +367,15 @@ def test_related_entities_and_entity_timeline_are_explainable(query_web_server):
 
 def test_entity_not_found_and_invalid_ip_are_controlled(query_web_server):
     status, missing = request(
-        query_web_server, base("entities/host/NOT-OBSERVED/events")
+        query_web_server, base("entities/entity-host-000000000000000000000000/events")
     )
     assert status == 404
     assert missing["error"]["code"] == "entity_not_found"
-    status, invalid = request(
+    status, deprecated = request(
         query_web_server, base("entities/ip/not-an-ip/events")
     )
-    assert status == 400
-    assert invalid["error"]["code"] == "invalid_entity_value"
+    assert status == 410
+    assert deprecated["error"]["code"] == "deprecated_entity_route"
 
 
 def test_missing_active_analysis_and_provenance_mismatch_are_409(query_web_server, tmp_path):
@@ -319,13 +407,23 @@ def test_http_workbench_is_byte_and_hash_read_only(query_web_server):
     repository_before = repository_bytes(query_web_server)
     artifacts_before = artifact_hashes(query_web_server)
     analysis_before = deepcopy(query_web_server["analysis"])
+    _, timeline = request(query_web_server, base())
+    entry = next(item for item in timeline["timed_entries"] if item["source_id"] == "ALERT-001")
+    host_detail = entity_route(query_web_server, "host", display_value="WS-LAB-01")
     paths = [
         base(),
         base() + "?host=WS-LAB-01&rule_id=SOCF-021",
+        base("timeline/" + quote(entry["entry_id"], safe="")),
         base("entities"),
-        base("entities/host/WS-LAB-01/events"),
-        base("entities/host/WS-LAB-01/related"),
-        base("entities/host/WS-LAB-01/timeline"),
+        host_detail,
+        entity_route(query_web_server, "host", "events", "WS-LAB-01"),
+        entity_route(query_web_server, "host", "evidence", "WS-LAB-01"),
+        entity_route(query_web_server, "host", "hypotheses", "WS-LAB-01"),
+        entity_route(query_web_server, "host", "related", "WS-LAB-01"),
+        entity_route(query_web_server, "host", "timeline", "WS-LAB-01"),
+        base("evidence/candidates/" + quote(entry["evidence_id"], safe="")),
+        base("hypotheses/HYP-001"),
+        base("reasoning/decisions/DEC-ASSESS"),
     ]
     for path in paths:
         assert request(query_web_server, path)[0] == 200
@@ -364,7 +462,7 @@ def test_web_and_console_query_services_have_semantic_parity(query_web_server):
     ]
     pivot = service.alerts_for_entity(context, "host", "WS-LAB-01")
     _, web_pivot = request(
-        query_web_server, base("entities/host/WS-LAB-01/alerts")
+        query_web_server, entity_route(query_web_server, "host", "alerts", "WS-LAB-01")
     )
     assert [
         (item["source_id"], item["relationship_type"], item["relationship_reason"])
@@ -407,6 +505,14 @@ def test_web_workbench_ui_contract_is_safe_read_only_and_complete():
     assert "innerHTML" not in source
     assert "localStorage" not in source
     assert "encodeURIComponent" in source
+    assert "entity.entity_id" in source
+    assert "encodeURIComponent(entity.display_value)" not in source
+    assert "encodeURIComponent(entity.entity_type)" not in source
+    assert "queryControlledFilters" in source
+    assert "const input = queryNode(options ? 'select' : 'input')" in source
+    assert "entry_type:" in source
+    assert "severity:" in source
+    assert "evidence_classification:" in source
     assert "Active Filters" in source
     assert "Clear Filters" in source
     assert "Untimed Investigation Context" in source

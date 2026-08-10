@@ -175,20 +175,30 @@ can refresh explicitly. Workbench responses use `Cache-Control: no-store`,
 render untrusted values with safe DOM text insertion, and never persist source
 content in local storage.
 
+Entity lists return an opaque `entity_id` derived by the query adapter from the
+source-analysis provenance, entity type, normalized identity, and optional
+secondary identity. The browser reuses that ID and does not hash or normalize
+entities itself. Display and normalized values remain response-body fields.
+Legacy raw-value routes return `410 Gone`.
+
+> Web workbench entity navigation uses opaque entity identifiers. Hostnames,
+> usernames, IP addresses, process paths, and other source entity values are not
+> embedded in workbench request URLs or query parameters.
+
 Read-only routes:
 
 ```text
 GET /api/investigations/{id}/timeline
 GET /api/investigations/{id}/timeline/{entry_id}
 GET /api/investigations/{id}/entities?type={entity_type}
-GET /api/investigations/{id}/entities/{entity_type}/{entity_value}
-GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/events
-GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/alerts
-GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/cases
-GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/evidence
-GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/hypotheses
-GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/timeline
-GET /api/investigations/{id}/entities/{entity_type}/{entity_value}/related
+GET /api/investigations/{id}/entities/{entity_id}
+GET /api/investigations/{id}/entities/{entity_id}/events
+GET /api/investigations/{id}/entities/{entity_id}/alerts
+GET /api/investigations/{id}/entities/{entity_id}/cases
+GET /api/investigations/{id}/entities/{entity_id}/evidence
+GET /api/investigations/{id}/entities/{entity_id}/hypotheses
+GET /api/investigations/{id}/entities/{entity_id}/timeline
+GET /api/investigations/{id}/entities/{entity_id}/related
 ```
 
 > The web workbench is a read-only presentation of shared timeline and pivot

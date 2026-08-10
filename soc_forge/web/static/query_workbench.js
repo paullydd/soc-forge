@@ -8,6 +8,16 @@ const queryFilterFields = [
   ['evidence_classification', 'Evidence classification'],
   ['hypothesis_id', 'Hypothesis ID'], ['case_id', 'Case ID'],
 ];
+const queryControlledFilters = {
+  entry_type: [
+    'event', 'alert', 'case', 'reconstruction_step',
+    'analyst_evidence_selection', 'hypothesis_created',
+    'hypothesis_assessed', 'hypothesis_reopened',
+    'analyst_decision', 'annotation',
+  ],
+  severity: ['critical', 'high', 'medium', 'low'],
+  evidence_classification: ['supporting', 'contradicting', 'context'],
+};
 
 function queryNode(tag, className, text) {
   const node = document.createElement(tag);
@@ -71,8 +81,20 @@ function renderQueryFilters() {
   queryFilterFields.forEach(([field, label]) => {
     const wrapper = queryNode('label', 'workbench-filter');
     wrapper.append(queryNode('span', '', label));
-    const input = queryNode('input');
-    input.type = 'text';
+    const options = queryControlledFilters[field];
+    const input = queryNode(options ? 'select' : 'input');
+    if (options) {
+      const empty = queryNode('option', '', 'Any');
+      empty.value = '';
+      input.append(empty);
+      options.forEach((value) => {
+        const option = queryNode('option', '', value.replaceAll('_', ' '));
+        option.value = value;
+        input.append(option);
+      });
+    } else {
+      input.type = 'text';
+    }
     input.dataset.queryFilter = field;
     input.value = queryWorkbench.filters[field] || '';
     wrapper.append(input);
@@ -217,7 +239,7 @@ async function browseQueryEntities(type = '') {
 }
 
 async function openQueryPivot(entity) {
-  const root = `${queryBase()}/entities/${encodeURIComponent(entity.entity_type)}/${encodeURIComponent(entity.display_value)}`;
+  const root = `${queryBase()}/entities/${encodeURIComponent(entity.entity_id)}`;
   const categories = ['events', 'alerts', 'cases', 'evidence', 'hypotheses', 'related', 'timeline'];
   const payloads = await Promise.all(categories.map((name) => queryGet(`${root}/${name}`)));
   const target = $('#workbenchContent');

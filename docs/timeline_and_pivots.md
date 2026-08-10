@@ -215,11 +215,28 @@ Open investigation
 ```
 
 Timeline filters are typed query parameters and retain shared AND semantics.
-Filter values stay in browser memory and can be adjusted or cleared. Timed and
-untimed entries remain separate. Entity pivots expose events, alerts, cases,
-evidence, hypotheses, entity timelines, and directly observed related entities.
-Every displayed relationship reason comes from the query service; the browser
-does not infer relationships, intent, compromise, or causality.
+Entry type, severity, and evidence classification use controlled browser
+selections; server validation remains authoritative. Other normalized,
+data-dependent filters remain text inputs. Filter values stay in browser memory
+and can be adjusted or cleared. Timed and untimed entries remain separate.
+Entity pivots expose events, alerts, cases, evidence, hypotheses, entity
+timelines, and directly observed related entities. Every displayed relationship
+reason comes from the query service; the browser does not infer relationships,
+intent, compromise, or causality.
+
+Web entity responses include a deterministic opaque ID derived from the source
+analysis ID, entity type, normalized value, and optional secondary identity.
+The canonical manifest is hashed with SHA-256 and bounded to 24 hexadecimal
+digest characters. Bounded collisions are detected within the current query
+context and fail explicitly; collision impossibility is not claimed. Display
+values remain available in JSON response bodies but are never used to construct
+workbench request URLs. Legacy raw-value entity routes return `410 Gone` and are
+not used by the UI. Process basename matching can still broaden a pivot to an
+observed full path as described in **Entities and Normalization**.
+
+> Web workbench entity navigation uses opaque entity identifiers. Hostnames,
+> usernames, IP addresses, process paths, and other source entity values are not
+> embedded in workbench request URLs.
 
 All workbench APIs require the matching active completed analysis. Missing or
 mismatched analysis returns a controlled unavailable state without rerunning

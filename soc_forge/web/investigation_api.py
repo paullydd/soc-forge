@@ -7,9 +7,14 @@ from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
 from soc_forge.investigations.pivots import InvestigationPivotService
-from soc_forge.investigations.query_context import InvestigationQueryContext
+from soc_forge.investigations.query_context import (
+    InvestigationQueryContext,
+    opaque_entity_id,
+)
 from soc_forge.investigations.query_models import (
     ENTITY_TYPES,
+    InvestigationEntityIdentityCollisionError,
+    InvestigationEntityNotFoundError,
     UnsupportedEntityTypeError,
 )
 from soc_forge.investigations.timeline_query import InvestigationTimelineService
@@ -695,7 +700,7 @@ class InvestigationWebApplication:
             )
         entities = tuple(
             item
-            for item in self.pivot_service.entities(context)
+            for item in self._entity_index(context).values()
             if entity_type is None or item.entity_type == entity_type
         )
         return {
@@ -708,10 +713,10 @@ class InvestigationWebApplication:
         }
 
     def get_query_entity(
-        self, investigation_id: str, entity_type: str, entity_value: str
+        self, investigation_id: str, entity_id: str
     ) -> Dict[str, Any]:
         current, context = self._query_context(investigation_id)
-        entity = self._resolve_entity(context, entity_type, entity_value)
+        entity = self._resolve_entity_id(context, entity_id)
         return {
             "investigation_id": investigation_id,
             "source_analysis_id": context.source_analysis_id,
@@ -722,12 +727,11 @@ class InvestigationWebApplication:
     def get_entity_pivot(
         self,
         investigation_id: str,
-        entity_type: str,
-        entity_value: str,
+        entity_id: str,
         category: str,
     ) -> Dict[str, Any]:
         current, context = self._query_context(investigation_id)
-        entity = self._resolve_entity(context, entity_type, entity_value)
+        entity = self._resolve_entity_id(context, entity_id)
         if category == "timeline":
             timeline = self.pivot_service.timeline_for_entity(
                 context, entity.entity_type, entity.value
@@ -782,10 +786,23 @@ class InvestigationWebApplication:
             evidence_catalog=self.evidence_catalog,
         )
 
-    def _resolve_entity(self, context, entity_type: str, entity_value: str):
-        return self.pivot_service.resolve_entity(
-            context, entity_type, entity_value
-        )
+    def _entity_index(self, context):
+        index = {}
+        for entity in self.pivot_service.entities(context):
+            entity_id = opaque_entity_id(context.source_analysis_id, entity)
+            existing = index.get(entity_id)
+            if existing is not None and existing != entity:
+                raise InvestigationEntityIdentityCollisionError(
+                    "Opaque entity identity collision"
+                )
+            index[entity_id] = entity
+        return index
+
+    def _resolve_entity_id(self, context, entity_id: str):
+        entity = self._entity_index(context).get(entity_id)
+        if entity is None:
+            raise InvestigationEntityNotFoundError("Entity not found")
+        return entity
 
     def _entity_summary(self, context, entity) -> Dict[str, Any]:
         results = (
@@ -810,6 +827,7 @@ class InvestigationWebApplication:
             if value
         )
         return {
+            "entity_id": opaque_entity_id(context.source_analysis_id, entity),
             **asdict(entity),
             "observed_counts": {
                 "events": len(results[0].matches),
