@@ -60,10 +60,12 @@ OPAQUE_ENTITY_DIGEST_LENGTH = 24
 
 
 def opaque_entity_id(
+    investigation_id: str,
     source_analysis_id: str,
     entity: InvestigationEntity,
 ) -> str:
     fields = (
+        investigation_id,
         source_analysis_id,
         entity.entity_type,
         entity.normalized_value,

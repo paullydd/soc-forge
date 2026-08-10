@@ -156,10 +156,12 @@ workflow and route contracts.
 
 Open an investigation and use **Timeline and Pivot Workbench - Read Only** to
 review the canonical chronology or browse normalized entities. Timed and
-untimed entries are separate. Controlled filters support time, entry type,
-host, user, IP, process, rule, ATT&CK tactic and technique, severity, evidence
-classification, hypothesis, and case. Multiple filters use shared AND
-semantics and remain only in browser memory.
+untimed entries are separate. Entry type, severity, and evidence classification
+use controlled browser selections. Data-dependent host, user, IP, process, rule
+ID, ATT&CK tactic, ATT&CK technique, hypothesis ID, and case ID filters remain
+text inputs, while the server remains authoritative for validation of every
+filter. Multiple filters use shared AND semantics and remain only in browser
+memory.
 
 Entity pivots expose events, alerts, cases, evidence, hypotheses, related
 entities, and the entity timeline. Relationship reasons come directly from the
@@ -176,10 +178,17 @@ render untrusted values with safe DOM text insertion, and never persist source
 content in local storage.
 
 Entity lists return an opaque `entity_id` derived by the query adapter from the
-source-analysis provenance, entity type, normalized identity, and optional
-secondary identity. The browser reuses that ID and does not hash or normalize
-entities itself. Display and normalized values remain response-body fields.
-Legacy raw-value routes return `410 Gone`.
+investigation ID, source-analysis provenance, entity type, normalized identity,
+and optional secondary identity. The browser reuses that ID and does not hash or
+normalize entities itself. IDs are transient workbench transport identifiers,
+not durable evidence or entity references. The same logical entity receives a
+different ID in another investigation. Display and normalized values remain
+response-body fields. Legacy raw-value routes return `410 Gone`.
+
+> Workbench entity identifiers are scoped to both the durable investigation and
+> its matching completed analysis. An entity identifier issued for one
+> investigation is not valid in another investigation, even when both reference
+> the same analysis.
 
 > Web workbench entity navigation uses opaque entity identifiers. Hostnames,
 > usernames, IP addresses, process paths, and other source entity values are not

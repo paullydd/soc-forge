@@ -1,6 +1,7 @@
 import json
 import threading
 from copy import deepcopy
+from dataclasses import replace
 from hashlib import sha256
 from http.client import HTTPConnection
 from pathlib import Path
@@ -252,13 +253,45 @@ def test_opaque_entity_ids_are_deterministic_bounded_and_source_private():
     )
     for entity_type, value in sensitive:
         entity = normalize_entity(entity_type, value)
-        entity_id = opaque_entity_id("analysis-sensitive", entity)
-        assert entity_id == opaque_entity_id("analysis-sensitive", entity)
+        entity_id = opaque_entity_id("INV-SENSITIVE", "analysis-sensitive", entity)
+        assert entity_id == opaque_entity_id("INV-SENSITIVE", "analysis-sensitive", entity)
         assert entity_id.startswith(f"entity-{entity_type}-")
         assert len(entity_id) <= 64
         assert value.casefold() not in entity_id.casefold()
-        assert entity_id != opaque_entity_id("analysis-other", entity)
+        assert entity_id != opaque_entity_id("INV-OTHER", "analysis-sensitive", entity)
+        assert entity_id != opaque_entity_id("INV-SENSITIVE", "analysis-other", entity)
 
+
+def test_entity_ids_ignore_completed_analysis_collection_order(query_web_server):
+    analysis = query_web_server["analysis"]
+    reordered = deepcopy(analysis)
+    for field in ("events", "alerts", "cases", "reconstructions"):
+        setattr(reordered, field, list(reversed(getattr(reordered, field))))
+    original_context = InvestigationQueryContext(
+        analysis,
+        query_web_server["investigation"],
+    )
+    reordered_context = InvestigationQueryContext(
+        reordered,
+        query_web_server["investigation"],
+    )
+    service = InvestigationPivotService()
+
+    def identities(context):
+        return {
+            (
+                entity.entity_type,
+                entity.normalized_value,
+                entity.secondary_key,
+            ): opaque_entity_id(
+                context.investigation.investigation_id,
+                context.source_analysis_id,
+                entity,
+            )
+            for entity in service.entities(context)
+        }
+
+    assert identities(original_context) == identities(reordered_context)
 
 def test_entity_list_ids_drive_private_http_routes(query_web_server):
     _, listing = request(query_web_server, base("entities"))
@@ -277,6 +310,7 @@ def test_entity_list_ids_drive_private_http_routes(query_web_server):
 
 def test_foreign_and_wrong_type_entity_ids_do_not_resolve(query_web_server):
     foreign = opaque_entity_id(
+        "INV-QUERY",
         "different-analysis",
         normalize_entity("host", "WS-LAB-01"),
     )
@@ -290,11 +324,112 @@ def test_foreign_and_wrong_type_entity_ids_do_not_resolve(query_web_server):
     assert status == 404
     assert payload["error"]["code"] == "entity_not_found"
 
+def test_same_analysis_entity_ids_are_isolated_by_investigation(query_web_server):
+    original = query_web_server["investigation"]
+    second = replace(
+        original,
+        investigation_id="INV-QUERY-B",
+        annotations=tuple(
+            replace(annotation, target_id="INV-QUERY-B")
+            if annotation.target_type == "investigation"
+            else annotation
+            for annotation in original.annotations
+        ),
+    )
+    repository = InvestigationRepository(query_web_server["workspace_root"])
+    assert repository.save(second) == 1
+
+    _, listing_a = request(query_web_server, base("entities?type=host"))
+    host_a = next(
+        item for item in listing_a["entities"] if item["display_value"] == "WS-LAB-01"
+    )
+    base_b = "/api/investigations/INV-QUERY-B"
+    _, listing_b = request(query_web_server, f"{base_b}/entities?type=host")
+    host_b = next(
+        item for item in listing_b["entities"] if item["display_value"] == "WS-LAB-01"
+    )
+
+    assert host_a["normalized_value"] == host_b["normalized_value"]
+    assert host_a["entity_id"] != host_b["entity_id"]
+    assert request(
+        query_web_server, base(f"entities/{host_a['entity_id']}")
+    )[0] == 200
+    assert request(
+        query_web_server, f"{base_b}/entities/{host_b['entity_id']}"
+    )[0] == 200
+    status, payload = request(
+        query_web_server, f"{base_b}/entities/{host_a['entity_id']}"
+    )
+    assert status == 404
+    assert payload["error"]["code"] == "entity_not_found"
+    assert payload["error"]["message"] == "Entity not found."
+    assert "WS-LAB-01" not in json.dumps(payload)
+    assert host_a["normalized_value"] not in json.dumps(payload)
+    assert request(
+        query_web_server, base(f"entities/{host_b['entity_id']}")
+    )[0] == 404
+
+    _, pivot_a = request(
+        query_web_server,
+        base(f"entities/{host_a['entity_id']}/alerts"),
+    )
+    _, pivot_b = request(
+        query_web_server,
+        f"{base_b}/entities/{host_b['entity_id']}/alerts",
+    )
+    assert pivot_a["matches"] == pivot_b["matches"]
+
+
+def test_sensitive_literals_stay_out_of_real_http_entity_urls(
+    query_web_server,
+    monkeypatch,
+):
+    sensitive = (
+        ("host", "VERY-SENSITIVE-HOST"),
+        ("user", r"DOMAIN\SensitiveUser"),
+        ("ip", "203.0.113.77"),
+        ("ip", "2001:db8::77"),
+        ("process", r"C:\Sensitive\Path\powershell.exe"),
+        ("service", "SensitiveServiceName"),
+    )
+    pivot_service = query_web_server["server"].investigation_app.pivot_service
+    original_entities = pivot_service.entities
+
+    def entities_with_sensitive_values(context):
+        return original_entities(context) + tuple(
+            normalize_entity(entity_type, value)
+            for entity_type, value in sensitive
+        )
+
+    monkeypatch.setattr(pivot_service, "entities", entities_with_sensitive_values)
+    status, listing = request(query_web_server, base("entities"))
+    assert status == 200
+
+    for entity_type, value in sensitive:
+        entity = next(
+            item
+            for item in listing["entities"]
+            if item["entity_type"] == entity_type and item["display_value"] == value
+        )
+        assert entity["display_value"] == value
+        for suffix in ("", "/events"):
+            path = base(f"entities/{entity['entity_id']}{suffix}")
+            assert "?" not in path
+            assert value not in path
+            assert quote(value, safe="") not in path
+            status, headers, _ = request(
+                query_web_server,
+                path,
+                include_headers=True,
+            )
+            assert status == 200
+            assert "Location" not in headers
+
 def test_opaque_entity_collision_fails_explicitly(query_web_server, monkeypatch):
     monkeypatch.setattr(
         investigation_api,
         "opaque_entity_id",
-        lambda source_analysis_id, entity: "entity-collision",
+        lambda investigation_id, source_analysis_id, entity: "entity-collision",
     )
     status, payload = request(
         query_web_server,
@@ -417,6 +552,8 @@ def test_http_workbench_is_byte_and_hash_read_only(query_web_server):
         base("entities"),
         host_detail,
         entity_route(query_web_server, "host", "events", "WS-LAB-01"),
+        entity_route(query_web_server, "host", "alerts", "WS-LAB-01"),
+        entity_route(query_web_server, "host", "cases", "WS-LAB-01"),
         entity_route(query_web_server, "host", "evidence", "WS-LAB-01"),
         entity_route(query_web_server, "host", "hypotheses", "WS-LAB-01"),
         entity_route(query_web_server, "host", "related", "WS-LAB-01"),
@@ -430,6 +567,10 @@ def test_http_workbench_is_byte_and_hash_read_only(query_web_server):
     assert repository_bytes(query_web_server) == repository_before
     assert artifact_hashes(query_web_server) == artifacts_before
     assert query_web_server["analysis"] == analysis_before
+    assert query_web_server["analysis"].events == analysis_before.events
+    assert query_web_server["analysis"].alerts == analysis_before.alerts
+    assert query_web_server["analysis"].cases == analysis_before.cases
+    assert query_web_server["analysis"].reconstructions == analysis_before.reconstructions
     current = query_web_server["server"].investigation_app.workspace_service.get_investigation(
         "INV-QUERY"
     )

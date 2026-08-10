@@ -789,7 +789,11 @@ class InvestigationWebApplication:
     def _entity_index(self, context):
         index = {}
         for entity in self.pivot_service.entities(context):
-            entity_id = opaque_entity_id(context.source_analysis_id, entity)
+            entity_id = opaque_entity_id(
+                context.investigation.investigation_id,
+                context.source_analysis_id,
+                entity,
+            )
             existing = index.get(entity_id)
             if existing is not None and existing != entity:
                 raise InvestigationEntityIdentityCollisionError(
@@ -827,7 +831,11 @@ class InvestigationWebApplication:
             if value
         )
         return {
-            "entity_id": opaque_entity_id(context.source_analysis_id, entity),
+            "entity_id": opaque_entity_id(
+                context.investigation.investigation_id,
+                context.source_analysis_id,
+                entity,
+            ),
             **asdict(entity),
             "observed_counts": {
                 "events": len(results[0].matches),

@@ -224,15 +224,24 @@ timelines, and directly observed related entities. Every displayed relationship
 reason comes from the query service; the browser does not infer relationships,
 intent, compromise, or causality.
 
-Web entity responses include a deterministic opaque ID derived from the source
-analysis ID, entity type, normalized value, and optional secondary identity.
-The canonical manifest is hashed with SHA-256 and bounded to 24 hexadecimal
-digest characters. Bounded collisions are detected within the current query
-context and fail explicitly; collision impossibility is not claimed. Display
-values remain available in JSON response bodies but are never used to construct
-workbench request URLs. Legacy raw-value entity routes return `410 Gone` and are
-not used by the UI. Process basename matching can still broaden a pivot to an
-observed full path as described in **Entities and Normalization**.
+Web entity responses include a deterministic opaque ID derived from the durable
+investigation ID, source-analysis ID, entity type, normalized value, and optional
+secondary identity. The canonical manifest is hashed with SHA-256 and bounded to
+24 hexadecimal digest characters. Bounded collisions are detected within the
+current query context and fail explicitly; collision impossibility is not
+claimed. These are transient workbench transport identifiers, not durable
+investigation, evidence, or entity references. The same logical entity receives
+a different transport ID in a different investigation, even when both reference
+the same completed analysis. Display values remain available in JSON response
+bodies but are never used to construct workbench request URLs. Legacy raw-value
+entity routes return `410 Gone` and are not used by the UI. Process basename
+matching can still broaden a pivot to an observed full path as described in
+**Entities and Normalization**.
+
+> Workbench entity identifiers are scoped to both the durable investigation and
+> its matching completed analysis. An entity identifier issued for one
+> investigation is not valid in another investigation, even when both reference
+> the same analysis.
 
 > Web workbench entity navigation uses opaque entity identifiers. Hostnames,
 > usernames, IP addresses, process paths, and other source entity values are not
