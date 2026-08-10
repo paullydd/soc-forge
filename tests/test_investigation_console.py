@@ -471,6 +471,91 @@ def test_console_analysis_action_retains_completed_result(monkeypatch, tmp_path)
     assert analyst_console.get_current_analysis_result() is expected
 
 
+def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
+    import analyst_console
+
+    calls = []
+    choices = iter(["3", "0"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(choices))
+    monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
+    monkeypatch.setattr(analyst_console, "show_dashboard", lambda *_args: None)
+    monkeypatch.setattr(analyst_console, "menu_group", lambda *_args: None)
+    monkeypatch.setattr(analyst_console, "menu_option", lambda *_args: None)
+    monkeypatch.setattr(
+        analyst_console,
+        "build_investigation_console_controller",
+        lambda: object(),
+    )
+    monkeypatch.setattr(
+        analyst_console,
+        "analysis_menu",
+        lambda pause, stories, graph: calls.append((pause, stories, graph)),
+    )
+
+    with pytest.raises(SystemExit):
+        analyst_console.main_menu()
+
+    assert calls == [
+        (
+            analyst_console.pause,
+            analyst_console.attack_stories,
+            analyst_console.attack_graph_viewer,
+        )
+    ]
+
+
+def test_analysis_menu_back_returns_without_dispatch(monkeypatch):
+    from soc_forge.menus import analysis as menu_module
+
+    calls = []
+    monkeypatch.setattr("builtins.input", lambda _prompt="": " 0 ")
+    monkeypatch.setattr(menu_module, "begin_screen", lambda _title: None)
+    monkeypatch.setattr(menu_module, "menu_option", lambda *_args: None)
+
+    menu_module.analysis_menu(
+        lambda: calls.append("pause"),
+        lambda: calls.append("stories"),
+        lambda: calls.append("graph"),
+    )
+
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("choice", "menu_name"),
+    [
+        ("1", "detection_menu"),
+        ("2", "investigations_menu"),
+        ("4", "reporting_menu"),
+        ("5", "system_menu"),
+    ],
+)
+def test_main_menu_other_dispatch_remains_available(monkeypatch, choice, menu_name):
+    import analyst_console
+
+    calls = []
+    choices = iter([choice, "0"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(choices))
+    monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
+    monkeypatch.setattr(analyst_console, "show_dashboard", lambda *_args: None)
+    monkeypatch.setattr(analyst_console, "menu_group", lambda *_args: None)
+    monkeypatch.setattr(analyst_console, "menu_option", lambda *_args: None)
+    monkeypatch.setattr(
+        analyst_console,
+        "build_investigation_console_controller",
+        lambda: object(),
+    )
+    monkeypatch.setattr(
+        analyst_console,
+        menu_name,
+        lambda *_args: calls.append(menu_name),
+    )
+
+    with pytest.raises(SystemExit):
+        analyst_console.main_menu()
+
+    assert calls == [menu_name]
+
 def test_workspace_menu_invalid_choice_and_back(tmp_path):
     controller, _, messages = build_controller(tmp_path, ["bad", "0"])
     controller.run()

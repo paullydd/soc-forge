@@ -1190,7 +1190,6 @@ def main_menu():
 
         elif choice == "3":
             analysis_menu(
-                clear_screen,
                 pause,
                 attack_stories,
                 attack_graph_viewer,
