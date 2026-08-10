@@ -289,6 +289,22 @@ def test_selected_list_and_inspection_with_and_without_active_analysis(tmp_path)
     assert any("Rationale: Reason" in line for line in messages)
 
 
+def test_selected_evidence_views_pause_before_menu_rerender(tmp_path):
+    controller, analysis, catalog, _, _, current, messages = build_controller(tmp_path)
+    current = select(controller, current, candidate(catalog, analysis, "alert"))
+    pauses = []
+    controller.pause = lambda: pauses.append(tuple(messages))
+    controller.input = ScriptedInput(["2", "3", "1", "n", "0"])
+
+    returned = controller.run(current)
+
+    assert returned == current
+    assert len(pauses) == 2
+    assert any("Analyst-Selected Evidence" in line for line in pauses[0])
+    assert any("Rationale: Reason" in line for line in pauses[1])
+    assert any("Field:" in line for line in pauses[1])
+    assert not any("very-sensitive-command" in line for line in pauses[1])
+
 def test_update_preserves_identity_and_selection_time(tmp_path):
     controller, analysis, catalog, _, _, current, _ = build_controller(tmp_path)
     updated = select(controller, current, candidate(catalog, analysis, "alert"))

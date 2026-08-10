@@ -96,7 +96,7 @@ def create_hypothesis(reasoning, current, hypothesis_id="HYP-001"):
 
 
 def test_reasoning_menu_back_and_empty_summary(tmp_path):
-    controller, _, _, current, messages = build_controller(tmp_path, ["1", "0"])
+    controller, _, _, current, messages = build_controller(tmp_path, ["1", "", "0"])
 
     assert controller.run(current) == current
 
@@ -108,6 +108,36 @@ def test_reasoning_menu_back_and_empty_summary(tmp_path):
     assert "not machine certainty" in output
     assert "Authoritative revision:" in output
 
+
+def test_reasoning_create_and_list_pause_and_persist(tmp_path):
+    controller, _, workspace, current, messages = build_controller(tmp_path)
+    controller.input = ScriptedInput([
+        "3",
+        "HYP-RUNTIME",
+        "Runtime-created hypothesis",
+        "alice",
+        "1",
+        "1",
+        "y",
+        "2",
+        "0",
+    ])
+    pauses = []
+    controller.pause = lambda: pauses.append(tuple(messages))
+
+    updated = controller.run(current)
+    reloaded = InvestigationWorkspaceService(
+        InvestigationRepository(tmp_path / "workspace")
+    ).get_investigation("INV-001")
+
+    assert updated == reloaded
+    assert updated.revision == current.revision + 1
+    assert [item.hypothesis_id for item in reloaded.investigation.hypotheses] == [
+        "HYP-RUNTIME"
+    ]
+    assert len(pauses) == 2
+    assert any("Hypothesis created" in line for line in pauses[0])
+    assert any("Runtime-created hypothesis" in line for line in pauses[1])
 
 def test_workspace_counts_use_service_summary_and_keep_status_out(tmp_path):
     controller, reasoning, _, current, messages = build_controller(tmp_path)

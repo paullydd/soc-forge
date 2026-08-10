@@ -28,11 +28,13 @@ class ReasoningConsoleController:
         input_func: Callable[[str], str] = input,
         output_func: Callable[[str], None] = print,
         screen_func: Callable[[str], None] = begin_screen,
+        pause_func: Callable[[], None] | None = None,
     ):
         self.reasoning_service = reasoning_service
         self.input = input_func
         self.output = output_func
         self.screen = screen_func
+        self.pause = pause_func or (lambda: self.input("\nPress Enter to return..."))
 
     def run(self, current: WorkspaceResult) -> WorkspaceResult:
         while True:
@@ -70,6 +72,9 @@ class ReasoningConsoleController:
                 current = self.record_decision(current)
             else:
                 self.output("Invalid option.")
+                continue
+            if choice != "4":
+                self.pause()
 
     def render_workspace_counts(self, current: WorkspaceResult) -> None:
         summary = self._summary(current)
@@ -208,6 +213,8 @@ class ReasoningConsoleController:
                 self.view_related_decisions(current, hypothesis_id)
             else:
                 self.output("Invalid option for the current hypothesis state.")
+                continue
+            self.pause()
 
     def edit_statement(self, current: WorkspaceResult, hypothesis: Hypothesis) -> WorkspaceResult:
         statement = self.input("New statement (blank to cancel): ")

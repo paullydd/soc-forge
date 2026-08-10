@@ -499,7 +499,14 @@ function render() {
   setView(state.view);
 }
 
-document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
+document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListener('click', () => {
+  setView(button.dataset.view);
+  if (button.dataset.view === 'investigations') {
+    loadInvestigationSummaries()
+      .then(renderInvestigations)
+      .catch((error) => alert(error.message));
+  }
+}));
 $('#refreshButton').addEventListener('click', loadWorkspace);
 $('#runScenarioButton').addEventListener('click', () => runScenario().catch((error) => { state.runningScenario = false; renderScenarioButton(); alert(error.message); }));
 if ($('#refreshInvestigationsButton')) $('#refreshInvestigationsButton').addEventListener('click', () => {

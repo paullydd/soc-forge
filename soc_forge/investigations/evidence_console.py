@@ -43,6 +43,7 @@ class EvidenceConsoleController:
         input_func: Callable[[str], str] = input,
         output_func: Callable[[str], None] = print,
         screen_func: Callable[[str], None] = begin_screen,
+        pause_func: Callable[[], None] | None = None,
     ):
         self.catalog = catalog
         self.evidence_service = evidence_service
@@ -50,6 +51,7 @@ class EvidenceConsoleController:
         self.input = input_func
         self.output = output_func
         self.screen = screen_func
+        self.pause = pause_func or (lambda: self.input("\nPress Enter to return..."))
 
     def run(self, current: WorkspaceResult) -> WorkspaceResult:
         while True:
@@ -77,6 +79,8 @@ class EvidenceConsoleController:
                 current = self.remove_selected(current)
             else:
                 self.output("Invalid option.")
+                continue
+            self.pause()
 
     def render_counts(self, current: WorkspaceResult) -> None:
         references = current.investigation.evidence_references

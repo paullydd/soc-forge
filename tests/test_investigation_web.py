@@ -118,6 +118,116 @@ def create_investigation(
     return result, workspace
 
 
+def test_persisted_investigation_is_offline_visible_across_server_restart(tmp_path):
+    import analyst_console
+    from soc_forge.investigations.reasoning_service import InvestigationReasoningService
+
+    workspace_root = tmp_path / "shared-workspace"
+    out_dir = tmp_path / "analysis"
+    service = InvestigationWorkspaceService(InvestigationRepository(workspace_root))
+    current = service.create_investigation(
+        investigation_id="INV-OFFLINE",
+        title="Offline durable investigation",
+        analysis_id="ANALYSIS-OFFLINE",
+        owner="alice",
+    )
+    current = service.add_annotation(
+        "INV-OFFLINE",
+        annotation_id="NOTE-OFFLINE",
+        body="Durable annotation",
+        author="alice",
+        expected_revision=current.revision,
+    )
+    current = InvestigationReasoningService(service).create_hypothesis(
+        "INV-OFFLINE",
+        hypothesis_id="HYP-OFFLINE",
+        statement="Durable hypothesis",
+        author="alice",
+        expected_revision=current.revision,
+    )
+    current = service.record_decision(
+        "INV-OFFLINE",
+        decision_id="DEC-OFFLINE",
+        decision_type="disposition",
+        outcome="monitor",
+        rationale="Durable decision",
+        author="alice",
+        expected_revision=current.revision,
+    )
+    before = (workspace_root / "investigations" / "INV-OFFLINE.json").read_bytes()
+
+    def start():
+        server = make_server(
+            "127.0.0.1",
+            0,
+            out_dir,
+            workspace_root=workspace_root,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        host, port = server.server_address
+        return server, thread, {"host": host, "port": port}
+
+    for _ in range(2):
+        server, thread, info = start()
+        try:
+            assert server.active_analysis_result is None
+            status, summaries = json_request(info, "GET", "/api/investigations")
+            assert status == 200
+            assert [item["investigation_id"] for item in summaries] == ["INV-OFFLINE"]
+            status, detail = json_request(
+                info, "GET", "/api/investigations/INV-OFFLINE"
+            )
+            assert status == 200
+            assert detail["investigation"]["metadata"]["owner"] == "alice"
+            assert [item["annotation_id"] for item in detail["investigation"]["annotations"]] == [
+                "NOTE-OFFLINE"
+            ]
+            assert [item["hypothesis_id"] for item in detail["investigation"]["hypotheses"]] == [
+                "HYP-OFFLINE"
+            ]
+            assert [item["decision_id"] for item in detail["investigation"]["decisions"]] == [
+                "DEC-OFFLINE"
+            ]
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+            server.server_close()
+
+    console = analyst_console.build_investigation_console_controller(workspace_root)
+    assert console.workspace_root == workspace_root
+    assert (workspace_root / "investigations" / "investigations").exists() is False
+
+    server = make_server("127.0.0.1", 0, out_dir, workspace_root=workspace_root)
+    try:
+        updated = server.investigation_app.assign_owner(
+            "INV-OFFLINE",
+            {"owner": "bob", "expected_revision": current.revision},
+        )
+        assert updated["investigation"]["metadata"]["owner"] == "bob"
+    finally:
+        server.server_close()
+    assert InvestigationWorkspaceService(
+        InvestigationRepository(workspace_root)
+    ).get_investigation("INV-OFFLINE").investigation.metadata.owner == "bob"
+    assert before != (
+        workspace_root / "investigations" / "INV-OFFLINE.json"
+    ).read_bytes()
+
+
+def test_investigations_tab_refreshes_durable_summaries():
+    source = (
+        Path(__file__).parents[1]
+        / "soc_forge"
+        / "web"
+        / "static"
+        / "app.js"
+    ).read_text(encoding="utf-8")
+
+    assert "button.dataset.view === 'investigations'" in source
+    assert "loadInvestigationSummaries()" in source
+    assert ".then(renderInvestigations)" in source
+
 def test_list_empty_and_create_generated_title(investigation_server):
     status, summaries = json_request(
         investigation_server, "GET", "/api/investigations"

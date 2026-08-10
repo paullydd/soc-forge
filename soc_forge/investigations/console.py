@@ -61,6 +61,7 @@ class InvestigationConsoleController:
             input_func=input_func,
             output_func=output_func,
             screen_func=screen_func,
+            pause_func=self.pause,
         )
 
         self.reasoning_controller = reasoning_controller or ReasoningConsoleController(
@@ -68,6 +69,7 @@ class InvestigationConsoleController:
             input_func=input_func,
             output_func=output_func,
             screen_func=screen_func,
+            pause_func=self.pause,
         )
         self.query_controller = query_controller or InvestigationQueryConsoleController(
             workspace_service=workspace_service,
@@ -247,6 +249,8 @@ class InvestigationConsoleController:
                 current = self.handoff_controller.run(current)
             else:
                 self.output("Invalid option.")
+            if choice in {"1", "2", "3", "4", "5", "6", "7", "8"}:
+                self.pause()
 
     def delete_flow(self) -> bool:
         investigation_id = self.input("Investigation ID (blank to cancel): ").strip()

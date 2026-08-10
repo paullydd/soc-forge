@@ -669,6 +669,67 @@ def test_main_menu_other_dispatch_remains_available(monkeypatch, choice, menu_na
 
     assert calls == [menu_name]
 
+def test_workspace_views_pause_with_persisted_annotations_and_decisions(tmp_path):
+    controller, service, messages = build_controller(tmp_path)
+    current = service.create_investigation(
+        investigation_id="INV-VIEWS",
+        title="Persistent views",
+        analysis_id="ANALYSIS-VIEWS",
+    )
+    current = service.add_annotation(
+        "INV-VIEWS",
+        annotation_id="NOTE-1",
+        body="Persisted annotation body",
+        author="alice",
+        expected_revision=current.revision,
+    )
+    current = service.record_decision(
+        "INV-VIEWS",
+        decision_id="DEC-1",
+        decision_type="disposition",
+        outcome="monitor",
+        rationale="Persisted decision rationale",
+        author="alice",
+        expected_revision=current.revision,
+    )
+    pauses = []
+    controller.input = ScriptedInput(["4", "8", "0"])
+    controller.pause = lambda: pauses.append(tuple(messages))
+
+    assert controller.workspace_loop(current) == current
+
+    assert len(pauses) == 2
+    assert any("Persisted annotation body" in line for line in pauses[0])
+    assert any("DEC-1" in line for line in pauses[1])
+
+
+def test_workspace_annotation_add_and_edit_refresh_and_persist(tmp_path):
+    controller, service, _ = build_controller(tmp_path)
+    current = service.create_investigation(
+        investigation_id="INV-ANNOTATIONS",
+        title="Annotation mutations",
+        analysis_id="ANALYSIS-ANNOTATIONS",
+    )
+    controller.input = ScriptedInput([
+        "5", "NOTE-1", "alice", "Original text",
+        "6", "NOTE-1", "Edited text",
+        "0",
+    ])
+    pauses = []
+    controller.pause = lambda: pauses.append("paused")
+
+    updated = controller.workspace_loop(current)
+    reloaded = InvestigationWorkspaceService(
+        InvestigationRepository(tmp_path / "workspace")
+    ).get_investigation("INV-ANNOTATIONS")
+    annotation = reloaded.investigation.annotations[0]
+
+    assert updated == reloaded
+    assert updated.revision == current.revision + 2
+    assert annotation.body == "Edited text"
+    assert annotation.created_at != annotation.updated_at
+    assert pauses == ["paused", "paused"]
+
 def test_workspace_menu_invalid_choice_and_back(tmp_path):
     controller, _, messages = build_controller(tmp_path, ["bad", "0"])
     controller.run()
