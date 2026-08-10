@@ -125,41 +125,57 @@ class InvestigationQueryConsoleController:
                 self.filter_screen(context)
             elif choice == "3":
                 self.selected_entity = self.entity_browser(context)
+                if self.selected_entity is not None:
+                    self.pause()
             elif choice == "4":
                 self.pivot_screen(context, self.selected_entity)
             elif choice == "5":
-                self.inspect_evidence(current, context)
+                if self.inspect_evidence(current, context):
+                    self.pause()
             elif choice == "6":
-                self.inspect_hypothesis(current)
+                if self.inspect_hypothesis(current):
+                    self.pause()
             elif choice == "7":
                 self.render_limitations(context)
+                self.pause()
             elif choice == "8":
                 refreshed = self._refresh(current)
                 if refreshed is not None:
                     current, context = refreshed
                     opened_revision = current.revision
+                self.pause()
             else:
                 self.output("Invalid option.")
+                self.pause()
 
     def timeline_screen(
         self,
         context: InvestigationQueryContext,
         current: WorkspaceResult | None = None,
     ) -> None:
-        self.screen("INVESTIGATION TIMELINE - READ ONLY")
-        self.render_active_filters()
-        try:
-            timeline = self.timeline_service.timeline(context, filters=self.filters)
-        except InvestigationQueryError:
-            self.output("The timeline filters could not be applied safely.")
-            return
-        entries = self.render_timeline(timeline)
-        if not entries:
-            return
-        selected = self._choose(entries, "Timeline entry number for details (blank to return): ")
-        if selected is not None:
+        while True:
+            self.screen("INVESTIGATION TIMELINE - READ ONLY")
+            self.render_active_filters()
+            try:
+                timeline = self.timeline_service.timeline(context, filters=self.filters)
+            except InvestigationQueryError:
+                self.output("The timeline filters could not be applied safely.")
+                self.pause()
+                return
+            entries = self.render_timeline(timeline)
+            if not entries:
+                self.pause()
+                return
+            selected = self._choose(
+                entries,
+                "Timeline entry number for details (blank to return): ",
+            )
+            if selected is None:
+                return
             self.render_entry_detail(selected)
-            if current is not None:
+            if current is None:
+                self.pause()
+            else:
                 self.entry_navigation(current, context, selected)
 
     def render_timeline(self, timeline) -> tuple[InvestigationTimelineEntry, ...]:
@@ -284,6 +300,7 @@ class InvestigationQueryConsoleController:
         entities = self.entities(context)
         if not entities:
             self.output("No normalized entities are available.")
+            self.pause()
             return None
         requested = self.input(
             "Entity type (host/user/ip/process/service/rule/attack_technique/"
@@ -291,10 +308,12 @@ class InvestigationQueryConsoleController:
         ).strip()
         if requested and requested not in ENTITY_TYPES:
             self.output("Unsupported entity type.")
+            self.pause()
             return None
         visible = tuple(item for item in entities if not requested or item.entity_type == requested)
         if not visible:
             self.output("No entities of that type were found.")
+            self.pause()
             return None
         self.screen("INVESTIGATION ENTITIES - READ ONLY")
         for index, entity in enumerate(visible, start=1):
@@ -424,7 +443,7 @@ class InvestigationQueryConsoleController:
 
     def inspect_evidence(
         self, current: WorkspaceResult, context: InvestigationQueryContext
-    ) -> None:
+    ) -> bool:
         selected = tuple(
             item
             for item in current.investigation.evidence_references
@@ -439,22 +458,24 @@ class InvestigationQueryConsoleController:
         if reference is None:
             if not selected:
                 self.output("No analyst-selected evidence.")
-            return
+                return True
+            return False
         if hasattr(self.evidence_controller, "show_evidence_details"):
             self.evidence_controller.show_evidence_details(
                 current, reference.reference_id
             )
-            return
+            return True
         try:
             candidate = context.evidence_catalog.get_candidate(
                 context.analysis, reference.reference_id
             )
         except EvidenceCatalogError:
             self.output("The selected source evidence is not currently available.")
-            return
+            return True
         self.evidence_controller.show_candidate_details(context.analysis, candidate)
+        return True
 
-    def inspect_hypothesis(self, current: WorkspaceResult) -> None:
+    def inspect_hypothesis(self, current: WorkspaceResult) -> bool:
         hypotheses = tuple(
             sorted(current.investigation.hypotheses, key=lambda item: item.hypothesis_id)
         )
@@ -467,8 +488,10 @@ class InvestigationQueryConsoleController:
         if selected is None:
             if not current.investigation.hypotheses:
                 self.output("No analyst-authored hypotheses.")
-            return
+                return True
+            return False
         self.reasoning_controller.show_hypothesis_details(current, selected.hypothesis_id)
+        return True
 
     def show_decision(self, current: WorkspaceResult, decision_id: str) -> None:
         self.reasoning_controller.show_decision_details(current, decision_id)
@@ -501,6 +524,7 @@ class InvestigationQueryConsoleController:
                 for item in source.entities
             )
         if not actions:
+            self.pause()
             return
         for index, (label, _kind, _value) in enumerate(actions, start=1):
             self.output(f"[{index}] {label}")
@@ -509,14 +533,18 @@ class InvestigationQueryConsoleController:
             return
         if not choice.isdigit() or not 1 <= int(choice) <= len(actions):
             self.output("Invalid selection.")
+            self.pause()
             return
         _label, kind, selected = actions[int(choice) - 1]
         if kind == "evidence":
             self.evidence_controller.show_evidence_details(current, selected)
+            self.pause()
         elif kind == "hypothesis":
             self.reasoning_controller.show_hypothesis_details(current, selected)
+            self.pause()
         elif kind == "decision":
             self.reasoning_controller.show_decision_details(current, selected)
+            self.pause()
         else:
             self.pivot_screen(context, selected)
 

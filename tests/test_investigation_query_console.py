@@ -531,6 +531,111 @@ def test_workbench_operations_leave_repository_analysis_and_artifacts_unchanged(
     assert current.revision == 1
 
 
+def test_timeline_entry_back_returns_to_timeline_before_workbench(tmp_path):
+    controller, _, _, current, _, _, _, _ = build_workbench(tmp_path)
+    scripted_input = ScriptedInput(["1", "1", "", "", "0"])
+    screens = []
+    controller.input = scripted_input
+    controller.screen = screens.append
+
+    assert controller.run(current) == current
+
+    assert screens[:5] == [
+        "TIMELINE/PIVOT WORKBENCH - READ ONLY",
+        "INVESTIGATION TIMELINE - READ ONLY",
+        "TIMELINE ENTRY DETAILS - READ ONLY",
+        "INVESTIGATION TIMELINE - READ ONLY",
+        "TIMELINE/PIVOT WORKBENCH - READ ONLY",
+    ]
+    assert scripted_input.calls == 5
+
+
+@pytest.mark.parametrize(
+    ("inputs", "expected_output"),
+    [
+        (["3", "host", "1", "0"], "Observed in:"),
+        (["5", "1", "0"], "supporting"),
+        (["6", "1", "0"], "HYP-001"),
+        (["7", "0"], "Query Limitations"),
+        (["8", "0"], "Workbench refreshed"),
+    ],
+)
+def test_workbench_read_actions_remain_visible_until_pause(
+    tmp_path, inputs, expected_output
+):
+    controller, _, _, current, _, _, _, messages = build_workbench(tmp_path)
+    scripted_input = ScriptedInput(inputs)
+    pause_views = []
+    controller.input = scripted_input
+    controller.pause = lambda: pause_views.append(tuple(messages))
+
+    assert controller.run(current) == current
+
+    assert len(pause_views) == 1
+    assert any(expected_output in line for line in pause_views[0])
+    assert scripted_input.calls == len(inputs)
+
+
+@pytest.mark.parametrize("kind", ["evidence", "hypothesis", "decision"])
+def test_timeline_detail_reads_pause_before_returning_to_timeline(tmp_path, kind):
+    controller, _, _, current, context, evidence, reasoning, messages = build_workbench(
+        tmp_path
+    )
+    entry = next(
+        item
+        for item in InvestigationTimelineService().timeline(context).entries
+        if item.source_id == "ALERT-001"
+    )
+    actions = []
+    if entry.evidence_id:
+        actions.append("evidence")
+    actions.extend("hypothesis" for _item in entry.related_hypothesis_ids)
+    actions.extend("decision" for _item in entry.related_decision_ids)
+    selection = actions.index(kind) + 1
+    controller.input = ScriptedInput([str(selection)])
+    pause_views = []
+    controller.pause = lambda: pause_views.append(tuple(messages))
+
+    controller.entry_navigation(current, context, entry)
+
+    assert len(pause_views) == 1
+    if kind == "evidence":
+        assert evidence.workspace_calls
+    elif kind == "hypothesis":
+        assert reasoning.hypotheses
+    else:
+        assert reasoning.decisions
+
+
+def test_workbench_navigation_matrix_is_read_only(tmp_path):
+    controller, analysis, _, current, _, _, _, _ = build_workbench(tmp_path)
+    before_repository = repository_bytes(tmp_path)
+    before_artifacts = artifact_hashes(analysis)
+    before_analysis = deepcopy(analysis)
+    scripted_input = ScriptedInput(
+        [
+            "1", "",       # timeline -> workbench
+            "3", "",       # entity selector -> workbench
+            "4", "",       # pivot entity selector -> workbench
+            "5", "",       # evidence selector -> workbench
+            "6", "",       # hypothesis selector -> workbench
+            "7",           # limitations
+            "8",           # refresh
+            "0",           # workbench -> workspace
+        ]
+    )
+    controller.input = scripted_input
+    controller.pause = lambda: None
+
+    assert controller.run(current) == current
+
+    assert scripted_input.calls == 13
+    assert repository_bytes(tmp_path) == before_repository
+    assert artifact_hashes(analysis) == before_artifacts
+    assert analysis == before_analysis
+    assert current.revision == 1
+
+
 def test_console_has_no_repository_writes_or_raw_analysis_traversal():
     path = Path(__file__).parents[1] / "soc_forge/investigations/query_console.py"
     source = path.read_text(encoding="utf-8")
