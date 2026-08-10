@@ -388,6 +388,7 @@ def run_attack_simulation():
     clear_screen()
     print("ATTACK SIMULATION")
     print("-" * 50)
+    global _current_analysis_result
 
     print("[1] Brute Force")
     print("[2] Password Spray")
@@ -418,14 +419,27 @@ def run_attack_simulation():
         f"--sim-output {sim_output}"
     )
 
-    analyze_command = (
-        f"python -m soc_forge.cli "
-        f"--input {sim_output} "
-        f"--html {html_output}"
-    )
-
     run_command(generate_command)
-    run_command(analyze_command)
+
+    try:
+        _current_analysis_result = run_analysis(
+            AnalysisOptions(
+                input_path=Path(sim_output),
+                output_dir=Path("out"),
+                report_path=Path(html_output),
+                write_report=True,
+            )
+        )
+    except Exception as exc:
+        error(f"Analysis failed: {exc}")
+        pause()
+        return
+
+    success(
+        f"Analysis complete: {_current_analysis_result.event_count} events, "
+        f"{len(_current_analysis_result.alerts)} alerts, "
+        f"{len(_current_analysis_result.cases)} cases."
+    )
     pause()
 
 
