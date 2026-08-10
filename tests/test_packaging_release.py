@@ -84,6 +84,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
     with zipfile.ZipFile(wheel) as archive:
         metadata = archive.read(metadata_name).decode("utf-8")
     assert "Version: 3.0.0" in metadata
+    assert "Requires-Dist: colorama<0.5,>=0.4.6" in metadata
     assert not any(
         name.startswith("tests/")
         or "/fixtures/" in name
