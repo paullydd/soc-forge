@@ -213,6 +213,29 @@ def test_workspace_timeline_and_pivot_option_dispatches_read_only_controller(tmp
     assert calls == [current.revision]
 
 
+
+def test_workspace_handoff_option_dispatches_read_only_controller(tmp_path):
+    analysis = build_analysis(tmp_path)
+    controller, _, _ = build_controller(
+        tmp_path,
+        ["1", "INV-HANDOFF", "", "", "y"],
+        analysis,
+    )
+    current = create_workspace(controller)
+    calls = []
+
+    class HandoffController:
+        def run(self, value):
+            calls.append(value.revision)
+            return value
+
+    controller.handoff_controller = HandoffController()
+    controller.input = ScriptedInput(["12", "0"])
+
+    assert controller.workspace_loop(current) == current
+    assert calls == [current.revision]
+
+
 def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     analysis = build_analysis(tmp_path)
     controller, service, messages = build_controller(
@@ -241,6 +264,7 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     assert "[9] Evidence workspace" in messages
     assert "[10] Hypotheses and Decisions" in messages
     assert "[11] Timeline and Pivot Workbench (Read Only)" in messages
+    assert "[12] Investigation Handoff (Read Only)" in messages
     assert "[9] Record decision" not in messages
 
 

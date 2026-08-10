@@ -106,6 +106,43 @@ class HandoffResult:
     validation_status: st
 
 
+@dataclass(frozen=True)
+class HandoffPreview:
+    investigation_id: str
+    title: str
+    owner: str | None
+    status: str
+    revision: int
+    source_analysis_id: str
+    selected_case_count: int
+    analyst_evidence_count: int
+    hypothesis_count: int
+    decision_count: int
+    annotation_count: int
+    timed_entry_count: int
+    untimed_entry_count: int
+    available_artifact_keys: Tuple[str, ...]
+    required_artifacts_available: bool
+    missing_required_artifact_keys: Tuple[str, ...]
+    missing_optional_artifact_keys: Tuple[str, ...]
+    sensitive_data_warning: str = SENSITIVE_DATA_WARNING
+
+
+@dataclass(frozen=True)
+class HandoffManifestSummary:
+    schema_version: str
+    handoff_id: str
+    investigation_id: str
+    source_analysis_id: str
+    revision: int
+    owner: str | None
+    status: str
+    selected_case_ids: Tuple[str, ...]
+    files: Tuple[HandoffFile, ...]
+    limitations: Tuple[str, ...]
+    sensitive_data_warning: str
+
+
 def _json_bytes(payload: Any) -> bytes:
     return (
         json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
@@ -371,6 +408,50 @@ class InvestigationHandoffService:
         self.timeline_service = timeline_service or InvestigationTimelineService()
         self.before_finalize = before_finalize
 
+    def preview(
+        self,
+        investigation_id: str,
+        analysis: AnalysisResult,
+    ) -> HandoffPreview:
+        stored = self.repository.load_record(investigation_id)
+        investigation = stored.investigation
+        try:
+            context = InvestigationQueryContext(analysis, investigation)
+        except Exception as exc:
+            raise HandoffProvenanceMismatchError(
+                "The completed analysis does not match this investigation"
+            ) from exc
+        available, missing_required, missing_optional = self._artifact_status(
+            analysis,
+            investigation.analysis_artifact_keys,
+        )
+        timeline = self.timeline_service.timeline(context)
+        return HandoffPreview(
+            investigation_id=investigation.investigation_id,
+            title=investigation.metadata.title,
+            owner=investigation.metadata.owner,
+            status=investigation.metadata.status,
+            revision=stored.revision,
+            source_analysis_id=context.source_analysis_id,
+            selected_case_count=sum(
+                item.origin == "scope" and item.source_type == "case"
+                for item in investigation.evidence_references
+            ),
+            analyst_evidence_count=sum(
+                item.origin == "analyst_selection"
+                for item in investigation.evidence_references
+            ),
+            hypothesis_count=len(investigation.hypotheses),
+            decision_count=len(investigation.decisions),
+            annotation_count=len(investigation.annotations),
+            timed_entry_count=len(timeline.entries),
+            untimed_entry_count=len(timeline.untimed_entries),
+            available_artifact_keys=available,
+            required_artifacts_available=not missing_required,
+            missing_required_artifact_keys=missing_required,
+            missing_optional_artifact_keys=missing_optional,
+        )
+
     def export(
         self,
         investigation_id: str,
@@ -603,6 +684,45 @@ class InvestigationHandoffService:
         return copied
 
     @staticmethod
+    def _artifact_status(
+        analysis: AnalysisResult,
+        expected_keys: Tuple[str, ...],
+    ) -> Tuple[Tuple[str, ...], Tuple[str, ...], Tuple[str, ...]]:
+        declared = set(analysis.artifacts)
+        expected = declared | set(expected_keys)
+        unknown = sorted(expected.difference(ARTIFACT_FILENAMES))
+        if unknown:
+            raise UnsafeHandoffArtifactPathError(
+                f"Unsupported analysis artifact key: {unknown[0]}"
+            )
+        artifact_root = Path(analysis.output_dir).resolve()
+        available = []
+        missing = []
+        for key in sorted(expected):
+            source_value = analysis.artifacts.get(key)
+            if source_value is None or not Path(source_value).exists():
+                missing.append(key)
+                continue
+            source = Path(source_value)
+            if source.is_symlink():
+                raise UnsafeHandoffArtifactPathError(
+                    f"Analysis artifact for {key} cannot be a symlink"
+                )
+            resolved = source.resolve()
+            if not resolved.is_file() or not _inside(resolved, artifact_root):
+                raise UnsafeHandoffArtifactPathError(
+                    f"Analysis artifact for {key} is outside the approved artifact root"
+                )
+            available.append(key)
+        missing_required = tuple(
+            sorted(set(missing).intersection(REQUIRED_ARTIFACT_KEYS))
+        )
+        missing_optional = tuple(
+            sorted(set(missing).difference(REQUIRED_ARTIFACT_KEYS))
+        )
+        return tuple(available), missing_required, missing_optional
+
+    @staticmethod
     def _artifact_hashes(analysis: AnalysisResult) -> Dict[str, str | None]:
         return {
             key: _digest_bytes(Path(path).read_bytes()) if Path(path).is_file() else None
@@ -712,3 +832,26 @@ def validate_handoff_bundle(path: Path | str) -> bool:
         raise HandoffBundleValidationError("Handoff contains unexpected files")
     _validate_references(bundle, manifest)
     return True
+
+def read_handoff_manifest(path: Path | str) -> HandoffManifestSummary:
+    bundle = Path(path)
+    validate_handoff_bundle(bundle)
+    manifest = _read_json(bundle / "manifest.json")
+    try:
+        return HandoffManifestSummary(
+            schema_version=str(manifest["schema_version"]),
+            handoff_id=str(manifest["handoff_id"]),
+            investigation_id=str(manifest["investigation_id"]),
+            source_analysis_id=str(manifest["source_analysis_id"]),
+            revision=int(manifest["investigation_revision"]),
+            owner=manifest.get("owner"),
+            status=str(manifest["status"]),
+            selected_case_ids=tuple(manifest.get("selected_case_ids", ())),
+            files=tuple(HandoffFile(**item) for item in manifest["files"]),
+            limitations=tuple(manifest.get("limitations", ())),
+            sensitive_data_warning=str(manifest["sensitive_data_warning"]),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HandoffBundleValidationError(
+            "Handoff manifest summary is invalid"
+        ) from exc

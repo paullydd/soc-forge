@@ -186,3 +186,70 @@ models.
 The handoff foundation provides no upload, cloud sharing, email delivery,
 authentication, digital signature, archive packaging, UI control, or hosted
 behavior.
+## Analyst Console Workflow
+
+Open a durable investigation in **Investigation Workspaces**, then select
+**Investigation Handoff (Read Only)**. The console workflow is:
+
+```text
+Open investigation
+  -> Investigation Handoff
+  -> Preview
+  -> Review sensitivity warning
+  -> Export
+  -> Inspect manifest
+  -> Validate bundle
+```
+
+Preview requires the active completed analysis whose provenance matches the
+investigation. It shows the authoritative revision, selected-case and
+analyst-state counts, timed and untimed timeline counts, artifact availability,
+and sensitive-data warning without writing a bundle. Missing or mismatched
+active analysis blocks preview and export; analysis is never rerun and artifact
+paths are never guessed from disk.
+
+The default output root is `out/handoffs`. An analyst may enter another root;
+the handoff service remains responsible for traversal, symlink, artifact, and
+publication safety. The console displays the conceptual final location as the
+selected root plus the investigation ID and does not construct artifact-copy
+paths.
+
+Export requires explicit acknowledgement that the bundle may contain usernames,
+hosts, IP addresses, evidence rationale, hypotheses, decisions, annotations,
+and other sensitive content. Blank confirmation cancels. There is no automatic
+redaction.
+
+An existing target is never overwritten by default. The analyst can cancel,
+choose another root, or explicitly request overwrite and confirm it separately.
+The console does not delete the old bundle; the service stages and validates the
+replacement before publication and restores the prior directory if publication
+fails.
+
+After export, **View last handoff result** reads the validated manifest and shows
+the schema, handoff and investigation identities, revision, selected cases,
+bounded limitations, and file inventory with sizes and SHA-256 digests. This is
+session state only. Handoff history is not persisted in the investigation and
+export does not increment its revision.
+
+**Validate handoff bundle** works without an active analysis. It invokes the
+shared offline validator and reports schema, digest, and reference-integrity
+status without printing raw file contents or tracebacks. Validation does not
+repair or modify a damaged bundle. An analyst can manually alter a copied file
+to demonstrate digest failure, then explicitly re-export with overwrite to
+restore a valid package.
+
+If the investigation changes during export, the service rejects the staged
+snapshot and publishes no mixed-revision directory. The console does not retry
+or merge; the analyst must refresh the workspace and start export again.
+
+> The analyst console delegates handoff construction and validation to the
+> shared handoff service. It does not serialize, hash, copy, or validate bundle
+> contents independently.
+
+Preview, manifest inspection, and validation remain read-only. A successful
+export writes only the new handoff bundle: repository bytes, investigation
+revision and state, completed `AnalysisResult`, and source artifacts remain
+unchanged. Terminal scrollback may retain displayed handoff metadata.
+
+Slice 2 adds no archive format, web controls, persistent handoff history,
+automatic sharing, redaction, or signing.

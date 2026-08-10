@@ -10,6 +10,10 @@ from soc_forge.investigations.bootstrap import (
 from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
 from soc_forge.investigations.evidence_console import EvidenceConsoleController
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
+from soc_forge.investigations.handoff import InvestigationHandoffService
+from soc_forge.investigations.handoff_console import (
+    InvestigationHandoffConsoleController,
+)
 from soc_forge.investigations.reasoning_console import ReasoningConsoleController
 from soc_forge.investigations.reasoning_service import InvestigationReasoningService
 from soc_forge.investigations.query_console import InvestigationQueryConsoleController
@@ -40,6 +44,7 @@ class InvestigationConsoleController:
         evidence_controller: EvidenceConsoleController | None = None,
         reasoning_controller: ReasoningConsoleController | None = None,
         query_controller: InvestigationQueryConsoleController | None = None,
+        handoff_controller: InvestigationHandoffConsoleController | None = None,
     ):
         self.bootstrap_adapter = bootstrap_adapter
         self.workspace_service = workspace_service
@@ -73,7 +78,14 @@ class InvestigationConsoleController:
             output_func=output_func,
             screen_func=screen_func,
         )
-
+        self.handoff_controller = handoff_controller or InvestigationHandoffConsoleController(
+            handoff_service=InvestigationHandoffService(workspace_service.repository),
+            analysis_provider=analysis_provider,
+            input_func=input_func,
+            output_func=output_func,
+            screen_func=screen_func,
+            pause_func=self.pause,
+        )
     def run(self) -> None:
         while True:
             self.screen("INVESTIGATION WORKSPACES")
@@ -203,6 +215,7 @@ class InvestigationConsoleController:
             self.output("[9] Evidence workspace")
             self.output("[10] Hypotheses and Decisions")
             self.output("[11] Timeline and Pivot Workbench (Read Only)")
+            self.output("[12] Investigation Handoff (Read Only)")
             self.output("[0] Back")
 
             choice = self.input("\nSelect option: ").strip()
@@ -230,6 +243,8 @@ class InvestigationConsoleController:
                 current = self.reasoning_controller.run(current)
             elif choice == "11":
                 current = self.query_controller.run(current)
+            elif choice == "12":
+                current = self.handoff_controller.run(current)
             else:
                 self.output("Invalid option.")
 
