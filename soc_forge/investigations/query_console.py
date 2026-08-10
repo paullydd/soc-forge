@@ -64,6 +64,7 @@ class InvestigationQueryConsoleController:
         input_func: Callable[[str], str] = input,
         output_func: Callable[[str], None] = print,
         screen_func: Callable[[str], None] = begin_screen,
+        pause_func: Callable[[], None] | None = None,
     ) -> None:
         self.workspace_service = workspace_service
         self.analysis_provider = analysis_provider
@@ -74,6 +75,7 @@ class InvestigationQueryConsoleController:
         self.input = input_func
         self.output = output_func
         self.screen = screen_func
+        self.pause = pause_func or (lambda: None)
         self.filters = InvestigationTimelineFilters()
         self.selected_entity: InvestigationEntity | None = None
 
@@ -350,28 +352,35 @@ class InvestigationQueryConsoleController:
         choice = self.input("Pivot option: ").strip()
         if choice == "0":
             return
+        rendered = False
         try:
             if choice.isdigit() and 1 <= int(choice) <= len(operations):
                 result = operations[int(choice) - 1][1](
                     context, selected.entity_type, selected.value
                 )
                 self.render_pivot_result(operations[int(choice) - 1][0], result)
+                rendered = True
             elif choice == "6":
                 self.render_related_entities(
                     self.pivot_service.related_entities(
                         context, selected.entity_type, selected.value
                     )
                 )
+                rendered = True
             elif choice == "7":
                 self.render_timeline(
                     self.pivot_service.timeline_for_entity(
                         context, selected.entity_type, selected.value
                     )
                 )
+                rendered = True
             else:
                 self.output("Invalid pivot option.")
         except InvestigationQueryError:
             self.output("The requested entity pivot could not be completed safely.")
+            rendered = True
+        if rendered:
+            self.pause()
 
     def render_pivot_result(self, label: str, result: PivotResult) -> None:
         self.output(label)

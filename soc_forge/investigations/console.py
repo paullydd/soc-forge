@@ -79,6 +79,7 @@ class InvestigationConsoleController:
             input_func=input_func,
             output_func=output_func,
             screen_func=screen_func,
+            pause_func=self.pause,
         )
         self.handoff_controller = handoff_controller or InvestigationHandoffConsoleController(
             handoff_service=InvestigationHandoffService(workspace_service.repository),

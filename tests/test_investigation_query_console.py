@@ -20,8 +20,10 @@ from soc_forge.investigations.workspace_service import InvestigationWorkspaceSer
 class ScriptedInput:
     def __init__(self, values=()):
         self.values = iter(values)
+        self.calls = 0
 
     def __call__(self, _prompt=""):
+        self.calls += 1
         return next(self.values)
 
 
@@ -354,6 +356,91 @@ def test_related_entities_are_observed_not_causal_and_deduplicated(tmp_path):
         for item in result.relationships
     ]
     assert len(keys) == len(set(keys))
+
+
+@pytest.mark.parametrize(
+    ("choice", "expected"),
+    [
+        ("1", "Events"),
+        ("2", "Alerts"),
+        ("3", "Cases"),
+        ("4", "Evidence"),
+        ("5", "Hypotheses"),
+        ("6", "Observed relationships"),
+        ("7", "Chronological Activity"),
+    ],
+)
+def test_pivot_read_results_remain_visible_until_one_pause(tmp_path, choice, expected):
+    controller, _, _, _, context, _, _, messages = build_workbench(tmp_path)
+    scripted_input = ScriptedInput([choice])
+    pause_views = []
+    controller.input = scripted_input
+    controller.pause = lambda: pause_views.append(tuple(messages))
+    entity = next(item for item in controller.entities(context) if item.entity_type == "host")
+
+    controller.pivot_screen(context, entity)
+
+    assert scripted_input.calls == 1
+    assert len(pause_views) == 1
+    assert any(expected in line for line in pause_views[0])
+
+
+def test_related_entities_empty_state_remains_visible_until_pause(tmp_path):
+    controller, _, _, _, context, _, _, messages = build_workbench(tmp_path)
+    entity = next(item for item in controller.entities(context) if item.entity_type == "host")
+    populated = controller.pivot_service.related_entities(context, entity.entity_type, entity.value)
+    controller.pivot_service.related_entities = lambda *_args: replace(
+        populated, relationships=()
+    )
+    controller.input = ScriptedInput(["6"])
+    pause_views = []
+    controller.pause = lambda: pause_views.append(tuple(messages))
+
+    controller.pivot_screen(context, entity)
+
+    assert len(pause_views) == 1
+    assert "  None" in pause_views[0]
+
+
+def test_direct_timeline_entity_pivot_uses_shared_result_pause(tmp_path):
+    controller, _, _, current, context, _, _, messages = build_workbench(tmp_path)
+    entry = next(
+        item
+        for item in InvestigationTimelineService().timeline(context).entries
+        if item.source_id == "ALERT-001"
+    )
+    source = context.sources[entry.evidence_id]
+    host_offset = next(
+        index for index, item in enumerate(source.entities) if item.entity_type == "host"
+    )
+    navigation_choice = 4 + host_offset
+    scripted_input = ScriptedInput([str(navigation_choice), "6"])
+    pause_views = []
+    controller.input = scripted_input
+    controller.pause = lambda: pause_views.append(tuple(messages))
+
+    controller.entry_navigation(current, context, entry)
+
+    assert scripted_input.calls == 2
+    assert len(pause_views) == 1
+    assert any("Observed relationships" in line for line in pause_views[0])
+
+
+def test_pivot_pause_does_not_mutate_workspace_or_analysis(tmp_path):
+    controller, analysis, _, current, context, _, _, _ = build_workbench(tmp_path)
+    repository_before = repository_bytes(tmp_path)
+    artifacts_before = artifact_hashes(analysis)
+    analysis_before = deepcopy(analysis)
+    entity = next(item for item in controller.entities(context) if item.entity_type == "host")
+    controller.input = ScriptedInput(["6"])
+    controller.pause = lambda: None
+
+    controller.pivot_screen(context, entity)
+
+    assert repository_bytes(tmp_path) == repository_before
+    assert artifact_hashes(analysis) == artifacts_before
+    assert analysis == analysis_before
+    assert current.revision == 1
 
 
 def test_nearby_unrelated_source_is_not_added_to_host_pivot(tmp_path):
