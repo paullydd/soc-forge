@@ -12,6 +12,7 @@ Inputs / Scenarios
   -> Evidence / Provenance
   -> Hypotheses / Decisions
   -> Timeline / Pivots
+  -> Deterministic Investigation Summary
   -> Investigation Handoff
   -> Console / Web / Portable Bundle
 ```
@@ -23,6 +24,7 @@ Ownership remains one-way:
 - `InvestigationEvidenceService` owns analyst evidence selection while the evidence catalog resolves immutable analysis references.
 - `InvestigationReasoningService` owns hypotheses, assessments, reopening, and investigation decisions.
 - `InvestigationTimelineService` and `InvestigationPivotService` own read-only chronology and relationship projections.
+- `InvestigationSummaryService` owns deterministic full/offline summaries of existing machine context and analyst state.
 - `InvestigationHandoffService` owns deterministic portable serialization, artifact copying, hashing, publication, and offline validation.
 - Console and web layers parse requests and present results; they do not reproduce domain or handoff logic.
 
