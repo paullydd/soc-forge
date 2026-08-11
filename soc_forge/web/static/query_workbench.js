@@ -189,7 +189,9 @@ async function openQueryEntry(entryId) {
   const actions = queryNode('div', 'workspace-actions');
   if (payload.navigation.evidence_id) {
     const button = queryNode('button', '', 'View Evidence');
-    button.addEventListener('click', () => inspectEvidence(payload.navigation.evidence_id, false).catch(showEvidenceError));
+    button.addEventListener('click', () => {
+      inspectQueryEvidence(payload.navigation.evidence_id).catch(showQueryError);
+    });
     actions.append(button);
   }
   asArray(payload.navigation.hypothesis_ids).forEach((id) => {
@@ -262,7 +264,9 @@ async function openQueryPivot(entity) {
       if (item.evidence_classification) row.append(queryNode('span', 'pill', `Analyst evidence: ${item.evidence_classification}`));
       if (item.evidence_id) {
         const evidence = queryNode('button', '', 'View Evidence');
-        evidence.addEventListener('click', () => inspectEvidence(item.evidence_id, false).catch(showEvidenceError));
+        evidence.addEventListener('click', () => {
+          inspectQueryEvidence(item.evidence_id).catch(showQueryError);
+        });
         row.append(evidence);
       }
       asArray(item.hypothesis_overlays).forEach((overlay) => {
@@ -278,6 +282,10 @@ async function openQueryPivot(entity) {
       target.append(row);
     });
   });
+}
+
+async function inspectQueryEvidence(evidenceId) {
+  await inspectEvidence(evidenceId, false, '#workbenchContent');
 }
 
 async function refreshQueryWorkbench() {

@@ -402,3 +402,97 @@ def test_browser_exposes_explicit_safe_activation_control():
     assert "/source-analysis/load" in source
     assert "localStorage" not in source
     assert "source_analysis_id: payload.source_analysis_id" in source
+
+
+@pytest.mark.parametrize("recovered", [False, True])
+def test_pivot_evidence_identifiers_resolve_without_mutation(tmp_path, recovered):
+    analysis, investigation, out_dir, workspace_root = _prepare(tmp_path)
+    repository_file = next((workspace_root / "investigations").glob("*.json"))
+    repository_before = repository_file.read_bytes()
+    artifacts_before = _hashes(analysis.artifacts)
+    server, thread, info = _start(out_dir, workspace_root)
+    try:
+        if recovered:
+            status, _, _ = _request(
+                info,
+                "POST",
+                "/api/investigations/INV-QUERY/source-analysis/load",
+                {},
+            )
+            assert status == 200
+        else:
+            server.active_analysis_result = analysis
+
+        status, _, entities = _request(
+            info, "GET", "/api/investigations/INV-QUERY/entities?type=host"
+        )
+        assert status == 200
+        host = next(
+            item for item in entities["entities"]
+            if item["display_value"] == "WS-LAB-01"
+        )
+        root = (
+            "/api/investigations/INV-QUERY/entities/"
+            + host["entity_id"]
+        )
+        for category in ("events", "alerts", "evidence"):
+            status, _, pivot = _request(info, "GET", root + "/" + category)
+            assert status == 200
+            evidence_ids = [
+                item["evidence_id"]
+                for item in pivot["matches"]
+                if item.get("evidence_id")
+            ]
+            assert evidence_ids, category
+            for evidence_id in evidence_ids:
+                status, _, detail = _request(
+                    info,
+                    "GET",
+                    "/api/investigations/INV-QUERY/evidence/candidates/"
+                    + evidence_id,
+                )
+                assert status == 200
+                assert detail["candidate"]["evidence_id"] == evidence_id
+                assert all(
+                    field["value_hidden"]
+                    for field in detail["details"]["fields"]
+                    if field["sensitive"]
+                )
+
+        status, _, cases = _request(info, "GET", root + "/cases")
+        assert status == 200
+        assert cases["matches"]
+        assert all(item.get("evidence_id") is None for item in cases["matches"])
+
+        assert server.investigation_app.get_investigation(
+            "INV-QUERY"
+        )["revision"] == 1
+    finally:
+        _stop(server, thread)
+
+    assert repository_file.read_bytes() == repository_before
+    assert _hashes(analysis.artifacts) == artifacts_before
+
+
+def test_pivot_view_evidence_renders_and_reports_errors_in_workbench():
+    query_source = (
+        Path(__file__).parents[1]
+        / "soc_forge"
+        / "web"
+        / "static"
+        / "query_workbench.js"
+    ).read_text(encoding="utf-8")
+    evidence_source = (
+        Path(__file__).parents[1]
+        / "soc_forge"
+        / "web"
+        / "static"
+        / "investigations.js"
+    ).read_text(encoding="utf-8")
+
+    assert "inspectQueryEvidence(item.evidence_id)" in query_source
+    assert "inspectEvidence(evidenceId, false, '#workbenchContent')" in query_source
+    assert "showQueryError(error)" in query_source
+    assert "function renderEvidenceDetails(payload, targetSelector" in evidence_source
+    assert "targetSelector = '#evidenceWorkspace'" in evidence_source
+    assert "targetSelector === '#workbenchContent' ? showQueryError" in evidence_source

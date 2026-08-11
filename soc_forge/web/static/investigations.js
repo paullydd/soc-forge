@@ -709,7 +709,11 @@ function renderEvidenceCandidates() {
   });
 }
 
-async function inspectEvidence(evidenceId, includeSensitive) {
+async function inspectEvidence(
+  evidenceId,
+  includeSensitive,
+  targetSelector = '#evidenceWorkspace',
+) {
   if (!/^evidence-[a-f0-9]+$/.test(evidenceId)) {
     throw new Error('Invalid evidence identifier');
   }
@@ -717,11 +721,11 @@ async function inspectEvidence(evidenceId, includeSensitive) {
   const payload = await evidenceGet(
     `${activeEvidenceBase()}/candidates/${encodeURIComponent(evidenceId)}${suffix}`,
   );
-  renderEvidenceDetails(payload);
+  renderEvidenceDetails(payload, targetSelector);
 }
 
-function renderEvidenceDetails(payload) {
-  const target = $('#evidenceWorkspace');
+function renderEvidenceDetails(payload, targetSelector = '#evidenceWorkspace') {
+  const target = $(targetSelector);
   if (!target) return;
   target.replaceChildren();
   const candidate = payload.candidate;
@@ -789,7 +793,10 @@ function renderEvidenceDetails(payload) {
       inspectEvidence(
         candidate.evidence_id,
         !payload.sensitive_values_included,
-      ).catch(showEvidenceError);
+        targetSelector,
+      ).catch(
+        targetSelector === '#workbenchContent' ? showQueryError : showEvidenceError,
+      );
     });
     panel.append(toggle);
   }
