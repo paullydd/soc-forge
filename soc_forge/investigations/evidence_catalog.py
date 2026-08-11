@@ -60,9 +60,13 @@ class _CatalogEntry:
 
 
 class AnalysisEvidenceCatalog:
+    def analysis_provenance(self, analysis_result: AnalysisResult):
+        """Return the canonical provenance manifest for a completed analysis."""
+        return self._analysis_provenance(analysis_result)
+
     def source_analysis_id(self, analysis_result: AnalysisResult) -> str:
         """Return the stable provenance identity owned by the catalog."""
-        return self._analysis_provenance(analysis_result).source_analysis_id
+        return self.analysis_provenance(analysis_result).source_analysis_id
 
     def list_candidates(
         self,

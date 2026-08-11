@@ -366,3 +366,14 @@ only the investigation record and leaves all referenced analysis artifacts intac
 This integration remains local and single-user in scope. Owner and author values
 are labels, not authenticated identities. The console adds no persistence format,
 pipeline behavior, report behavior, web route, or export capability.
+## Completed analysis availability
+
+Durable investigation metadata and analyst-authored state remain available without
+the source analysis. Source-dependent timeline, pivot, evidence-detail, and handoff
+operations require either the original active `AnalysisResult` or a successfully
+validated matching completed-analysis snapshot.
+
+Snapshots are immutable, keyed by the investigation's exact `source_analysis_id`,
+and loaded without changing investigation revision or repository content. A new run
+with the same scenario or case ID is not a substitute for the original analysis.
+See [Completed Analysis Snapshots](completed_analysis_snapshots.md).

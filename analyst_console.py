@@ -24,6 +24,7 @@ from soc_forge.investigations.console import InvestigationConsoleController
 from soc_forge.investigations.paths import resolve_workspace_root
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
+from soc_forge.investigations.snapshots import CompletedAnalysisSnapshotStore
 
 init()
 
@@ -33,6 +34,17 @@ _current_analysis_result = None
 
 def get_current_analysis_result():
     return _current_analysis_result
+
+
+def activate_completed_analysis(result):
+    global _current_analysis_result
+    _current_analysis_result = result
+
+
+def retain_completed_analysis(result):
+    CompletedAnalysisSnapshotStore(result.output_dir).publish(result)
+    activate_completed_analysis(result)
+    return result
 
 
 def build_investigation_console_controller(
@@ -60,6 +72,8 @@ def build_investigation_console_controller(
         output_func=output_func,
         screen_func=screen_func,
         pause_func=pause_func,
+        snapshot_store=CompletedAnalysisSnapshotStore(Path(workspace_root).parent),
+        analysis_activator=activate_completed_analysis,
     )
 
 
@@ -377,12 +391,14 @@ def analyze_log_file():
     html_choice = input("Generate HTML report? (y/n): ").lower().strip()
 
     try:
-        _current_analysis_result = run_analysis(
-            AnalysisOptions(
-                input_path=Path(input_file),
-                output_dir=Path("out"),
-                report_path=Path("out/report.html") if html_choice == "y" else None,
-                write_report=html_choice == "y",
+        _current_analysis_result = retain_completed_analysis(
+            run_analysis(
+                AnalysisOptions(
+                    input_path=Path(input_file),
+                    output_dir=Path("out"),
+                    report_path=Path("out/report.html") if html_choice == "y" else None,
+                    write_report=html_choice == "y",
+                )
             )
         )
     except Exception as exc:
@@ -436,12 +452,14 @@ def run_attack_simulation():
     run_command(generate_command)
 
     try:
-        _current_analysis_result = run_analysis(
-            AnalysisOptions(
-                input_path=Path(sim_output),
-                output_dir=Path("out"),
-                report_path=Path(html_output),
-                write_report=True,
+        _current_analysis_result = retain_completed_analysis(
+            run_analysis(
+                AnalysisOptions(
+                    input_path=Path(sim_output),
+                    output_dir=Path("out"),
+                    report_path=Path(html_output),
+                    write_report=True,
+                )
             )
         )
     except Exception as exc:

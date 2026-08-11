@@ -529,7 +529,7 @@ def test_new_bootstrap_persists_explainable_provenance_metadata(tmp_path):
     assert repository.load("INVESTIGATION-001").provenance == provenance
 
 
-def test_only_bootstrap_imports_concrete_pipeline_result():
+def test_only_analysis_adapters_import_concrete_pipeline_result():
     root = Path(__file__).parents[1] / "soc_forge"
 
     concrete_importers = []
@@ -541,6 +541,7 @@ def test_only_bootstrap_imports_concrete_pipeline_result():
         "evidence_catalog.py",
         "handoff.py",
         "query_context.py",
+        "snapshots.py",
     }
     assert "soc_forge.pipeline" not in imported_modules(
         root / "web" / "investigation_api.py"

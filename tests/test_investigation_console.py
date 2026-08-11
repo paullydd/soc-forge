@@ -42,7 +42,7 @@ def build_analysis(tmp_path):
         hunts_path=artifacts["hunts"],
         reconstructions_path=artifacts["reconstructions"],
         events_path=None,
-        event_count=3,
+        event_count=1,
         events=[{"event_id": 4688}],
         alerts=[{"rule_id": "SOCF-021"}],
         legacy_alerts=[],

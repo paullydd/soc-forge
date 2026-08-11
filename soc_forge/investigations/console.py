@@ -17,6 +17,12 @@ from soc_forge.investigations.handoff_console import (
 from soc_forge.investigations.reasoning_console import ReasoningConsoleController
 from soc_forge.investigations.reasoning_service import InvestigationReasoningService
 from soc_forge.investigations.query_console import InvestigationQueryConsoleController
+from soc_forge.investigations.query_context import InvestigationQueryContext
+from soc_forge.investigations.query_models import InvestigationQueryError
+from soc_forge.investigations.snapshots import (
+    CompletedAnalysisSnapshotError,
+    CompletedAnalysisSnapshotStore,
+)
 from soc_forge.investigations.repository import (
     InvestigationConflictError,
     InvestigationRepositoryError,
@@ -45,6 +51,8 @@ class InvestigationConsoleController:
         reasoning_controller: ReasoningConsoleController | None = None,
         query_controller: InvestigationQueryConsoleController | None = None,
         handoff_controller: InvestigationHandoffConsoleController | None = None,
+        snapshot_store: CompletedAnalysisSnapshotStore | None = None,
+        analysis_activator: Callable[[object], None] | None = None,
     ):
         self.bootstrap_adapter = bootstrap_adapter
         self.workspace_service = workspace_service
@@ -54,6 +62,8 @@ class InvestigationConsoleController:
         self.output = output_func
         self.screen = screen_func
         self.pause = pause_func or (lambda: self.input("\nPress Enter to return..."))
+        self.snapshot_store = snapshot_store
+        self.analysis_activator = analysis_activator
         self.evidence_controller = evidence_controller or EvidenceConsoleController(
             catalog=AnalysisEvidenceCatalog(),
             evidence_service=InvestigationEvidenceService(workspace_service),
@@ -219,6 +229,7 @@ class InvestigationConsoleController:
             self.output("[10] Hypotheses and Decisions")
             self.output("[11] Timeline and Pivot Workbench (Read Only)")
             self.output("[12] Investigation Handoff (Read Only)")
+            self.output("[13] Load source analysis snapshot")
             self.output("[0] Back")
 
             choice = self.input("\nSelect option: ").strip()
@@ -248,10 +259,37 @@ class InvestigationConsoleController:
                 current = self.query_controller.run(current)
             elif choice == "12":
                 current = self.handoff_controller.run(current)
+            elif choice == "13":
+                self.load_source_analysis(current)
             else:
                 self.output("Invalid option.")
-            if choice in {"1", "2", "3", "4", "5", "6", "7", "8"}:
+            if choice in {"1", "2", "3", "4", "5", "6", "7", "8", "13"}:
                 self.pause()
+
+    def load_source_analysis(self, current: WorkspaceResult) -> object | None:
+        if self.snapshot_store is None or self.analysis_activator is None:
+            self.output("Completed analysis snapshot recovery is unavailable.")
+            return None
+        try:
+            analysis = self.snapshot_store.load(current.investigation.analysis_id)
+            InvestigationQueryContext(analysis, current.investigation)
+        except CompletedAnalysisSnapshotError:
+            self.output(
+                "The exact completed analysis snapshot is unavailable or failed validation."
+            )
+            return None
+        except (InvestigationQueryError, ValueError, TypeError):
+            self.output(
+                "The completed analysis snapshot does not satisfy this investigation's "
+                "provenance and source references."
+            )
+            return None
+        self.analysis_activator(analysis)
+        self.output(
+            f"Loaded completed analysis snapshot {current.investigation.analysis_id}."
+        )
+        self.output("The investigation workspace was not modified.")
+        return analysis
 
     def delete_flow(self) -> bool:
         investigation_id = self.input("Investigation ID (blank to cancel): ").strip()
