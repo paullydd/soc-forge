@@ -124,6 +124,7 @@ unsent evidence form values only in memory where practical.
 Additional local routes:
 
 ```text
+POST   /api/investigations/{id}/source-analysis/load
 GET    /api/investigations/{id}/evidence/candidates?type={type}
 GET    /api/investigations/{id}/evidence/candidates/{evidence_id}
 GET    /api/investigations/{id}/evidence/candidates/{evidence_id}?include_sensitive=true
@@ -231,3 +232,21 @@ POST /api/investigations/{id}/handoff/validate
 Export accepts only the expected revision, the controlled `handoffs` root, explicit overwrite, and sensitive-data acknowledgement. Conflicts refresh the investigation separately without automatic retry. Manifest inspection and validation use the deterministic bundle at the controlled server root and do not accept a path query parameter.
 
 Web handoff controls delegate construction and validation to the shared `InvestigationHandoffService`. The browser does not serialize, hash, copy, or validate handoff files independently. There is no archive/download, upload, sharing, automatic redaction, or signing capability in this slice.
+
+## Completed Analysis Activation
+
+Durable investigation metadata remains readable without an active source
+analysis. The investigation detail shows whether its source analysis is
+available in the current server session. **Load Source Analysis** calls:
+
+```text
+POST /api/investigations/{id}/source-analysis/load
+```
+
+The route validates the exact immutable snapshot and selected investigation
+references before activation. Loading restores process-local analysis context;
+it does not modify, rebind, or increment the durable investigation. The server
+holds one active analysis, so loading another investigation's snapshot replaces
+the current in-memory value. Failed source-dependent requests and failed loads
+are not retried automatically. Snapshot paths and source payloads are never
+placed in URLs or browser storage.

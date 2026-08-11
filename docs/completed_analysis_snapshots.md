@@ -44,7 +44,7 @@ Every distinct timestamped simulation run has a distinct source analysis ID and 
 
 ## Recovery
 
-From an open durable investigation, choose **Load source analysis snapshot**. SOC-Forge validates schema, paths, inventory sizes, SHA-256 digests, the recomputed source analysis ID, and selected case/evidence references before activating the result in process memory.
+From an open durable investigation, choose **Load source analysis snapshot** in the console or **Load Source Analysis** in the web workspace. SOC-Forge validates schema, paths, inventory sizes, SHA-256 digests, the recomputed source analysis ID, and selected case/evidence references before activating the result in process memory.
 
 Recovery does not increment the investigation revision, rewrite repository bytes, alter source artifacts, or silently rebind the investigation.
 
@@ -60,4 +60,6 @@ Snapshots contain sensitive telemetry including usernames, hosts, IP addresses, 
 - SHA-256 provides integrity checking, not cryptographic authenticity.
 - Similar scenario names, case IDs, alerts, or rule sets never substitute for exact provenance.
 
-The initial slice integrates console publication and explicit console recovery. Web investigation APIs continue to require a matching active analysis; explicit web snapshot activation is a later integration slice.
+Console and web recovery use the same snapshot store and query-context validation. The web activation route returns bounded counts only and uses `Cache-Control: no-store`; it never returns snapshot paths or source payloads.
+
+The web server currently holds one active `AnalysisResult`. Loading a snapshot replaces that process-local value. Opening another investigation with a different `source_analysis_id` leaves its source-dependent features unavailable until the analyst explicitly loads that investigation's exact snapshot. No automatic retry or multi-analysis cache is provided.

@@ -148,6 +148,8 @@ function renderInvestigations() {
   const metadata = investigation.metadata || {};
   const annotations = asArray(investigation.annotations);
   const decisions = asArray(investigation.decisions);
+  const sourceAnalysis = state.activeInvestigation.source_analysis || {};
+  const sourceAvailable = sourceAnalysis.available === true;
   detail.innerHTML = `
     <div class="case-brief">
       <div class="workspace-heading">
@@ -168,6 +170,18 @@ function renderInvestigations() {
         <div><span>Source Analysis</span><strong class="mono">${escapeHtml(investigation.analysis_id)}</strong></div>
         <div><span>Selected Cases</span><strong class="mono">${escapeHtml(selectedCaseIds(investigation).join(', ') || 'None')}</strong></div>
       </div>
+      <section class="brief-section source-analysis-section">
+        <div class="panel-head">
+          <h3>Source Analysis</h3>
+          <span id="sourceAnalysisAvailability" class="pill">${sourceAvailable ? 'Available' : 'Unavailable'}</span>
+        </div>
+        <p id="sourceAnalysisStatus" class="muted">${sourceAvailable
+          ? 'Available in current server session'
+          : 'Unavailable in current server session'}</p>
+        ${sourceAvailable
+          ? ''
+          : '<button id="loadSourceAnalysisButton" type="button">Load Source Analysis</button>'}
+      </section>
       <div class="workspace-actions">
         <button id="assignOwnerButton" type="button">Assign Owner</button>
         <button id="clearOwnerButton" type="button">Clear Owner</button>
@@ -283,12 +297,53 @@ function renderInvestigations() {
       </section>
     </div>`;
   bindInvestigationActions(investigation);
+  bindSourceAnalysisActions(investigation, sourceAvailable);
   bindHandoffActions();
   bindEvidenceActions();
   bindReasoningActions();
   bindInvestigationWorkbench();
   renderEvidenceSummary();
   renderReasoningSummary();
+}
+
+function bindSourceAnalysisActions(investigation, sourceAvailable) {
+  const sourceDependent = [
+    '#previewHandoffButton',
+    '#exportHandoffButton',
+    '#openTimelineWorkbenchButton',
+    '#browseWorkbenchEntitiesButton',
+    '#refreshWorkbenchButton',
+    '#browseEvidenceButton',
+  ];
+  sourceDependent.forEach((selector) => {
+    const element = $(selector);
+    if (element) element.disabled = !sourceAvailable;
+  });
+  const button = $('#loadSourceAnalysisButton');
+  if (!button) return;
+  button.addEventListener('click', () => {
+    button.disabled = true;
+    const status = $('#sourceAnalysisStatus');
+    if (status) status.textContent = 'Loading and validating source analysis...';
+    investigationRequest(
+      'POST',
+      '/api/investigations/' + encodeURIComponent(investigation.investigation_id) + '/source-analysis/load',
+      {},
+    ).then(async (payload) => {
+      state.activeInvestigation.source_analysis = {
+        source_analysis_id: payload.source_analysis_id,
+        available: true,
+        status: 'available',
+      };
+      await loadEvidenceSelections();
+      renderInvestigations();
+      const updated = $('#sourceAnalysisStatus');
+      if (updated) updated.textContent = payload.message;
+    }).catch((error) => {
+      button.disabled = false;
+      if (status) status.textContent = error.message;
+    });
+  });
 }
 
 function bindInvestigationActions(investigation) {

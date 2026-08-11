@@ -72,6 +72,15 @@ from soc_forge.investigations.repository import (
     InvestigationRepository,
     InvestigationRepositoryError,
 )
+from soc_forge.investigations.snapshots import (
+    CompletedAnalysisSnapshotStore,
+    InvalidSnapshotIdError,
+    SnapshotIntegrityError,
+    SnapshotNotFoundError,
+    SnapshotProvenanceMismatchError,
+    SnapshotValidationError,
+    UnsupportedSnapshotSchemaError,
+)
 from soc_forge.investigations.workspace_service import (
     InvalidStatusTransitionError,
     InvestigationWorkspaceError,
@@ -470,6 +479,27 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         exc: Exception,
         investigation_id: str | None = None,
     ) -> None:
+        snapshot_errors = (
+            (SnapshotNotFoundError, "snapshot_not_found", "Completed analysis snapshot not found.", 404),
+            (InvalidSnapshotIdError, "invalid_snapshot_id", "Source analysis snapshot ID is invalid.", 400),
+            (UnsupportedSnapshotSchemaError, "unsupported_snapshot_schema", "Completed analysis snapshot schema is unsupported.", 422),
+            (SnapshotIntegrityError, "snapshot_integrity_error", "Completed analysis snapshot failed integrity validation.", 422),
+            (SnapshotProvenanceMismatchError, "analysis_provenance_mismatch", "Completed analysis snapshot does not match this investigation.", 409),
+            (SnapshotValidationError, "invalid_snapshot", "Completed analysis snapshot could not be validated.", 422),
+        )
+        for error_type, code, message, status in snapshot_errors:
+            if isinstance(exc, error_type):
+                print(
+                    f"[soc-forge-web] Snapshot activation failed: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                self.send_investigation_error(
+                    code,
+                    message,
+                    status,
+                    investigation_id=investigation_id,
+                )
+                return
         if isinstance(exc, HandoffRevisionConflictError):
             self.send_investigation_error(
                 "revision_conflict",
@@ -805,6 +835,14 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                     self.investigation_app.create_investigation(payload),
                     status=201,
                 )
+                return True
+            if len(segments) == 3 and segments[1:] == ["source-analysis", "load"]:
+                if payload:
+                    raise InvestigationRequestError(
+                        "Source analysis activation does not accept request fields."
+                    )
+                result = self.investigation_app.load_source_analysis(investigation_id)
+                self.send_json(result, no_store=True)
                 return True
             if len(segments) == 3 and segments[1:] == ["handoff", "export"]:
                 result = self.investigation_app.export_handoff(
@@ -1331,6 +1369,10 @@ def make_server(
         workspace_service=service,
         analysis_provider=lambda: server.active_analysis_result,  # type: ignore[attr-defined]
         handoff_root=out_dir / "handoffs",
+        snapshot_store=CompletedAnalysisSnapshotStore(out_dir),
+        analysis_activator=lambda result: setattr(
+            server, "active_analysis_result", result
+        ),
     )
     return server
 

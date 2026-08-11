@@ -23,6 +23,7 @@ from soc_forge.investigations.query_context import (
     InvestigationQueryContext,
     opaque_entity_id,
 )
+from soc_forge.investigations.snapshots import CompletedAnalysisSnapshotStore
 from soc_forge.investigations.query_models import (
     ENTITY_TYPES,
     InvestigationEntityIdentityCollisionError,
@@ -105,6 +106,8 @@ class InvestigationWebApplication:
         reasoning_service: InvestigationReasoningService | None = None,
         handoff_service: InvestigationHandoffService | None = None,
         handoff_root: Path | None = None,
+        snapshot_store: CompletedAnalysisSnapshotStore | None = None,
+        analysis_activator: Callable[[object], None] | None = None,
     ):
         self.bootstrap_adapter = bootstrap_adapter
         self.workspace_service = workspace_service
@@ -123,6 +126,41 @@ class InvestigationWebApplication:
             workspace_service.repository
         )
         self.handoff_root = Path(handoff_root or "out/handoffs")
+        self.snapshot_store = snapshot_store
+        self.analysis_activator = analysis_activator
+
+    def _workspace_response(self, result: WorkspaceResult) -> Dict[str, Any]:
+        response = workspace_response(result)
+        available = self._matching_analysis_available(result)
+        response["source_analysis"] = {
+            "source_analysis_id": result.investigation.analysis_id,
+            "available": available,
+            "status": "available" if available else "unavailable",
+        }
+        return response
+
+    def load_source_analysis(self, investigation_id: str) -> Dict[str, Any]:
+        if self.snapshot_store is None or self.analysis_activator is None:
+            raise InvestigationRequestError("Source analysis recovery is unavailable.")
+        current = self.workspace_service.get_investigation(investigation_id)
+        source_analysis_id = current.investigation.analysis_id
+        analysis = self.snapshot_store.load(source_analysis_id)
+        InvestigationQueryContext(
+            analysis,
+            current.investigation,
+            evidence_catalog=self.evidence_catalog,
+        )
+        self.analysis_activator(analysis)
+        return {
+            "investigation_id": investigation_id,
+            "source_analysis_id": source_analysis_id,
+            "loaded": True,
+            "event_count": len(analysis.events),
+            "alert_count": len(analysis.alerts),
+            "case_count": len(analysis.cases),
+            "reconstruction_count": len(analysis.reconstructions),
+            "message": "Source analysis is available in this server session.",
+        }
 
     def preview_handoff(self, investigation_id: str) -> Dict[str, Any]:
         analysis = self._active_handoff_analysis()
@@ -262,7 +300,7 @@ class InvestigationWebApplication:
         return [asdict(summary) for summary in self.workspace_service.list_investigations()]
 
     def get_investigation(self, investigation_id: str) -> Dict[str, Any]:
-        return workspace_response(
+        return self._workspace_response(
             self.workspace_service.get_investigation(investigation_id)
         )
 
@@ -280,7 +318,7 @@ class InvestigationWebApplication:
             owner=self._optional_text(payload, "owner"),
             initial_status=str(payload.get("initial_status") or "open"),
         )
-        return workspace_response(result)
+        return self._workspace_response(result)
 
     def assign_owner(
         self, investigation_id: str, payload: Mapping[str, Any]
@@ -288,7 +326,7 @@ class InvestigationWebApplication:
         owner = payload.get("owner")
         if owner is not None and not isinstance(owner, str):
             raise InvestigationRequestError("owner must be a string or null")
-        return workspace_response(
+        return self._workspace_response(
             self.workspace_service.assign_owner(
                 investigation_id,
                 owner,
@@ -299,7 +337,7 @@ class InvestigationWebApplication:
     def change_status(
         self, investigation_id: str, payload: Mapping[str, Any]
     ) -> Dict[str, Any]:
-        return workspace_response(
+        return self._workspace_response(
             self.workspace_service.change_status(
                 investigation_id,
                 self._required_text(payload, "status"),
@@ -310,7 +348,7 @@ class InvestigationWebApplication:
     def reopen(
         self, investigation_id: str, payload: Mapping[str, Any]
     ) -> Dict[str, Any]:
-        return workspace_response(
+        return self._workspace_response(
             self.workspace_service.reopen_investigation(
                 investigation_id,
                 expected_revision=self._expected_revision(payload),
@@ -320,7 +358,7 @@ class InvestigationWebApplication:
     def add_annotation(
         self, investigation_id: str, payload: Mapping[str, Any]
     ) -> Dict[str, Any]:
-        return workspace_response(
+        return self._workspace_response(
             self.workspace_service.add_annotation(
                 investigation_id,
                 annotation_id=self._required_text(payload, "annotation_id"),
@@ -338,7 +376,7 @@ class InvestigationWebApplication:
         annotation_id: str,
         payload: Mapping[str, Any],
     ) -> Dict[str, Any]:
-        return workspace_response(
+        return self._workspace_response(
             self.workspace_service.update_annotation(
                 investigation_id,
                 annotation_id,
@@ -353,7 +391,7 @@ class InvestigationWebApplication:
         annotation_id: str,
         payload: Mapping[str, Any],
     ) -> Dict[str, Any]:
-        return workspace_response(
+        return self._workspace_response(
             self.workspace_service.remove_annotation(
                 investigation_id,
                 annotation_id,
@@ -459,7 +497,7 @@ class InvestigationWebApplication:
             author=self._string_value(payload, "author"),
             expected_revision=self._expected_revision(payload),
         )
-        return workspace_response(result)
+        return self._workspace_response(result)
 
     def update_evidence(
         self,
@@ -484,7 +522,7 @@ class InvestigationWebApplication:
             author=author,
             expected_revision=self._expected_revision(payload),
         )
-        return workspace_response(result)
+        return self._workspace_response(result)
 
     def remove_evidence(
         self,
@@ -497,7 +535,7 @@ class InvestigationWebApplication:
             evidence_id,
             expected_revision=self._expected_revision(payload),
         )
-        return workspace_response(result)
+        return self._workspace_response(result)
 
 
     def get_reasoning_summary(self, investigation_id: str) -> Dict[str, Any]:
@@ -766,7 +804,7 @@ class InvestigationWebApplication:
         hypothesis_id: str | None = None,
         decision_id: str | None = None,
     ) -> Dict[str, Any]:
-        response = workspace_response(result)
+        response = self._workspace_response(result)
         if hypothesis_id is not None:
             response["hypothesis"] = self._hypothesis(
                 result, hypothesis_id

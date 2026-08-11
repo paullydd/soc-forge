@@ -10,11 +10,17 @@ directory beneath that root. The console uses the same path resolver, so both
 interfaces can open the same local repository.
 
 The active `AnalysisResult` is held only by the running web server after a
-scenario completes. Creating a workspace requires that active result and
-explicit case IDs. Durable workspaces remain available after server restart,
-but a new workspace cannot be created from a prior run until another analysis
-or scenario completes. The server does not rebuild an `AnalysisResult` from
-artifact JSON and does not rerun analysis from an investigation route.
+scenario completes or after an analyst explicitly loads a validated completed-
+analysis snapshot. Creating a workspace requires that active result and explicit
+case IDs. Durable metadata remains available after server restart. Timeline,
+pivots, source evidence inspection, and handoff require either the matching
+active result or explicit loading of the investigation's exact immutable
+snapshot. The server does not rebuild an `AnalysisResult` from loose artifact
+JSON and does not rerun analysis from an investigation route.
+
+The server holds one active analysis at a time. Loading one investigation's
+snapshot replaces the current process-local analysis. A different investigation
+refuses source-dependent requests until its own matching snapshot is loaded.
 
 ## HTTP API
 
@@ -26,7 +32,8 @@ body.
 | --- | --- | --- |
 | `GET` | `/api/investigations` | List typed workspace summaries |
 | `POST` | `/api/investigations` | Create from active analysis case IDs |
-| `GET` | `/api/investigations/{id}` | Read investigation and revision |
+| `GET` | `/api/investigations/{id}` | Read investigation, revision, and source-analysis availability |
+| `POST` | `/api/investigations/{id}/source-analysis/load` | Validate and activate the exact completed-analysis snapshot |
 | `DELETE` | `/api/investigations/{id}` | Delete workspace state only |
 | `POST` | `/api/investigations/{id}/owner` | Assign, reassign, or clear owner |
 | `POST` | `/api/investigations/{id}/status` | Apply a normal status transition |
@@ -41,7 +48,12 @@ Workspace reads and successful modifications return:
 ```json
 {
   "investigation": {},
-  "revision": 2
+  "revision": 2,
+  "source_analysis": {
+    "source_analysis_id": "analysis-...",
+    "available": false,
+    "status": "unavailable"
+  }
 }
 ```
 
@@ -101,7 +113,9 @@ Run or select scenario
   -> Change status
   -> Exit browser
   -> Restart server
-  -> Reopen durable workspace
+  -> Reopen durable workspace metadata
+  -> Load Source Analysis
+  -> Resume source-dependent investigation work
 ```
 
 ## Reasoning API
@@ -147,3 +161,21 @@ remediation, or other response actions.
 Each investigation detail page provides a compact, read-only handoff section. The browser can preview the current revision, acknowledge the sensitivity warning, export to the server-controlled analysis `handoffs` directory, inspect the manifest, and run offline validation. Existing bundles are replaced only after explicit overwrite confirmation and successful staged validation.
 
 The browser retains export choices only in transient memory. It receives no absolute artifact paths and performs no handoff serialization, hashing, copying, or validation. Revision conflicts refresh the authoritative investigation without retrying export. See [Investigation Handoff Packages](investigation_handoff.md).
+
+## Source Analysis Recovery
+
+`POST /api/investigations/{id}/source-analysis/load` accepts an empty JSON
+object. It loads the investigation's `source_analysis_id` from durable state,
+validates the immutable snapshot through `CompletedAnalysisSnapshotStore`,
+constructs `InvestigationQueryContext` to validate selected cases and evidence
+references, and only then replaces the server's active analysis.
+
+Successful responses contain the investigation and source-analysis IDs plus
+event, alert, case, and reconstruction counts. They do not contain raw source
+records. Missing, corrupt, unsupported, unsafe, or provenance-invalid snapshots
+return controlled errors without paths, telemetry, command lines, or tracebacks.
+Activation responses use `Cache-Control: no-store`.
+
+Loading restores process-local source context. It does not modify, rebind, or
+increment the durable investigation, and the browser does not retry failed
+activation or source-dependent requests automatically.
