@@ -82,6 +82,7 @@ class InvestigationQueryConsoleController:
     def run(self, current: WorkspaceResult) -> WorkspaceResult:
         context = self._open_context(current)
         if context is None:
+            self.pause()
             return current
         opened_revision = current.revision
         while True:
@@ -118,6 +119,7 @@ class InvestigationQueryConsoleController:
                     "The active analysis changed and no longer matches this workbench. "
                     "Leave and reopen it with the matching completed analysis."
                 )
+                self.pause()
                 return current
             if choice == "1":
                 self.timeline_screen(context, current)

@@ -555,6 +555,112 @@ def test_simulation_result_is_immediately_available_to_investigation_workspace(
     ] == ["CASE-A"]
 
 
+def test_main_runtime_opens_durable_workbench_with_live_analysis(
+    monkeypatch, tmp_path
+):
+    import analyst_console
+    from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
+
+    analysis = build_analysis(tmp_path)
+    workspace_root = tmp_path / "runtime-workspace"
+    repository = InvestigationRepository(workspace_root)
+    service = InvestigationWorkspaceService(repository)
+    adapter = InvestigationBootstrapAdapter(service)
+    created = adapter.bootstrap_investigation(
+        analysis,
+        "INV-RUNTIME",
+        ["CASE-A"],
+    )
+    workspace_file = next((workspace_root / "investigations").glob("*.json"))
+    repository_before = workspace_file.read_bytes()
+    analysis_id = AnalysisEvidenceCatalog().source_analysis_id(analysis)
+    prompts = ScriptedInput(
+        [
+            "2", "6", "3", "INV-RUNTIME", "11",
+            "0", "0", "", "0", "0", "0",
+        ]
+    )
+    screens = []
+    observed = []
+    controllers = []
+    original_builder = analyst_console.build_investigation_console_controller
+
+    def tracked_builder(*args, **kwargs):
+        controller = original_builder(*args, **kwargs)
+        controllers.append(controller)
+        original_run = controller.query_controller.run
+
+        def tracked_run(current):
+            observed.append(
+                (
+                    current,
+                    controller.analysis_provider(),
+                    controller.workspace_service,
+                    controller.workspace_root,
+                    controller.query_controller.pause,
+                )
+            )
+            return original_run(current)
+
+        controller.query_controller.run = tracked_run
+        return controller
+
+    monkeypatch.setattr(analyst_console, "_current_analysis_result", analysis)
+    monkeypatch.setattr(analyst_console, "WORKSPACE_ROOT", workspace_root)
+    monkeypatch.setattr("builtins.input", prompts)
+    monkeypatch.setattr(analyst_console, "begin_screen", screens.append)
+    monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
+    monkeypatch.setattr(analyst_console, "show_dashboard", lambda *_args: None)
+    monkeypatch.setattr(analyst_console, "menu_group", lambda *_args: None)
+    monkeypatch.setattr(analyst_console, "menu_option", lambda *_args: None)
+    monkeypatch.setattr(
+        "soc_forge.menus.investigations.begin_screen",
+        screens.append,
+    )
+    monkeypatch.setattr(
+        analyst_console,
+        "build_investigation_console_controller",
+        tracked_builder,
+    )
+
+    with pytest.raises(SystemExit):
+        analyst_console.main_menu()
+
+    assert len(controllers) == 1
+    assert len(observed) == 1
+    current, active, runtime_service, root, pause_callback = observed[0]
+    assert current == created
+    assert current.revision == created.revision
+    assert current.investigation.analysis_id == analysis_id
+    assert active is analysis
+    assert runtime_service.repository.storage_root == workspace_root
+    assert root == workspace_root
+    assert callable(pause_callback)
+    assert "TIMELINE/PIVOT WORKBENCH - READ ONLY" in screens
+    assert workspace_file.read_bytes() == repository_before
+    assert service.get_investigation("INV-RUNTIME").revision == created.revision
+
+
+def test_workspace_does_not_swallow_query_controller_exception(tmp_path):
+    analysis = build_analysis(tmp_path)
+    controller, service, _ = build_controller(tmp_path, analysis=analysis)
+    current = service.create_investigation(
+        investigation_id="INV-QUERY-ERROR",
+        title="Query error boundary",
+        analysis_id="ANALYSIS-QUERY-ERROR",
+    )
+
+    class FailingQueryController:
+        def run(self, _current):
+            raise RuntimeError("query-controller-contract")
+
+    controller.query_controller = FailingQueryController()
+    controller.input = ScriptedInput(["11"])
+
+    with pytest.raises(RuntimeError, match="query-controller-contract"):
+        controller.workspace_loop(current)
+
+
 def test_returning_through_main_menus_preserves_active_analysis(monkeypatch, tmp_path):
     import analyst_console
 

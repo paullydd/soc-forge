@@ -108,6 +108,33 @@ def test_no_active_analysis_returns_without_touching_workspace(tmp_path):
     assert any("matching completed analysis" in item for item in messages)
 
 
+def test_missing_active_analysis_diagnostic_waits_for_acknowledgement(tmp_path):
+    controller, _, _, current, _, _, _, messages = build_workbench(
+        tmp_path, analysis_marker=None
+    )
+    pause_views = []
+    controller.pause = lambda: pause_views.append(tuple(messages))
+
+    assert controller.run(current) == current
+
+    assert len(pause_views) == 1
+    assert any("matching completed analysis" in line for line in pause_views[0])
+
+
+def test_provenance_mismatch_diagnostic_waits_for_acknowledgement(tmp_path):
+    controller, _, _, current, _, _, _, messages = build_workbench(tmp_path)
+    other = build_query_analysis(tmp_path / "other-runtime")
+    other.input_name = "different-runtime.jsonl"
+    controller.analysis_provider = lambda: other
+    pause_views = []
+    controller.pause = lambda: pause_views.append(tuple(messages))
+
+    assert controller.run(current) == current
+
+    assert len(pause_views) == 1
+    assert any("does not match" in line for line in pause_views[0])
+
+
 def test_provenance_mismatch_is_concise_and_safe(tmp_path):
     controller, _, _, current, _, _, _, messages = build_workbench(tmp_path)
     other = build_query_analysis(tmp_path / "other")

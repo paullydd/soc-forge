@@ -35,7 +35,19 @@ def get_current_analysis_result():
     return _current_analysis_result
 
 
-def build_investigation_console_controller(workspace_root=WORKSPACE_ROOT):
+def build_investigation_console_controller(
+    workspace_root=None,
+    *,
+    input_func=None,
+    output_func=None,
+    screen_func=None,
+    pause_func=None,
+):
+    workspace_root = WORKSPACE_ROOT if workspace_root is None else workspace_root
+    input_func = input if input_func is None else input_func
+    output_func = print if output_func is None else output_func
+    screen_func = begin_screen if screen_func is None else screen_func
+    pause_func = pause if pause_func is None else pause_func
     repository = InvestigationRepository(workspace_root)
     service = InvestigationWorkspaceService(repository)
     adapter = InvestigationBootstrapAdapter(service)
@@ -44,8 +56,10 @@ def build_investigation_console_controller(workspace_root=WORKSPACE_ROOT):
         workspace_service=service,
         analysis_provider=get_current_analysis_result,
         workspace_root=workspace_root,
-        screen_func=begin_screen,
-        pause_func=pause,
+        input_func=input_func,
+        output_func=output_func,
+        screen_func=screen_func,
+        pause_func=pause_func,
     )
 
 
