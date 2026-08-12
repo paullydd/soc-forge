@@ -1050,6 +1050,14 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 if not segments:
                     self.send_json(self.investigation_app.list_investigations())
                     return
+                if len(segments) == 2 and segments[1] == "summary":
+                    self.send_json(
+                        self.investigation_app.get_investigation_summary(
+                            segments[0]
+                        ),
+                        no_store=True,
+                    )
+                    return
                 if len(segments) == 3 and segments[1:] == ["handoff", "preview"]:
                     self.send_json(
                         self.investigation_app.preview_handoff(segments[0]),

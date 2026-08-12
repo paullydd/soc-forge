@@ -69,6 +69,7 @@ Use `Start Demo` to run the selected scenario and step through the current portf
 - Detection engineering scorecard with quality, MITRE coverage, evidence context, correlation depth, and demo readiness
 - Alert table
 - Hunt finding review
+- Durable investigation summary with explicit machine-derived and analyst-authored attribution
 - Durable investigation evidence browsing, provenance review, and analyst selection management
 - Links to generated HTML and JSON artifacts
 
@@ -79,6 +80,7 @@ The local server exposes workspace endpoints and one local demo-generation endpo
 ```text
 GET /api/workspace
 GET /api/summary
+GET /api/investigations/{id}/summary
 GET /api/cases
 GET /api/alerts
 GET /api/hunts
@@ -250,3 +252,10 @@ holds one active analysis, so loading another investigation's snapshot replaces
 the current in-memory value. Failed source-dependent requests and failed loads
 are not retried automatically. Snapshot paths and source payloads are never
 placed in URLs or browser storage.
+
+
+## Investigation Summary
+
+Opening a durable investigation loads a compact summary near the top of the workspace. When the exact source analysis is active, full mode includes bounded machine context and canonical timeline milestones. Otherwise offline mode shows durable analyst-owned state and explicit limitations. Loading the source analysis refreshes the same summary without changing the investigation revision.
+
+Evidence, hypothesis, decision, and timeline actions open the existing investigation workflows. Summary content is rendered as untrusted text, sensitive evidence values are not automatically revealed, and the route is read-only with `Cache-Control: no-store`.

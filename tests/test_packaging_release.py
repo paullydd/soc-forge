@@ -67,6 +67,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
     assert static_names == [
         "soc_forge/web/static/app.js",
         "soc_forge/web/static/index.html",
+        "soc_forge/web/static/investigation_summary.js",
         "soc_forge/web/static/investigations.js",
         "soc_forge/web/static/query_workbench.js",
         "soc_forge/web/static/styles.css",

@@ -182,6 +182,9 @@ function renderInvestigations() {
           ? ''
           : '<button id="loadSourceAnalysisButton" type="button">Load Source Analysis</button>'}
       </section>
+      <section class="brief-section investigation-summary-section">
+        <div id="investigationSummary" class="workspace-records"></div>
+      </section>
       <div class="workspace-actions">
         <button id="assignOwnerButton" type="button">Assign Owner</button>
         <button id="clearOwnerButton" type="button">Clear Owner</button>
@@ -304,6 +307,7 @@ function renderInvestigations() {
   bindInvestigationWorkbench();
   renderEvidenceSummary();
   renderReasoningSummary();
+  loadInvestigationSummary().catch(showInvestigationSummaryError);
 }
 
 function bindSourceAnalysisActions(investigation, sourceAvailable) {

@@ -209,3 +209,11 @@ th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; fon
 .scope-evidence .workspace-record { border-left: 3px solid var(--accent-2); }
 .selected-evidence .workspace-record { border-left: 3px solid var(--accent); }
 .evidence-section h4 { margin: 10px 0 0; }
+
+
+.investigation-summary-section { margin: 18px 0; }
+.summary-group { border-top: 1px solid var(--line); padding-top: 12px; }
+.summary-group .panel-head { margin-bottom: 8px; }
+.summary-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.summary-metric { border: 1px solid var(--line); background: #12181f; border-radius: 6px; padding: 10px; display: grid; gap: 4px; }
+.summary-metric-label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }

@@ -33,6 +33,7 @@ body.
 | `GET` | `/api/investigations` | List typed workspace summaries |
 | `POST` | `/api/investigations` | Create from active analysis case IDs |
 | `GET` | `/api/investigations/{id}` | Read investigation, revision, and source-analysis availability |
+| `GET` | `/api/investigations/{id}/summary` | Read the deterministic full or offline investigation summary |
 | `POST` | `/api/investigations/{id}/source-analysis/load` | Validate and activate the exact completed-analysis snapshot |
 | `DELETE` | `/api/investigations/{id}` | Delete workspace state only |
 | `POST` | `/api/investigations/{id}/owner` | Assign, reassign, or clear owner |
@@ -179,3 +180,10 @@ Activation responses use `Cache-Control: no-store`.
 Loading restores process-local source context. It does not modify, rebind, or
 increment the durable investigation, and the browser does not retry failed
 activation or source-dependent requests automatically.
+
+
+## Investigation Summary
+
+The investigation detail view places a read-only summary immediately after source-analysis availability. Full mode uses only the exact matching active analysis and shows bounded case, rule, severity, ATT&CK, evidence-sensitivity, and timeline context. Missing or mismatched analysis produces offline mode, which retains durable analyst evidence, hypotheses, decisions, ownership, status, and revision while naming omitted machine context.
+
+The summary route uses `Cache-Control: no-store` and never activates a snapshot, changes the investigation revision, or writes repository or artifact data. After the analyst explicitly uses **Load Source Analysis**, the normal workspace rerender requests the summary again and changes it from offline to full. Summary links delegate to the existing evidence, hypothesis, decision, and timeline workflows; protected evidence still requires the established explicit reveal acknowledgement.

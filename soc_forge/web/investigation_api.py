@@ -24,6 +24,7 @@ from soc_forge.investigations.query_context import (
     opaque_entity_id,
 )
 from soc_forge.investigations.snapshots import CompletedAnalysisSnapshotStore
+from soc_forge.investigations.summary import InvestigationSummaryService
 from soc_forge.investigations.query_models import (
     ENTITY_TYPES,
     InvestigationEntityIdentityCollisionError,
@@ -121,6 +122,11 @@ class InvestigationWebApplication:
             workspace_service
         )
         self.timeline_service = InvestigationTimelineService()
+        self.summary_service = InvestigationSummaryService(
+            workspace_service,
+            evidence_catalog=self.evidence_catalog,
+            timeline_service=self.timeline_service,
+        )
         self.pivot_service = InvestigationPivotService()
         self.handoff_service = handoff_service or InvestigationHandoffService(
             workspace_service.repository
@@ -161,6 +167,22 @@ class InvestigationWebApplication:
             "reconstruction_count": len(analysis.reconstructions),
             "message": "Source analysis is available in this server session.",
         }
+
+    def get_investigation_summary(self, investigation_id: str) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        analysis = self.analysis_provider()
+        if analysis is not None:
+            try:
+                if (
+                    self.evidence_catalog.source_analysis_id(analysis)
+                    != current.investigation.analysis_id
+                ):
+                    analysis = None
+            except Exception:
+                analysis = None
+        return self.summary_service.summarize(
+            investigation_id, analysis
+        ).to_dict()
 
     def preview_handoff(self, investigation_id: str) -> Dict[str, Any]:
         analysis = self._active_handoff_analysis()

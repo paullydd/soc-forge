@@ -11,7 +11,7 @@ InvestigationWorkspaceService
   -> InvestigationTimelineService
   -> InvestigationSummaryService
   -> immutable InvestigationSummary
-  -> future console and web presentation
+  -> web presentation
 ```
 
 `InvestigationSummaryService` owns summary composition. It loads durable state through `InvestigationWorkspaceService`, validates an optional completed analysis with `InvestigationQueryContext`, and delegates chronology to `InvestigationTimelineService`.
@@ -67,4 +67,4 @@ Summaries can contain case titles, source IDs, host or identity context present 
 
 The summary does not automatically reveal protected evidence values. Consumers must continue using the existing explicit evidence-detail reveal workflow for sensitive source fields.
 
-Timeline limitations from the canonical timeline service are preserved. Offline mode explicitly identifies unavailable machine context. The foundation adds no console UI, web route, export format, report integration, or handoff change.
+Timeline limitations from the canonical timeline service are preserved. Offline mode explicitly identifies unavailable machine context. The web adapter exposes the projection at `GET /api/investigations/{id}/summary`. It selects only the exact matching process-local analysis; otherwise the service returns its bounded offline projection. The browser does not reveal protected evidence values and delegates detail navigation to the existing evidence, reasoning, and timeline workflows. The summary adds no export format, report integration, or handoff change.
