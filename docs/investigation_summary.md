@@ -68,3 +68,12 @@ Summaries can contain case titles, source IDs, host or identity context present 
 The summary does not automatically reveal protected evidence values. Consumers must continue using the existing explicit evidence-detail reveal workflow for sensitive source fields.
 
 Timeline limitations from the canonical timeline service are preserved. Offline mode explicitly identifies unavailable machine context. The web adapter exposes the projection at `GET /api/investigations/{id}/summary`. It selects only the exact matching process-local analysis; otherwise the service returns its bounded offline projection. The browser does not reveal protected evidence values and delegates detail navigation to the existing evidence, reasoning, and timeline workflows. The summary adds no export format, report integration, or handoff change.
+
+
+## Analyst Console Presentation
+
+Open **Investigation Workspaces**, open a durable investigation, and select **Investigation Summary**. The summary screen is a read-only terminal presentation of the same `InvestigationSummaryService` projection used by the web adapter. It does not compose a second narrative or inspect raw events.
+
+The screen labels FULL and OFFLINE modes, separates machine-generated detection context from analyst-authored evidence and reasoning, and keeps protected source values out of the summary. Terminal scrollback can retain investigation identity and bounded analyst-authored content, so analysts should use the same care applied to other console evidence and reasoning screens.
+
+The summary owns one navigation loop. Evidence, hypotheses and decisions, timeline and pivots, and handoff delegate to their existing controllers and return to the summary. **Load Source Analysis Snapshot** delegates to the existing validated snapshot loader; successful activation rerenders the summary in FULL mode without changing the investigation revision. **Back** returns exactly one level to the investigation workspace.

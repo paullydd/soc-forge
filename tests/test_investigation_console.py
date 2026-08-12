@@ -185,7 +185,7 @@ def test_workspace_evidence_and_reasoning_options_still_dispatch(tmp_path):
 
     controller.evidence_controller = NestedController("evidence")
     controller.reasoning_controller = NestedController("reasoning")
-    controller.input = ScriptedInput(["9", "10", "0"])
+    controller.input = ScriptedInput(["10", "11", "0"])
 
     assert controller.workspace_loop(current) == current
     assert calls == ["evidence", "reasoning"]
@@ -207,7 +207,7 @@ def test_workspace_timeline_and_pivot_option_dispatches_read_only_controller(tmp
             return value
 
     controller.query_controller = QueryController()
-    controller.input = ScriptedInput(["11", "0"])
+    controller.input = ScriptedInput(["12", "0"])
 
     assert controller.workspace_loop(current) == current
     assert calls == [current.revision]
@@ -230,7 +230,7 @@ def test_workspace_handoff_option_dispatches_read_only_controller(tmp_path):
             return value
 
     controller.handoff_controller = HandoffController()
-    controller.input = ScriptedInput(["12", "0"])
+    controller.input = ScriptedInput(["13", "0"])
 
     assert controller.workspace_loop(current) == current
     assert calls == [current.revision]
@@ -261,10 +261,11 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     assert any("Selected case IDs: CASE-B" in line for line in messages)
     assert any("Annotations: 0" in line for line in messages)
     assert any("Decisions: 0" in line for line in messages)
-    assert "[9] Evidence workspace" in messages
-    assert "[10] Hypotheses and Decisions" in messages
-    assert "[11] Timeline and Pivot Workbench (Read Only)" in messages
-    assert "[12] Investigation Handoff (Read Only)" in messages
+    assert "[1] Investigation Summary" in messages
+    assert "[10] Evidence workspace" in messages
+    assert "[11] Hypotheses and Decisions" in messages
+    assert "[12] Timeline and Pivot Workbench (Read Only)" in messages
+    assert "[13] Investigation Handoff (Read Only)" in messages
     assert "[9] Record decision" not in messages
 
 
@@ -576,7 +577,7 @@ def test_main_runtime_opens_durable_workbench_with_live_analysis(
     analysis_id = AnalysisEvidenceCatalog().source_analysis_id(analysis)
     prompts = ScriptedInput(
         [
-            "2", "6", "3", "INV-RUNTIME", "11",
+            "2", "6", "3", "INV-RUNTIME", "12",
             "0", "0", "", "0", "0", "0",
         ]
     )
@@ -655,7 +656,7 @@ def test_workspace_does_not_swallow_query_controller_exception(tmp_path):
             raise RuntimeError("query-controller-contract")
 
     controller.query_controller = FailingQueryController()
-    controller.input = ScriptedInput(["11"])
+    controller.input = ScriptedInput(["12"])
 
     with pytest.raises(RuntimeError, match="query-controller-contract"):
         controller.workspace_loop(current)
@@ -799,7 +800,7 @@ def test_workspace_views_pause_with_persisted_annotations_and_decisions(tmp_path
         expected_revision=current.revision,
     )
     pauses = []
-    controller.input = ScriptedInput(["4", "8", "0"])
+    controller.input = ScriptedInput(["5", "9", "0"])
     controller.pause = lambda: pauses.append(tuple(messages))
 
     assert controller.workspace_loop(current) == current
@@ -817,8 +818,8 @@ def test_workspace_annotation_add_and_edit_refresh_and_persist(tmp_path):
         analysis_id="ANALYSIS-ANNOTATIONS",
     )
     controller.input = ScriptedInput([
-        "5", "NOTE-1", "alice", "Original text",
-        "6", "NOTE-1", "Edited text",
+        "6", "NOTE-1", "alice", "Original text",
+        "7", "NOTE-1", "Edited text",
         "0",
     ])
     pauses = []

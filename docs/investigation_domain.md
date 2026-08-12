@@ -377,3 +377,8 @@ Snapshots are immutable, keyed by the investigation's exact `source_analysis_id`
 and loaded without changing investigation revision or repository content. A new run
 with the same scenario or case ID is not a substitute for the original analysis.
 See [Completed Analysis Snapshots](completed_analysis_snapshots.md).
+
+
+### Investigation Summary Console
+
+The durable workspace presents **Investigation Summary** as its first investigation-level action. `InvestigationSummaryConsoleController` depends on `InvestigationSummaryService` and existing drill-down controllers; it owns presentation and navigation only. FULL mode requires the exact matching active analysis. OFFLINE mode remains usable from durable analyst state, and explicit snapshot recovery uses the existing completed-analysis loader. Summary reads and navigation do not write repository JSON or pipeline artifacts.

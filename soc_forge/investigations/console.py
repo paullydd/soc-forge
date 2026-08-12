@@ -19,6 +19,10 @@ from soc_forge.investigations.reasoning_service import InvestigationReasoningSer
 from soc_forge.investigations.query_console import InvestigationQueryConsoleController
 from soc_forge.investigations.query_context import InvestigationQueryContext
 from soc_forge.investigations.query_models import InvestigationQueryError
+from soc_forge.investigations.summary import InvestigationSummaryService
+from soc_forge.investigations.summary_console import (
+    InvestigationSummaryConsoleController,
+)
 from soc_forge.investigations.snapshots import (
     CompletedAnalysisSnapshotError,
     CompletedAnalysisSnapshotStore,
@@ -51,6 +55,7 @@ class InvestigationConsoleController:
         reasoning_controller: ReasoningConsoleController | None = None,
         query_controller: InvestigationQueryConsoleController | None = None,
         handoff_controller: InvestigationHandoffConsoleController | None = None,
+        summary_controller: InvestigationSummaryConsoleController | None = None,
         snapshot_store: CompletedAnalysisSnapshotStore | None = None,
         analysis_activator: Callable[[object], None] | None = None,
     ):
@@ -94,6 +99,19 @@ class InvestigationConsoleController:
         self.handoff_controller = handoff_controller or InvestigationHandoffConsoleController(
             handoff_service=InvestigationHandoffService(workspace_service.repository),
             analysis_provider=analysis_provider,
+            input_func=input_func,
+            output_func=output_func,
+            screen_func=screen_func,
+            pause_func=self.pause,
+        )
+        self.summary_controller = summary_controller or InvestigationSummaryConsoleController(
+            summary_service=InvestigationSummaryService(workspace_service),
+            analysis_provider=analysis_provider,
+            evidence_controller=self.evidence_controller,
+            reasoning_controller=self.reasoning_controller,
+            query_controller=self.query_controller,
+            handoff_controller=self.handoff_controller,
+            snapshot_loader=self.load_source_analysis,
             input_func=input_func,
             output_func=output_func,
             screen_func=screen_func,
@@ -217,53 +235,56 @@ class InvestigationConsoleController:
     def workspace_loop(self, current: WorkspaceResult) -> WorkspaceResult:
         while True:
             self._render_workspace(current)
-            self.output("[1] Assign or clear owner")
-            self.output("[2] Change status")
-            self.output("[3] Reopen investigation")
-            self.output("[4] View annotations")
-            self.output("[5] Add annotation")
-            self.output("[6] Edit annotation")
-            self.output("[7] Remove annotation")
-            self.output("[8] View decisions")
-            self.output("[9] Evidence workspace")
-            self.output("[10] Hypotheses and Decisions")
-            self.output("[11] Timeline and Pivot Workbench (Read Only)")
-            self.output("[12] Investigation Handoff (Read Only)")
-            self.output("[13] Load source analysis snapshot")
+            self.output("[1] Investigation Summary")
+            self.output("[2] Assign or clear owner")
+            self.output("[3] Change status")
+            self.output("[4] Reopen investigation")
+            self.output("[5] View annotations")
+            self.output("[6] Add annotation")
+            self.output("[7] Edit annotation")
+            self.output("[8] Remove annotation")
+            self.output("[9] View decisions")
+            self.output("[10] Evidence workspace")
+            self.output("[11] Hypotheses and Decisions")
+            self.output("[12] Timeline and Pivot Workbench (Read Only)")
+            self.output("[13] Investigation Handoff (Read Only)")
+            self.output("[14] Load source analysis snapshot")
             self.output("[0] Back")
 
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return current
             if choice == "1":
-                current = self._assign_owner(current)
+                current = self.summary_controller.run(current)
             elif choice == "2":
-                current = self._change_status(current)
+                current = self._assign_owner(current)
             elif choice == "3":
-                current = self._reopen(current)
+                current = self._change_status(current)
             elif choice == "4":
-                self._view_annotations(current)
+                current = self._reopen(current)
             elif choice == "5":
-                current = self._add_annotation(current)
+                self._view_annotations(current)
             elif choice == "6":
-                current = self._edit_annotation(current)
+                current = self._add_annotation(current)
             elif choice == "7":
-                current = self._remove_annotation(current)
+                current = self._edit_annotation(current)
             elif choice == "8":
-                self._view_decisions(current)
+                current = self._remove_annotation(current)
             elif choice == "9":
-                current = self.evidence_controller.run(current)
+                self._view_decisions(current)
             elif choice == "10":
-                current = self.reasoning_controller.run(current)
+                current = self.evidence_controller.run(current)
             elif choice == "11":
-                current = self.query_controller.run(current)
+                current = self.reasoning_controller.run(current)
             elif choice == "12":
-                current = self.handoff_controller.run(current)
+                current = self.query_controller.run(current)
             elif choice == "13":
+                current = self.handoff_controller.run(current)
+            elif choice == "14":
                 self.load_source_analysis(current)
             else:
                 self.output("Invalid option.")
-            if choice in {"1", "2", "3", "4", "5", "6", "7", "8", "13"}:
+            if choice in {"2", "3", "4", "5", "6", "7", "8", "9", "14"}:
                 self.pause()
 
     def load_source_analysis(self, current: WorkspaceResult) -> object | None:
