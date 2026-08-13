@@ -117,6 +117,8 @@ class InvestigationSummaryConsoleController:
         )
         self.output(
             f"  Findings: {summary.finding_counts.total} | "
+            f"Active: {summary.finding_counts.active} | "
+            f"Historical: {summary.finding_counts.superseded} | "
             f"Draft: {summary.finding_counts.draft} | "
             f"Substantiated: {summary.finding_counts.substantiated} | "
             f"Unsubstantiated: {summary.finding_counts.unsubstantiated} | "
@@ -227,27 +229,38 @@ class InvestigationSummaryConsoleController:
         self.output("Confidence reflects analyst assessment, not machine certainty.")
         if not summary.analyst_findings:
             self.output("No analyst-authored findings.")
-        for finding in summary.analyst_findings:
-            self.output(
-                f"  {finding.finding_id} | {finding.title} | "
-                f"{finding.status.upper()} | {finding.confidence.upper()}"
+        for lifecycle, heading in (
+            ("active", "ACTIVE FINDINGS"),
+            ("superseded", "HISTORICAL / SUPERSEDED FINDINGS"),
+        ):
+            items = tuple(
+                item for item in summary.analyst_findings
+                if item.lifecycle_state == lifecycle
             )
-            self.output(f"    Analyst: {finding.author}")
-            self.output(f"    Conclusion: {finding.conclusion}")
-            self.output(
-                f"    Basis: {finding.evidence_count} evidence | "
-                f"{finding.hypothesis_count} hypotheses | "
-                f"{finding.decision_count} decisions"
-            )
-            if finding.attack_tactics or finding.attack_techniques:
+            self.output(heading)
+            if not items:
+                self.output("  None")
+            for finding in items:
                 self.output(
-                    "    ATT&CK: "
-                    + ", ".join(
-                        finding.attack_tactics + finding.attack_techniques
-                    )
+                    f"  {finding.finding_id} | {finding.title} | "
+                    f"{finding.status.upper()} | {finding.confidence.upper()}"
                 )
-            for limitation in finding.limitations:
-                self.output(f"    Limitation: {limitation}")
+                self.output(f"    Analyst: {finding.author}")
+                self.output(f"    Conclusion: {finding.conclusion}")
+                self.output(
+                    f"    Basis: {finding.evidence_count} evidence | "
+                    f"{finding.hypothesis_count} hypotheses | "
+                    f"{finding.decision_count} decisions"
+                )
+                if finding.attack_tactics or finding.attack_techniques:
+                    self.output(
+                        "    ATT&CK: "
+                        + ", ".join(
+                            finding.attack_tactics + finding.attack_techniques
+                        )
+                    )
+                for limitation in finding.limitations:
+                    self.output(f"    Limitation: {limitation}")
 
         self.output("")
         self.output("TIMELINE SUMMARY")

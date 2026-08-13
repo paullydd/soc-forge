@@ -361,6 +361,7 @@ FINDING_STATUSES = frozenset(
     {"draft", "substantiated", "unsubstantiated", "inconclusive"}
 )
 FINDING_CONFIDENCES = frozenset({"low", "medium", "high"})
+FINDING_LIFECYCLE_STATES = frozenset({"active", "superseded"})
 FINDING_TITLE_LIMIT = 160
 FINDING_CONCLUSION_LIMIT = 4000
 FINDING_LIMITATION_LIMIT = 1000
@@ -401,6 +402,12 @@ class InvestigationFinding(SerializableModel):
     attack_tactics: Tuple[str, ...] = ()
     attack_techniques: Tuple[str, ...] = ()
     limitations: Tuple[str, ...] = ()
+    lifecycle_state: str = "active"
+    supersedes_finding_id: str | None = None
+    superseded_by_finding_id: str | None = None
+    supersession_reason: str | None = None
+    supersession_author: str | None = None
+    superseded_at: str | None = None
     schema_version: str = INVESTIGATION_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -445,6 +452,23 @@ class InvestigationFinding(SerializableModel):
                 "InvestigationFinding.confidence must be one of: "
                 + ", ".join(sorted(FINDING_CONFIDENCES))
             )
+        if self.lifecycle_state not in FINDING_LIFECYCLE_STATES:
+            raise ValueError("Invalid InvestigationFinding.lifecycle_state")
+        for field_name in ("supersedes_finding_id", "superseded_by_finding_id"):
+            value = getattr(self, field_name)
+            if value is not None:
+                object.__setattr__(self, field_name, _manual_id(value, f"InvestigationFinding.{field_name}"))
+        for field_name, limit in (("supersession_reason", FINDING_LIMITATION_LIMIT), ("supersession_author", FINDING_TITLE_LIMIT), ("superseded_at", FINDING_TITLE_LIMIT)):
+            value = getattr(self, field_name)
+            if value is not None:
+                object.__setattr__(self, field_name, _bounded_text(value, f"InvestigationFinding.{field_name}", limit))
+        if self.finding_id in {self.supersedes_finding_id, self.superseded_by_finding_id}:
+            raise ValueError("InvestigationFinding cannot supersede itself")
+        metadata = (self.supersession_reason, self.supersession_author, self.superseded_at)
+        if self.lifecycle_state == "active" and (self.superseded_by_finding_id is not None or any(metadata)):
+            raise ValueError("Active InvestigationFinding cannot carry superseded metadata")
+        if self.lifecycle_state == "superseded" and (self.superseded_by_finding_id is None or not all(metadata)):
+            raise ValueError("Superseded InvestigationFinding requires replacement, reason, author, and timestamp")
         for field_name in (
             "evidence_ids",
             "hypothesis_ids",
@@ -771,6 +795,25 @@ class Investigation(SerializableModel):
                 "finding", finding.finding_id, "decision",
                 finding.decision_ids, decision_ids,
             )
+        findings_by_id = {item.finding_id: item for item in self.findings}
+        for finding in self.findings:
+            if finding.supersedes_finding_id is not None:
+                prior = findings_by_id.get(finding.supersedes_finding_id)
+                if prior is None or prior.superseded_by_finding_id != finding.finding_id:
+                    raise MissingInvestigationReferenceError(f"Finding {finding.finding_id!r} has inconsistent supersession")
+            if finding.superseded_by_finding_id is not None:
+                replacement = findings_by_id.get(finding.superseded_by_finding_id)
+                if replacement is None or replacement.supersedes_finding_id != finding.finding_id:
+                    raise MissingInvestigationReferenceError(f"Finding {finding.finding_id!r} has inconsistent supersession")
+        for origin in self.findings:
+            seen = set()
+            current = origin
+            while current.superseded_by_finding_id is not None:
+                if current.finding_id in seen:
+                    raise MissingInvestigationReferenceError("Finding supersession graph contains a cycle")
+                seen.add(current.finding_id)
+                current = findings_by_id[current.superseded_by_finding_id]
+
         for selection in self.timeline_selections:
             self._require_references(
                 "timeline selection", selection.selection_id, "evidence",

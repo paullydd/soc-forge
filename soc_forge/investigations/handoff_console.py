@@ -255,7 +255,7 @@ class InvestigationHandoffConsoleController:
         for finding in preview.findings:
             self.output(
                 f"  {finding.finding_id} | {self._bounded(finding.title)} | "
-                f"{finding.status.upper()} | analyst confidence: "
+                f"{finding.status.upper()} | {finding.lifecycle_state.upper()} | analyst confidence: "
                 f"{finding.confidence}"
             )
             self.output(f"    Conclusion: {self._bounded(finding.conclusion)}")

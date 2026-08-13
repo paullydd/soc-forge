@@ -322,3 +322,37 @@ def test_mismatched_analysis_does_not_change_durable_findings(tmp_path):
     assert summary.mode == "offline"
     assert len(summary.analyst_findings) == 4
     assert repository_bytes(repository) == before
+
+
+def test_superseded_finding_is_history_and_only_active_replacement_drives_narrative(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = build_query_investigation(analysis)
+    evidence_id = next(item.reference_id for item in investigation.evidence_references if item.origin == "analyst_selection")
+    old = InvestigationFinding(
+        finding_id="FIND-OLD", investigation_id="INV-QUERY", title="Old",
+        conclusion="obsolete attack conclusion", status="substantiated", confidence="high",
+        author="alice", created_at="2026-08-12T10:00:00Z", updated_at="2026-08-12T10:00:00Z",
+        evidence_ids=(evidence_id,), lifecycle_state="superseded",
+        superseded_by_finding_id="FIND-NEW", supersession_reason="Later review",
+        supersession_author="bob", superseded_at="2026-08-12T11:00:00Z",
+    )
+    new = InvestigationFinding(
+        finding_id="FIND-NEW", investigation_id="INV-QUERY", title="Current",
+        conclusion="current activity remains inconclusive", status="inconclusive", confidence="low",
+        author="bob", created_at="2026-08-12T10:30:00Z", updated_at="2026-08-12T10:30:00Z",
+        evidence_ids=(evidence_id,), supersedes_finding_id="FIND-OLD",
+    )
+    investigation = replace(investigation, findings=(old, new))
+    _a, _i, repository, service = build_summary_fixture(tmp_path / "fixture", investigation)
+
+    offline = service.summarize("INV-QUERY")
+    full = service.summarize("INV-QUERY", analysis)
+
+    assert offline.analyst_findings == full.analyst_findings
+    assert offline.finding_counts.active == 1
+    assert offline.finding_counts.superseded == 1
+    assert "current activity remains inconclusive" in full.narrative
+    assert "obsolete attack conclusion" not in full.narrative
+    assert "earlier analyst finding" in full.narrative
+    assert next(item for item in full.analyst_findings if item.finding_id == "FIND-OLD").lifecycle_state == "superseded"
+    assert repository.load_record("INV-QUERY").revision == 1

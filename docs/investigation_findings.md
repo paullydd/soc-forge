@@ -30,7 +30,7 @@ Older records load with an empty findings tuple. Findings are not stored in comp
 
 ## Offline Behavior
 
-Findings remain readable after restart and when source analysis is unavailable. The service accepts no `AnalysisResult`, performs no enrichment, and cannot rebind an investigation. Investigation Summary and Handoff consume this durable state without changing its storage model. Findings remain visible in FULL and OFFLINE summaries, always with analyst attribution and analyst-confidence wording. Handoff schema `1.1` exports them in the separately validated `findings.json` component; legacy `1.0` bundles remain readable without that component.
+Findings remain readable after restart and when source analysis is unavailable. The service accepts no `AnalysisResult`, performs no enrichment, and cannot rebind an investigation. Investigation Summary and Handoff consume this durable state without changing its storage model. Findings remain visible in FULL and OFFLINE summaries, always with analyst attribution and analyst-confidence wording. Handoff schema `1.2` exports lifecycle history in the separately validated `findings.json` component; legacy `1.0` bundles remain readable without that component.
 
 
 ## Console Workflow
@@ -51,3 +51,14 @@ Routes:
 Responses use `Cache-Control: no-store`. Reads and offline mutations do not require active analysis. Create and material updates increment revision once; no-op updates do not. Snapshot activation does not alter findings.
 
 Terminal scrollback and browser presentation can retain analyst-authored finding text. Raw protected evidence remains behind the existing explicit evidence reveal flow. There is no delete operation. Durable affected-entity references remain deferred. Summary and Handoff presentation never reveals protected evidence values automatically.
+
+
+## Finding Lifecycle and Supersession
+
+Analytical status and lifecycle state are separate. Status records the analyst assessment; lifecycle records whether that conclusion is currently authoritative. Findings default to active. An analyst may explicitly supersede an active Finding with another active Finding, recording a bounded reason, author, and timestamp without changing either Finding's status or confidence.
+
+Supersession links both Findings in one revision-aware transaction and increments the investigation revision exactly once. Failed or stale operations do not write. Superseded Findings remain durable, read-only history; active Findings retain the existing edit behavior. Existing records without lifecycle fields load as active without being rewritten. Chains are supported when each replacement is active and the resulting graph remains cycle-free.
+
+Summary narrative is driven only by active Findings and reports active and historical counts. Handoff schema 1.2 preserves and validates lifecycle links and audit metadata. Schema 1.1 bundles without lifecycle metadata remain compatible and load their Findings as active; schema 1.0 compatibility remains unchanged.
+
+The console and web interfaces separate active and historical Findings and require explicit confirmation for supersession. Lifecycle remains available offline and completed-analysis snapshot activation never changes it. There is no deletion, automatic supersession, or machine-generated lifecycle transition.

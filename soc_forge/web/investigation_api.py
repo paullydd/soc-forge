@@ -885,7 +885,12 @@ class InvestigationWebApplication:
             "investigation_id": investigation_id,
             "revision": current.revision,
             "findings": [item.to_dict() for item in findings],
-            "counts": {"total": len(findings), **counts},
+            "counts": {
+                "total": len(findings),
+                "active": sum(item.lifecycle_state == "active" for item in findings),
+                "superseded": sum(item.lifecycle_state == "superseded" for item in findings),
+                **counts,
+            },
         }
 
     def get_finding(
@@ -960,6 +965,34 @@ class InvestigationWebApplication:
                 investigation_id, finding_id
             ).to_dict(),
         }
+
+    def supersede_finding(
+        self,
+        investigation_id: str,
+        finding_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        replacement_finding_id = self._required_text(
+            payload, "replacement_finding_id"
+        )
+        result = self.finding_service.supersede_finding(
+            investigation_id,
+            finding_id,
+            replacement_finding_id=replacement_finding_id,
+            reason=self._required_text(payload, "reason"),
+            author=self._required_text(payload, "author"),
+            expected_revision=self._expected_revision(payload),
+        )
+        return {
+            **self._workspace_response(result),
+            "finding": self.finding_service.get_finding(
+                investigation_id, finding_id
+            ).to_dict(),
+            "replacement": self.finding_service.get_finding(
+                investigation_id, replacement_finding_id
+            ).to_dict(),
+        }
+
     def get_timeline(
         self,
         investigation_id: str,

@@ -12,6 +12,8 @@ from soc_forge.investigations.finding_service import (
     FindingNotFoundError,
     InvalidFindingReferenceError,
     InvestigationFindingService,
+    FindingLifecycleError,
+    SupersededFindingReadOnlyError,
 )
 from soc_forge.investigations.models import (
     FINDING_CONCLUSION_LIMIT,
@@ -20,7 +22,9 @@ from soc_forge.investigations.models import (
     Investigation,
     InvestigationFinding,
 )
-from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.investigations.repository import (
+    InvestigationConflictError, InvestigationRepository,
+)
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
 
 
@@ -30,7 +34,11 @@ def _fixture(tmp_path):
     repository = InvestigationRepository(tmp_path / "workspace")
     assert repository.save(investigation) == 1
     times = iter(
-        ("2026-08-12T10:00:00Z", "2026-08-12T10:05:00Z", "2026-08-12T10:10:00Z")
+        (
+            "2026-08-12T10:00:00Z", "2026-08-12T10:05:00Z",
+            "2026-08-12T10:10:00Z", "2026-08-12T10:15:00Z",
+            "2026-08-12T10:20:00Z", "2026-08-12T10:25:00Z",
+        )
     )
     workspace = InvestigationWorkspaceService(
         repository, clock=lambda: "2026-08-12T09:59:00Z"
@@ -313,3 +321,150 @@ def test_duplicate_and_missing_finding_errors(tmp_path):
         )
     with pytest.raises(FindingNotFoundError):
         service.get_finding("INV-QUERY", "FIND-MISSING")
+
+
+def _create_replacement(service, revision, evidence_id, finding_id="FIND-002"):
+    return service.create_finding(
+        "INV-QUERY", finding_id=finding_id, title="Replacement conclusion",
+        conclusion="A later analyst conclusion.", status="inconclusive",
+        confidence="low", author="bob", expected_revision=revision,
+        evidence_ids=(evidence_id,),
+    )
+
+
+def test_legacy_finding_defaults_active_without_rewrite(tmp_path):
+    values = _fixture(tmp_path)
+    _analysis, investigation, repository, _workspace, service, selected, hypotheses, decisions = values
+    created = _create(service, investigation, selected, hypotheses, decisions)
+    path = next(repository.investigations_root.glob("*.json"))
+    payload = json.loads(path.read_text())
+    finding = payload["investigation"]["findings"][0]
+    for key in (
+        "lifecycle_state", "supersedes_finding_id", "superseded_by_finding_id",
+        "supersession_reason", "supersession_author", "superseded_at",
+    ):
+        finding.pop(key, None)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    before = path.read_bytes()
+
+    loaded = InvestigationRepository(tmp_path / "workspace").load_record("INV-QUERY")
+
+    assert loaded.investigation.findings[0].lifecycle_state == "active"
+    assert path.read_bytes() == before
+
+
+def test_supersession_is_atomic_persistent_chain_safe_and_historical_read_only(tmp_path):
+    values = _fixture(tmp_path)
+    _analysis, investigation, repository, _workspace, service, selected, hypotheses, decisions = values
+    first = _create(service, investigation, selected, hypotheses, decisions)
+    second = _create_replacement(service, first.revision, selected[0])
+
+    result = service.supersede_finding(
+        "INV-QUERY", "FIND-001", "FIND-002", reason="Evidence changed",
+        author="alice", expected_revision=second.revision,
+    )
+
+    assert result.revision == second.revision + 1
+    old = service.get_finding("INV-QUERY", "FIND-001")
+    new = service.get_finding("INV-QUERY", "FIND-002")
+    assert old.status == "draft"
+    assert old.lifecycle_state == "superseded"
+    assert old.superseded_by_finding_id == "FIND-002"
+    assert old.supersession_reason == "Evidence changed"
+    assert old.supersession_author == "alice"
+    assert old.superseded_at
+    assert new.status == "inconclusive"
+    assert new.lifecycle_state == "active"
+    assert new.supersedes_finding_id == "FIND-001"
+    assert service.list_active_findings("INV-QUERY") == (new,)
+    assert service.list_historical_findings("INV-QUERY") == (old,)
+    assert service.resolve_current_finding("INV-QUERY", "FIND-001") == new
+    with pytest.raises(SupersededFindingReadOnlyError):
+        service.update_finding("INV-QUERY", "FIND-001", title="rewrite", expected_revision=result.revision)
+    assert InvestigationRepository(tmp_path / "workspace").load_record("INV-QUERY").investigation.findings == (old, new)
+
+
+@pytest.mark.parametrize("mode", ["self", "unknown", "duplicate", "stale"])
+def test_invalid_supersession_is_rejected_without_revision_change(tmp_path, mode):
+    values = _fixture(tmp_path)
+    _analysis, investigation, repository, workspace, service, selected, hypotheses, decisions = values
+    first = _create(service, investigation, selected, hypotheses, decisions)
+    second = _create_replacement(service, first.revision, selected[0])
+    before = next(repository.investigations_root.glob("*.json")).read_bytes()
+    kwargs = dict(reason="Reason", author="alice", expected_revision=second.revision)
+    with pytest.raises((FindingLifecycleError, FindingNotFoundError, InvestigationConflictError)):
+        if mode == "self":
+            service.supersede_finding("INV-QUERY", "FIND-001", "FIND-001", **kwargs)
+        elif mode == "unknown":
+            service.supersede_finding("INV-QUERY", "FIND-001", "FIND-MISSING", **kwargs)
+        elif mode == "stale":
+            service.supersede_finding("INV-QUERY", "FIND-001", "FIND-002", **{**kwargs, "expected_revision": 1})
+        else:
+            done = service.supersede_finding("INV-QUERY", "FIND-001", "FIND-002", **kwargs)
+            before = next(repository.investigations_root.glob("*.json")).read_bytes()
+            service.supersede_finding("INV-QUERY", "FIND-001", "FIND-002", reason="Again", author="alice", expected_revision=done.revision)
+    if mode != "duplicate":
+        assert workspace.get_investigation("INV-QUERY").revision == second.revision
+        assert next(repository.investigations_root.glob("*.json")).read_bytes() == before
+
+
+def test_supersession_chain_resolves_to_current_finding(tmp_path):
+    values = _fixture(tmp_path)
+    _analysis, investigation, _repository, _workspace, service, selected, hypotheses, decisions = values
+    first = _create(service, investigation, selected, hypotheses, decisions)
+    second = _create_replacement(service, first.revision, selected[0])
+    linked = service.supersede_finding(
+        "INV-QUERY", "FIND-001", "FIND-002", reason="First revision",
+        author="alice", expected_revision=second.revision,
+    )
+    third = _create_replacement(
+        service, linked.revision, selected[0], finding_id="FIND-003"
+    )
+
+    chained = service.supersede_finding(
+        "INV-QUERY", "FIND-002", "FIND-003", reason="Second revision",
+        author="bob", expected_revision=third.revision,
+    )
+
+    assert chained.revision == third.revision + 1
+    assert service.resolve_current_finding("INV-QUERY", "FIND-001").finding_id == "FIND-003"
+    assert service.resolve_current_finding("INV-QUERY", "FIND-002").finding_id == "FIND-003"
+    assert [item.finding_id for item in service.list_historical_findings("INV-QUERY")] == [
+        "FIND-001", "FIND-002"
+    ]
+
+
+def test_foreign_investigation_replacement_is_not_resolved(tmp_path):
+    values = _fixture(tmp_path)
+    _analysis, investigation, repository, _workspace, service, selected, hypotheses, decisions = values
+    first = _create(service, investigation, selected, hypotheses, decisions)
+    foreign = replace(
+        investigation, investigation_id="INV-OTHER", annotations=(), findings=()
+    )
+    assert repository.save(foreign) == 1
+    foreign_service = InvestigationFindingService(
+        InvestigationWorkspaceService(repository),
+        clock=lambda: "2026-08-12T11:00:00Z",
+    )
+    foreign_created = foreign_service.create_finding(
+        "INV-OTHER", finding_id="FIND-FOREIGN", title="Foreign",
+        conclusion="Foreign conclusion.", status="draft", confidence="low",
+        author="bob", evidence_ids=(selected[0],), expected_revision=1,
+    )
+    before = next(
+        path for path in repository.investigations_root.glob("*.json")
+        if "INV-QUERY" in path.read_text()
+    ).read_bytes()
+
+    with pytest.raises(FindingNotFoundError):
+        service.supersede_finding(
+            "INV-QUERY", "FIND-001", "FIND-FOREIGN", reason="Invalid scope",
+            author="alice", expected_revision=first.revision,
+        )
+
+    assert repository.load_record("INV-QUERY").revision == first.revision
+    assert foreign_created.revision == 2
+    assert next(
+        path for path in repository.investigations_root.glob("*.json")
+        if "INV-QUERY" in path.read_text()
+    ).read_bytes() == before

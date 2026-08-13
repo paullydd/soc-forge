@@ -51,6 +51,8 @@ function renderFindingCounts(counts) {
   target.replaceChildren();
   [
     ['Findings', counts.total],
+    ['Active', counts.active],
+    ['Superseded', counts.superseded],
     ['Draft', counts.draft],
     ['Substantiated', counts.substantiated],
     ['Unsubstantiated', counts.unsubstantiated],
@@ -63,27 +65,47 @@ function renderFindingCounts(counts) {
   });
 }
 
+function renderFindingListCard(target, finding) {
+  const card = findingNode('article', null, 'workspace-record finding-lifecycle-record');
+  card.appendChild(findingNode('strong', `${finding.finding_id}: ${finding.title}`));
+  card.appendChild(findingNode('span', finding.lifecycle_state.toUpperCase(), 'badge'));
+  card.appendChild(findingNode('p', `${finding.status} | analyst confidence: ${finding.confidence} | ${finding.author}`));
+  card.appendChild(findingNode('p', `Updated: ${finding.updated_at}`));
+  card.appendChild(findingNode('p', `Basis: ${finding.evidence_ids.length} evidence, ${finding.hypothesis_ids.length} hypotheses, ${finding.decision_ids.length} decisions`));
+  const open = findingNode('button', 'Open Finding');
+  open.type = 'button';
+  open.addEventListener('click', () => openFinding(finding.finding_id).catch((error) => findingMessage(error.message, true)));
+  card.appendChild(open);
+  target.appendChild(card);
+}
+
 async function listFindings() {
   await loadFindings();
   const target = document.querySelector('#findingWorkspace');
   target.replaceChildren();
+  const controls = findingNode('div', null, 'workspace-actions');
+  const activeButton = findingNode('button', 'View Active');
+  const historyButton = findingNode('button', 'View History');
+  activeButton.type = historyButton.type = 'button';
+  controls.appendChild(activeButton);
+  controls.appendChild(historyButton);
+  target.appendChild(controls);
+  const renderGroup = (lifecycle) => {
+    Array.from(target.querySelectorAll('.finding-lifecycle-record')).forEach((item) => item.remove());
+    state.findings.findings.filter((item) => item.lifecycle_state === lifecycle).forEach((finding) => renderFindingListCard(target, finding));
+    if (!state.findings.findings.some((item) => item.lifecycle_state === lifecycle)) {
+      const empty = findingNode('p', lifecycle === 'active' ? 'No active findings.' : 'No superseded findings.', 'finding-lifecycle-record');
+      target.appendChild(empty);
+    }
+  };
+  activeButton.addEventListener('click', () => renderGroup('active'));
+  historyButton.addEventListener('click', () => renderGroup('superseded'));
   const findings = state.findings.findings;
   if (!findings.length) {
     target.appendChild(findingNode('p', 'No analyst-authored findings.'));
     return;
   }
-  findings.forEach((finding) => {
-    const card = findingNode('article', null, 'workspace-record');
-    card.appendChild(findingNode('strong', `${finding.finding_id}: ${finding.title}`));
-    card.appendChild(findingNode('p', `${finding.status} | ${finding.confidence} confidence | ${finding.author}`));
-    card.appendChild(findingNode('p', `Updated: ${finding.updated_at}`));
-    card.appendChild(findingNode('p', `Basis: ${finding.evidence_ids.length} evidence, ${finding.hypothesis_ids.length} hypotheses, ${finding.decision_ids.length} decisions`));
-    const open = findingNode('button', 'Open Finding');
-    open.type = 'button';
-    open.addEventListener('click', () => openFinding(finding.finding_id).catch((error) => findingMessage(error.message, true)));
-    card.appendChild(open);
-    target.appendChild(card);
-  });
+  findings.filter((item) => item.lifecycle_state === 'active').forEach((finding) => renderFindingListCard(target, finding));
 }
 
 function findingTextInput(form, label, name, value, multiline) {
@@ -178,6 +200,37 @@ function renderFindingForm(existing) {
   target.appendChild(form);
 }
 
+function renderSupersedeFindingForm(finding) {
+  const target = document.querySelector('#findingWorkspace');
+  target.replaceChildren();
+  const form = findingNode('form', null, 'finding-form');
+  const replacement = findingSelect(form, 'Replacement Finding', 'replacement_finding_id', state.findings.findings.filter((item) => item.lifecycle_state === 'active' && item.finding_id !== finding.finding_id).map((item) => item.finding_id), '');
+  findingTextInput(form, 'Reason', 'reason', '', true);
+  findingTextInput(form, 'Author', 'author', '');
+  const submit = findingNode('button', 'Confirm Supersession');
+  submit.type = 'submit';
+  form.appendChild(submit);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    if (!window.confirm(`Supersede ${finding.finding_id} with the selected Finding?`)) return;
+    try {
+      const result = await investigationRequest('POST', `${findingBase()}/${encodeURIComponent(finding.finding_id)}/supersede`, {
+        replacement_finding_id: data.get('replacement_finding_id'),
+        reason: data.get('reason'), author: data.get('author'),
+        expected_revision: state.activeInvestigation.revision,
+      });
+      state.activeInvestigation = result;
+      await loadFindings();
+      renderInvestigations();
+      findingMessage('Finding superseded.', false);
+    } catch (error) {
+      findingMessage(error.message, true);
+    }
+  });
+  target.appendChild(form);
+}
+
 async function openFinding(findingId) {
   const payload = await investigationRequest('GET', `${findingBase()}/${encodeURIComponent(findingId)}`);
   const finding = payload.finding;
@@ -189,6 +242,12 @@ async function openFinding(findingId) {
   [
     ['Finding ID', finding.finding_id], ['Title', finding.title],
     ['Conclusion', finding.conclusion], ['Status', finding.status],
+    ['Lifecycle', finding.lifecycle_state.toUpperCase()],
+    ['Supersedes', finding.supersedes_finding_id || 'None'],
+    ['Superseded by', finding.superseded_by_finding_id || 'None'],
+    ['Supersession reason', finding.supersession_reason || 'None'],
+    ['Supersession author', finding.supersession_author || 'None'],
+    ['Superseded at', finding.superseded_at || 'None'],
     ['Confidence', finding.confidence], ['Author', finding.author],
     ['Created', finding.created_at], ['Updated', finding.updated_at],
     ['Evidence IDs', finding.evidence_ids.join(', ') || 'None'],
@@ -198,10 +257,18 @@ async function openFinding(findingId) {
     ['ATT&CK techniques', finding.attack_techniques.join(', ') || 'None'],
     ['Limitations', finding.limitations.join('; ') || 'None'],
   ].forEach(([label, value]) => detail.appendChild(findingNode('p', `${label}: ${value}`)));
-  const edit = findingNode('button', 'Edit Finding');
-  edit.type = 'button';
-  edit.addEventListener('click', () => renderFindingForm(finding));
-  detail.appendChild(edit);
+  if (finding.lifecycle_state === 'active') {
+    const edit = findingNode('button', 'Edit Finding');
+    edit.type = 'button';
+    edit.addEventListener('click', () => renderFindingForm(finding));
+    detail.appendChild(edit);
+    const supersede = findingNode('button', 'Supersede Finding');
+    supersede.type = 'button';
+    supersede.addEventListener('click', () => renderSupersedeFindingForm(finding));
+    detail.appendChild(supersede);
+  } else {
+    detail.appendChild(findingNode('p', 'Historical findings are read-only.', 'muted'));
+  }
   finding.evidence_ids.forEach((id) => {
     const button = findingNode('button', `View Evidence ${id}`);
     button.type = 'button';

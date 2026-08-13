@@ -86,7 +86,7 @@ def test_findings_http_crud_offline_revision_and_read_immutability(tmp_path):
         payload = _payload()
         payload["evidence_ids"] = [selected_id]
         status, headers, created = _request(address, "POST", "/api/investigations/INV-QUERY/findings", payload)
-        assert status == 201
+        assert status == 201, created
         assert headers["Cache-Control"] == "no-store"
         assert created["revision"] == 2
 
@@ -153,6 +153,10 @@ def test_findings_browser_contract_is_safe_and_uses_existing_inspection():
     index = (root / "soc_forge/web/static/index.html").read_text()
     assert "innerHTML" not in source
     assert "localStorage" not in source
+    assert "Supersede Finding" in source
+    assert "View Active" in source
+    assert "View History" in source
+    assert "/supersede" in source
     assert "textContent" in source
     assert "inspectEvidence(id, false)" in source
     assert "showWebHypothesis(id)" in source
@@ -161,3 +165,41 @@ def test_findings_browser_contract_is_safe_and_uses_existing_inspection():
     assert "Investigation Findings" in workspace
     assert "bindFindingActions()" in workspace
     assert "/static/investigation_findings.js" in index
+
+
+def test_offline_web_supersession_lifecycle_and_historical_read_only(tmp_path):
+    analysis, repository, server, thread, address = _start(tmp_path)
+    try:
+        first = _payload(1)
+        selected_id = next(
+            item.reference_id
+            for item in repository.load_record("INV-QUERY").investigation.evidence_references
+            if item.origin == "analyst_selection"
+        )
+        first["evidence_ids"] = [selected_id]
+        status, _, created = _request(address, "POST", "/api/investigations/INV-QUERY/findings", payload=first)
+        assert status == 201, created
+        second = _payload(created["revision"])
+        second["evidence_ids"] = [selected_id]
+        second.update({"finding_id": "FIND-WEB-002", "title": "Replacement", "conclusion": "Later analyst conclusion."})
+        status, _, replacement = _request(address, "POST", "/api/investigations/INV-QUERY/findings", payload=second)
+        assert status == 201, created
+        server.active_analysis_result = None
+        status, headers, result = _request(
+            address, "POST", "/api/investigations/INV-QUERY/findings/FIND-WEB-001/supersede",
+            payload={"replacement_finding_id": "FIND-WEB-002", "reason": "Later review", "author": "alice", "expected_revision": replacement["revision"]},
+        )
+        assert status == 200
+        assert headers["Cache-Control"] == "no-store"
+        assert result["revision"] == replacement["revision"] + 1
+        assert result["finding"]["lifecycle_state"] == "superseded"
+        assert result["replacement"]["lifecycle_state"] == "active"
+        status, _, listing = _request(address, "GET", "/api/investigations/INV-QUERY/findings")
+        assert listing["counts"]["active"] == 1
+        assert listing["counts"]["superseded"] == 1
+        update = _payload(result["revision"])
+        status, _, error = _request(address, "PUT", "/api/investigations/INV-QUERY/findings/FIND-WEB-001", payload=update)
+        assert status == 409
+        assert error["error"]["code"] in {"finding_historical_read_only", "finding_lifecycle_conflict"}
+    finally:
+        _stop(server, thread)

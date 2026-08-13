@@ -602,3 +602,42 @@ def test_legacy_schema_one_bundle_without_findings_remains_valid(tmp_path):
     result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     assert validate_handoff_bundle(result.output_path) is True
+
+
+def test_handoff_schema_12_preserves_and_validates_supersession_lifecycle(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _finding_investigation(analysis)
+    old = replace(
+        investigation.findings[0], lifecycle_state="superseded",
+        superseded_by_finding_id="FIND-002", supersession_reason="Later review",
+        supersession_author="alice", superseded_at="2026-08-12T11:00:00Z",
+    )
+    new = replace(
+        investigation.findings[0], finding_id="FIND-002", title="Replacement",
+        supersedes_finding_id="FIND-001",
+    )
+    investigation = replace(investigation, findings=(old, new))
+    result, *_ = build_export(tmp_path, investigation=investigation, analysis=analysis)
+    payload = read_json(result.output_path / "findings.json")
+    assert read_json(result.manifest_path)["schema_version"] == "1.2"
+    assert payload["findings"][0]["lifecycle_state"] == "superseded"
+    assert payload["findings"][1]["supersedes_finding_id"] == "FIND-001"
+    assert validate_handoff_bundle(result.output_path)
+
+    payload["findings"][1]["supersedes_finding_id"] = None
+    rewrite_component(result.output_path, "findings.json", payload)
+    with pytest.raises(HandoffReferenceIntegrityError):
+        validate_handoff_bundle(result.output_path)
+
+
+def test_schema_11_findings_without_lifecycle_metadata_remain_valid(tmp_path):
+    result, *_ = build_export(tmp_path)
+    payload = read_json(result.output_path / "findings.json")
+    for finding in payload["findings"]:
+        for key in ("lifecycle_state", "supersedes_finding_id", "superseded_by_finding_id", "supersession_reason", "supersession_author", "superseded_at"):
+            finding.pop(key, None)
+    rewrite_component(result.output_path, "findings.json", payload)
+    manifest = read_json(result.manifest_path)
+    manifest["schema_version"] = "1.1"
+    result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    assert validate_handoff_bundle(result.output_path)

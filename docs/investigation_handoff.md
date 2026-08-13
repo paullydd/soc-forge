@@ -59,7 +59,7 @@ revision check.
 
 ## Manifest and Identity
 
-New `manifest.json` files use schema version `1.1` and contain:
+New `manifest.json` files use schema version `1.2` and contain:
 
 - deterministic handoff ID
 - investigation and source-analysis IDs
@@ -109,7 +109,7 @@ index.
 
 The validator reconstructs each Finding through the authoritative domain model, rejects malformed payloads, duplicate IDs, invalid status or confidence, and verifies every evidence, hypothesis, and decision reference against the included handoff components. The component participates in logical-type, size, and SHA-256 validation.
 
-Schema `1.0` bundles created before Findings integration remain valid without `findings.json`. Schema `1.1` requires it, including for investigations with zero Findings. New exports always use `1.1`; the compatibility reader does not invent Findings for older bundles.
+Schema `1.0` bundles created before Findings integration remain valid without `findings.json`. Schemas `1.1` and `1.2` require it, including for investigations with zero Findings. Schema `1.1` Findings without lifecycle metadata load as active. New exports always use `1.2`; the compatibility reader does not invent Findings for older bundles.
 
 ## Reasoning and Annotations
 

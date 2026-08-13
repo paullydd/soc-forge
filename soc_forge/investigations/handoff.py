@@ -22,8 +22,9 @@ from soc_forge.investigations.timeline_query import InvestigationTimelineService
 from soc_forge.pipeline import AnalysisResult
 
 
-HANDOFF_SCHEMA_VERSION = "1.1"
+HANDOFF_SCHEMA_VERSION = "1.2"
 LEGACY_HANDOFF_SCHEMA_VERSION = "1.0"
+FINDINGS_HANDOFF_SCHEMA_VERSION = "1.1"
 HANDOFF_TOOL = "SOC-Forge"
 HANDOFF_PREVIEW_TEXT_LIMIT = 240
 SENSITIVE_DATA_WARNING = (
@@ -43,7 +44,7 @@ LEGACY_REQUIRED_COMPONENTS = frozenset(
 )
 REQUIRED_COMPONENTS = LEGACY_REQUIRED_COMPONENTS | {"findings.json"}
 SUPPORTED_HANDOFF_SCHEMA_VERSIONS = frozenset(
-    {LEGACY_HANDOFF_SCHEMA_VERSION, HANDOFF_SCHEMA_VERSION}
+    {LEGACY_HANDOFF_SCHEMA_VERSION, FINDINGS_HANDOFF_SCHEMA_VERSION, HANDOFF_SCHEMA_VERSION}
 )
 ARTIFACT_FILENAMES = {
     "alerts": "alerts.json",
@@ -134,6 +135,12 @@ class HandoffFindingPreview:
     attack_tactics: Tuple[str, ...]
     attack_techniques: Tuple[str, ...]
     limitations: Tuple[str, ...]
+    lifecycle_state: str
+    supersedes_finding_id: str | None
+    superseded_by_finding_id: str | None
+    supersession_reason: str | None
+    supersession_author: str | None
+    superseded_at: str | None
     attribution: str = "analyst"
 
 
@@ -516,6 +523,18 @@ class InvestigationHandoffService:
                     limitations=tuple(
                         _preview_text(value) for value in item.limitations
                     ),
+                    lifecycle_state=item.lifecycle_state,
+                    supersedes_finding_id=item.supersedes_finding_id,
+                    superseded_by_finding_id=item.superseded_by_finding_id,
+                    supersession_reason=(
+                        _preview_text(item.supersession_reason)
+                        if item.supersession_reason else None
+                    ),
+                    supersession_author=(
+                        _preview_text(item.supersession_author)
+                        if item.supersession_author else None
+                    ),
+                    superseded_at=item.superseded_at,
                 )
                 for item in sorted(
                     investigation.findings, key=lambda value: value.finding_id
@@ -853,6 +872,8 @@ def _validate_references(bundle: Path, manifest: Mapping[str, Any]) -> None:
         if not isinstance(findings, list):
             raise HandoffBundleValidationError("Handoff findings component is invalid")
         finding_ids = set()
+        parsed_findings = []
+        lifecycle_fields = {"lifecycle_state", "supersedes_finding_id", "superseded_by_finding_id", "supersession_reason", "supersession_author", "superseded_at"}
         for payload in findings:
             if not isinstance(payload, Mapping):
                 raise HandoffBundleValidationError("Handoff finding is invalid")
@@ -860,9 +881,12 @@ def _validate_references(bundle: Path, manifest: Mapping[str, Any]) -> None:
                 finding = InvestigationFinding.from_dict(payload)
             except (KeyError, TypeError, ValueError) as exc:
                 raise HandoffBundleValidationError("Handoff finding is invalid") from exc
+            if manifest.get("schema_version") == HANDOFF_SCHEMA_VERSION and not lifecycle_fields.issubset(payload):
+                raise HandoffBundleValidationError("Handoff finding lifecycle metadata is missing")
             if finding.finding_id in finding_ids:
                 raise HandoffBundleValidationError("Handoff finding IDs must be unique")
             finding_ids.add(finding.finding_id)
+            parsed_findings.append(finding)
             if finding.investigation_id != manifest.get("investigation_id"):
                 raise HandoffReferenceIntegrityError(
                     "Finding references a different investigation"
@@ -879,6 +903,24 @@ def _validate_references(bundle: Path, manifest: Mapping[str, Any]) -> None:
                 raise HandoffReferenceIntegrityError(
                     "Finding references missing decision"
                 )
+        by_id = {item.finding_id: item for item in parsed_findings}
+        for finding in parsed_findings:
+            if finding.supersedes_finding_id is not None:
+                prior = by_id.get(finding.supersedes_finding_id)
+                if prior is None or prior.superseded_by_finding_id != finding.finding_id:
+                    raise HandoffReferenceIntegrityError("Finding supersession reference is inconsistent")
+            if finding.superseded_by_finding_id is not None:
+                replacement = by_id.get(finding.superseded_by_finding_id)
+                if replacement is None or replacement.supersedes_finding_id != finding.finding_id:
+                    raise HandoffReferenceIntegrityError("Finding supersession reference is inconsistent")
+        for origin in parsed_findings:
+            seen = set()
+            current = origin
+            while current.superseded_by_finding_id is not None:
+                if current.finding_id in seen:
+                    raise HandoffReferenceIntegrityError("Finding supersession graph contains a cycle")
+                seen.add(current.finding_id)
+                current = by_id[current.superseded_by_finding_id]
     for hypothesis in hypotheses.get("hypotheses", []):
         linked = set(hypothesis.get("supporting_evidence_ids", ())) | set(
             hypothesis.get("contradicting_evidence_ids", ())
@@ -915,7 +957,7 @@ def validate_handoff_bundle(path: Path | str) -> bool:
         raise HandoffBundleValidationError("Handoff file inventory is invalid")
     expected = set(
         REQUIRED_COMPONENTS
-        if schema_version == HANDOFF_SCHEMA_VERSION
+        if schema_version != LEGACY_HANDOFF_SCHEMA_VERSION
         else LEGACY_REQUIRED_COMPONENTS
     )
     inventory_names = set()

@@ -70,11 +70,22 @@ class InvestigationFindingConsoleController:
         if not findings:
             self.output("No analyst-authored findings.")
             return
-        for item in findings:
-            self.output(
-                f"{item.finding_id} | {item.title} | {item.status} | "
-                f"{item.confidence} | {item.author} | {item.updated_at}"
-            )
+        active = tuple(item for item in findings if item.lifecycle_state == "active")
+        historical = tuple(
+            item for item in findings if item.lifecycle_state == "superseded"
+        )
+        for heading, items in (
+            ("ACTIVE FINDINGS", active),
+            ("HISTORICAL / SUPERSEDED FINDINGS", historical),
+        ):
+            self.output(heading)
+            if not items:
+                self.output("  None")
+            for item in items:
+                self.output(
+                    f"{item.finding_id} | {item.title} | {item.status} | "
+                    f"{item.confidence} | {item.author} | {item.updated_at}"
+                )
 
     def create_finding(self, current: WorkspaceResult) -> WorkspaceResult:
         self.screen("CREATE INVESTIGATION FINDING")
@@ -155,7 +166,11 @@ class InvestigationFindingConsoleController:
             return current
         while True:
             self.render_finding(finding)
-            self.output("[1] Edit finding")
+            if finding.lifecycle_state == "active":
+                self.output("[1] Edit finding")
+                self.output("[5] Supersede finding")
+            else:
+                self.output("Historical findings are read-only.")
             self.output("[2] View related evidence")
             self.output("[3] View related hypotheses")
             self.output("[4] View related decisions")
@@ -163,8 +178,13 @@ class InvestigationFindingConsoleController:
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return current
-            if choice == "1":
+            if choice == "1" and finding.lifecycle_state == "active":
                 current = self.edit_finding(current, finding)
+                finding = self.finding_service.get_finding(
+                    current.investigation.investigation_id, finding_id
+                )
+            elif choice == "5" and finding.lifecycle_state == "active":
+                current = self.supersede_finding(current, finding)
                 finding = self.finding_service.get_finding(
                     current.investigation.investigation_id, finding_id
                 )
@@ -240,6 +260,49 @@ class InvestigationFindingConsoleController:
         )
         return result
 
+    def supersede_finding(
+        self, current: WorkspaceResult, finding: InvestigationFinding
+    ) -> WorkspaceResult:
+        replacements = tuple(
+            item
+            for item in self.finding_service.list_active_findings(
+                current.investigation.investigation_id
+            )
+            if item.finding_id != finding.finding_id
+        )
+        if not replacements:
+            self.output("Create an active replacement finding before superseding this finding.")
+            return current
+        self.output("ACTIVE REPLACEMENT FINDINGS")
+        for index, item in enumerate(replacements, start=1):
+            self.output(f"[{index}] {item.finding_id} | {item.title}")
+        selected = self.input("Replacement number (blank to cancel): ").strip()
+        if not selected:
+            return current
+        if not selected.isdigit() or not 1 <= int(selected) <= len(replacements):
+            self.output("Invalid replacement selection.")
+            return current
+        reason = self.input("Supersession reason: ")
+        author = self.input("Author label: ")
+        confirmation = self.input("Supersede this finding? (type YES): ").strip()
+        if confirmation != "YES":
+            self.output("Supersession cancelled.")
+            return current
+        try:
+            result = self.finding_service.supersede_finding(
+                current.investigation.investigation_id,
+                finding.finding_id,
+                replacement_finding_id=replacements[int(selected) - 1].finding_id,
+                reason=reason,
+                author=author,
+                expected_revision=current.revision,
+            )
+        except (InvestigationFindingError, InvestigationRepositoryError, ValueError) as exc:
+            self.output(f"Unable to supersede finding: {exc}")
+            return current
+        self.output(f"Finding superseded. Investigation revision: {result.revision}")
+        return result
+
     def render_finding(self, finding: InvestigationFinding) -> None:
         self.screen("ANALYST-AUTHORED FINDING")
         self.output(
@@ -251,6 +314,7 @@ class InvestigationFindingConsoleController:
             ("Title", finding.title),
             ("Conclusion", finding.conclusion),
             ("Status", finding.status),
+            ("Lifecycle", finding.lifecycle_state.upper()),
             ("Confidence", finding.confidence),
             ("Author", finding.author),
             ("Created", finding.created_at),
@@ -261,6 +325,11 @@ class InvestigationFindingConsoleController:
             ("ATT&CK tactics", ", ".join(finding.attack_tactics) or "None"),
             ("ATT&CK techniques", ", ".join(finding.attack_techniques) or "None"),
             ("Limitations", "; ".join(finding.limitations) or "None"),
+            ("Supersedes", finding.supersedes_finding_id or "None"),
+            ("Superseded by", finding.superseded_by_finding_id or "None"),
+            ("Supersession reason", finding.supersession_reason or "None"),
+            ("Supersession author", finding.supersession_author or "None"),
+            ("Superseded at", finding.superseded_at or "None"),
         ):
             self.output(f"{label}: {value}")
 

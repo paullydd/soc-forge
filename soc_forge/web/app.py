@@ -28,8 +28,10 @@ from soc_forge.investigations.evidence_service import (
 )
 from soc_forge.investigations.finding_service import (
     DuplicateFindingError,
+    FindingLifecycleError,
     FindingNotFoundError,
     InvalidFindingReferenceError,
+    SupersededFindingReadOnlyError,
 )
 from soc_forge.investigations.handoff import (
     HandoffBundleValidationError,
@@ -577,6 +579,18 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 )
                 return
         finding_errors = (
+            (
+                SupersededFindingReadOnlyError,
+                "finding_historical_read_only",
+                "Superseded findings are read-only.",
+                409,
+            ),
+            (
+                FindingLifecycleError,
+                "finding_lifecycle_conflict",
+                "The finding lifecycle transition is invalid.",
+                409,
+            ),
             (FindingNotFoundError, "finding_not_found", "Finding not found.", 404),
             (DuplicateFindingError, "duplicate_finding", "Finding ID already exists.", 409),
             (
@@ -891,6 +905,16 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                     investigation_id, payload
                 )
                 self.send_json(result, status=201, no_store=True)
+                return True
+            elif (
+                len(segments) == 4
+                and segments[1] == "findings"
+                and segments[3] == "supersede"
+            ):
+                result = self.investigation_app.supersede_finding(
+                    investigation_id, segments[2], payload
+                )
+                self.send_json(result, no_store=True)
                 return True
             elif len(segments) == 2 and segments[1] == "hypotheses":
                 result = self.investigation_app.create_hypothesis(

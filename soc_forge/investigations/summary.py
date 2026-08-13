@@ -90,12 +90,20 @@ class InvestigationAnalystFindingSummary:
     attack_tactics: Tuple[str, ...] = ()
     attack_techniques: Tuple[str, ...] = ()
     limitations: Tuple[str, ...] = ()
+    lifecycle_state: str = "active"
+    supersedes_finding_id: str | None = None
+    superseded_by_finding_id: str | None = None
+    supersession_reason: str | None = None
+    supersession_author: str | None = None
+    superseded_at: str | None = None
     attribution: str = ATTRIBUTION_ANALYST
 
 
 @dataclass(frozen=True)
 class InvestigationFindingStateSummary:
     total: int
+    active: int
+    superseded: int
     draft: int
     substantiated: int
     unsubstantiated: int
@@ -149,7 +157,7 @@ class InvestigationSummary:
     decisions: Tuple[InvestigationDecisionSummary, ...] = ()
     analyst_findings: Tuple[InvestigationAnalystFindingSummary, ...] = ()
     finding_counts: InvestigationFindingStateSummary = InvestigationFindingStateSummary(
-        total=0, draft=0, substantiated=0, unsubstantiated=0, inconclusive=0
+        total=0, active=0, superseded=0, draft=0, substantiated=0, unsubstantiated=0, inconclusive=0
     )
     timeline: InvestigationTimelineSummary | None = None
     limitations: Tuple[str, ...] = ()
@@ -362,6 +370,15 @@ class InvestigationSummaryService:
                 attack_tactics=tuple(sorted(item.attack_tactics)),
                 attack_techniques=tuple(sorted(item.attack_techniques)),
                 limitations=tuple(_bounded(value) for value in item.limitations),
+                lifecycle_state=item.lifecycle_state,
+                supersedes_finding_id=item.supersedes_finding_id,
+                superseded_by_finding_id=item.superseded_by_finding_id,
+                supersession_reason=(
+                    _bounded(item.supersession_reason)
+                    if item.supersession_reason else None
+                ),
+                supersession_author=item.supersession_author,
+                superseded_at=item.superseded_at,
             )
             for item in sorted(
                 investigation.findings, key=lambda value: value.finding_id
@@ -378,7 +395,12 @@ class InvestigationSummaryService:
                 "draft", "substantiated", "unsubstantiated", "inconclusive"
             )
         }
-        return InvestigationFindingStateSummary(total=len(findings), **counts)
+        return InvestigationFindingStateSummary(
+            total=len(findings),
+            active=sum(item.lifecycle_state == "active" for item in findings),
+            superseded=sum(item.lifecycle_state == "superseded" for item in findings),
+            **counts,
+        )
 
     @staticmethod
     def _state_summary(
@@ -485,9 +507,16 @@ class InvestigationSummaryService:
         analyst_findings: Tuple[InvestigationAnalystFindingSummary, ...],
         timeline: InvestigationTimelineSummary | None,
     ) -> str:
-        finding_text = InvestigationSummaryService._finding_narrative(
-            analyst_findings
+        active_findings = tuple(
+            item for item in analyst_findings if item.lifecycle_state == "active"
         )
+        historical_count = len(analyst_findings) - len(active_findings)
+        finding_text = InvestigationSummaryService._finding_narrative(active_findings)
+        if historical_count:
+            finding_text += (
+                f" {historical_count} earlier analyst finding(s) were superseded "
+                "by later conclusions."
+            )
         if mode == "offline":
             return _bounded(
                 f"Source analysis is not active. This summary reflects persisted "

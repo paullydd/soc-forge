@@ -32,6 +32,14 @@ class InvalidFindingReferenceError(InvestigationFindingError):
     pass
 
 
+class FindingLifecycleError(InvestigationFindingError):
+    pass
+
+
+class SupersededFindingReadOnlyError(FindingLifecycleError):
+    pass
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -113,6 +121,57 @@ class InvestigationFindingService:
             key=lambda item: item.finding_id,
         ))
 
+    def list_active_findings(self, investigation_id: str) -> tuple[InvestigationFinding, ...]:
+        return tuple(item for item in self.list_findings(investigation_id) if item.lifecycle_state == "active")
+
+    def list_historical_findings(self, investigation_id: str) -> tuple[InvestigationFinding, ...]:
+        return tuple(item for item in self.list_findings(investigation_id) if item.lifecycle_state == "superseded")
+
+    def resolve_current_finding(self, investigation_id: str, finding_id: str) -> InvestigationFinding:
+        findings = {item.finding_id: item for item in self.list_findings(investigation_id)}
+        current = findings.get(finding_id)
+        if current is None:
+            raise FindingNotFoundError(f"Finding {finding_id!r} was not found")
+        seen = set()
+        while current.superseded_by_finding_id is not None:
+            if current.finding_id in seen:
+                raise FindingLifecycleError("Finding supersession cycle detected")
+            seen.add(current.finding_id)
+            current = findings[current.superseded_by_finding_id]
+        return current
+
+    def supersede_finding(
+        self, investigation_id: str, finding_id: str, replacement_finding_id: str,
+        *, reason: str, author: str, expected_revision: int,
+    ) -> WorkspaceResult:
+        current = self._current(investigation_id, expected_revision)
+        original = self._find(current, finding_id)
+        replacement = self._find(current, replacement_finding_id)
+        if original.finding_id == replacement.finding_id:
+            raise FindingLifecycleError("A finding cannot supersede itself")
+        if original.lifecycle_state != "active":
+            raise FindingLifecycleError("The original finding is already superseded")
+        if replacement.lifecycle_state != "active":
+            raise FindingLifecycleError("The replacement finding is superseded")
+        if replacement.supersedes_finding_id is not None:
+            raise FindingLifecycleError("The replacement already supersedes a finding")
+        timestamp = self.clock()
+        historical = replace(
+            original, lifecycle_state="superseded",
+            superseded_by_finding_id=replacement.finding_id,
+            supersession_reason=reason, supersession_author=author,
+            superseded_at=timestamp,
+        )
+        authoritative = replace(replacement, supersedes_finding_id=original.finding_id)
+        findings = tuple(
+            historical if item.finding_id == original.finding_id
+            else authoritative if item.finding_id == replacement.finding_id
+            else item for item in current.investigation.findings
+        )
+        return self.workspace_service.replace_findings(
+            investigation_id, findings, expected_revision=expected_revision
+        )
+
     def update_finding(
         self,
         investigation_id: str,
@@ -133,6 +192,10 @@ class InvestigationFindingService:
     ) -> WorkspaceResult:
         current = self._current(investigation_id, expected_revision)
         existing = self._find(current, finding_id)
+        if existing.lifecycle_state == "superseded":
+            raise SupersededFindingReadOnlyError(
+                "Superseded findings are read-only historical records"
+            )
         changes = {
             "title": existing.title if title is None else title,
             "conclusion": existing.conclusion if conclusion is None else conclusion,

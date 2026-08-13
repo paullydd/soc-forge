@@ -30,7 +30,7 @@ def _fixture(tmp_path, inputs):
     investigation = build_query_investigation(analysis)
     repository = InvestigationRepository(tmp_path / "workspace")
     assert repository.save(investigation) == 1
-    times = iter(("2026-08-12T12:00:00Z", "2026-08-12T12:05:00Z"))
+    times = iter(("2026-08-12T12:00:00Z", "2026-08-12T12:05:00Z", "2026-08-12T12:10:00Z"))
     workspace = InvestigationWorkspaceService(repository)
     service = InvestigationFindingService(workspace, clock=lambda: next(times))
     messages, screens, pauses, calls = [], [], [], []
@@ -175,3 +175,40 @@ def test_workspace_findings_option_dispatches_nested_controller_once(tmp_path):
 
     assert controller.workspace_loop(current) == current
     assert calls == [current]
+
+
+def test_console_supersedes_with_confirmation_and_preserves_history(tmp_path):
+    values = _fixture(tmp_path, ())
+    current, controller, service = values[4], values[5], values[3]
+    evidence_id = next(
+        item.reference_id for item in current.investigation.evidence_references
+        if item.origin == "analyst_selection"
+    )
+    first = service.create_finding(
+        "INV-QUERY", finding_id="FIND-001", title="Original",
+        conclusion="Original conclusion.", status="substantiated",
+        confidence="high", author="alice", evidence_ids=(evidence_id,),
+        expected_revision=current.revision,
+    )
+    second = service.create_finding(
+        "INV-QUERY", finding_id="FIND-002", title="Replacement",
+        conclusion="Replacement conclusion.", status="inconclusive",
+        confidence="low", author="bob", evidence_ids=(evidence_id,),
+        expected_revision=first.revision,
+    )
+    controller.input = ScriptedInput((
+        "3", "FIND-001", "5", "1", "Later review", "alice", "YES",
+        "0", "1", "0",
+    ))
+
+    result = controller.run(second)
+
+    assert result.revision == second.revision + 1
+    assert service.get_finding("INV-QUERY", "FIND-001").lifecycle_state == "superseded"
+    assert service.get_finding("INV-QUERY", "FIND-002").lifecycle_state == "active"
+    rendered = "\n".join(values[6])
+    assert "Lifecycle: SUPERSEDED" in rendered
+    assert "Historical findings are read-only." in rendered
+    assert "ACTIVE FINDINGS" in rendered
+    assert "HISTORICAL / SUPERSEDED FINDINGS" in rendered
+    assert "Finding superseded. Investigation revision:" in rendered
