@@ -187,3 +187,8 @@ activation or source-dependent requests automatically.
 The investigation detail view places a read-only summary immediately after source-analysis availability. Full mode uses only the exact matching active analysis and shows bounded case, rule, severity, ATT&CK, evidence-sensitivity, and timeline context. Missing or mismatched analysis produces offline mode, which retains durable analyst evidence, hypotheses, decisions, ownership, status, and revision while naming omitted machine context.
 
 The summary route uses `Cache-Control: no-store` and never activates a snapshot, changes the investigation revision, or writes repository or artifact data. After the analyst explicitly uses **Load Source Analysis**, the normal workspace rerender requests the summary again and changes it from offline to full. Summary links delegate to the existing evidence, hypothesis, decision, and timeline workflows; protected evidence still requires the established explicit reveal acknowledgement.
+
+
+## Investigation Findings
+
+Durable analyst findings are available in both the terminal Investigation Workspace and local web workspace. Findings remain available offline and are explicitly separated from machine detections. Web routes are documented in [Investigation Findings](investigation_findings.md). Confidence reflects analyst assessment rather than machine certainty; relationship navigation preserves existing evidence protections.

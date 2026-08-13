@@ -331,7 +331,7 @@ def test_console_and_web_snapshot_recovery_are_semantically_equivalent(tmp_path)
     service = InvestigationWorkspaceService(repository)
     current = service.get_investigation(investigation.investigation_id)
     console_state = {"analysis": None}
-    values = iter(["14", "0"])
+    values = iter(["15", "0"])
     controller = InvestigationConsoleController(
         bootstrap_adapter=InvestigationBootstrapAdapter(service),
         workspace_service=service,

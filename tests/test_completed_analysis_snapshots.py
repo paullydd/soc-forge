@@ -282,7 +282,7 @@ def test_console_explicit_snapshot_recovery_activates_only_valid_analysis(tmp_pa
     current = service.get_investigation(investigation.investigation_id)
     state = {"analysis": None}
     messages = []
-    values = iter(["14", "0"])
+    values = iter(["15", "0"])
     controller = InvestigationConsoleController(
         bootstrap_adapter=InvestigationBootstrapAdapter(service),
         workspace_service=service,

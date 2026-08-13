@@ -26,6 +26,11 @@ from soc_forge.investigations.evidence_service import (
     InvalidEvidenceClassificationError,
     InvalidEvidenceRationaleError,
 )
+from soc_forge.investigations.finding_service import (
+    DuplicateFindingError,
+    FindingNotFoundError,
+    InvalidFindingReferenceError,
+)
 from soc_forge.investigations.handoff import (
     HandoffBundleValidationError,
     HandoffProvenanceMismatchError,
@@ -571,6 +576,25 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                     latest=latest,
                 )
                 return
+        finding_errors = (
+            (FindingNotFoundError, "finding_not_found", "Finding not found.", 404),
+            (DuplicateFindingError, "duplicate_finding", "Finding ID already exists.", 409),
+            (
+                InvalidFindingReferenceError,
+                "invalid_finding_reference",
+                "A finding relationship is invalid for this investigation.",
+                400,
+            ),
+        )
+        for error_type, code, message, status in finding_errors:
+            if isinstance(exc, error_type):
+                self.send_investigation_error(
+                    code,
+                    message,
+                    status,
+                    investigation_id=investigation_id,
+                )
+                return
         query_errors = (
             (InvalidTimelineRangeError, "invalid_time_range", 400),
             (UnsupportedTimelineFilterError, "invalid_filter", 400),
@@ -862,6 +886,12 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 result = self.investigation_app.reopen(investigation_id, payload)
             elif len(segments) == 2 and segments[1] == "annotations":
                 result = self.investigation_app.add_annotation(investigation_id, payload)
+            elif len(segments) == 2 and segments[1] == "findings":
+                result = self.investigation_app.create_finding(
+                    investigation_id, payload
+                )
+                self.send_json(result, status=201, no_store=True)
+                return True
             elif len(segments) == 2 and segments[1] == "hypotheses":
                 result = self.investigation_app.create_hypothesis(
                     investigation_id, payload
@@ -1182,6 +1212,20 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                         self.investigation_app.list_evidence_selections(segments[0])
                     )
                     return
+                if len(segments) == 2 and segments[1] == "findings":
+                    self.send_json(
+                        self.investigation_app.list_findings(segments[0]),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 3 and segments[1] == "findings":
+                    self.send_json(
+                        self.investigation_app.get_finding(
+                            segments[0], segments[2]
+                        ),
+                        no_store=True,
+                    )
+                    return
                 if len(segments) == 2 and segments[1] == "reasoning":
                     self.send_json(
                         self.investigation_app.get_reasoning_summary(segments[0]),
@@ -1259,14 +1303,19 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             and segments[1:3] == ["evidence", "selections"]
         )
         is_hypothesis = len(segments) == 3 and segments[1] == "hypotheses"
-        if not (is_annotation or is_evidence or is_hypothesis):
+        is_finding = len(segments) == 3 and segments[1] == "findings"
+        if not (is_annotation or is_evidence or is_hypothesis or is_finding):
             self.send_error(405, "Method not allowed")
             return
         payload = self.read_json_payload()
         if payload is None:
             return
         try:
-            if is_hypothesis:
+            if is_finding:
+                result = self.investigation_app.update_finding(
+                    segments[0], segments[2], payload
+                )
+            elif is_hypothesis:
                 result = self.investigation_app.edit_hypothesis(
                     segments[0], segments[2], payload
                 )
@@ -1278,7 +1327,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 result = self.investigation_app.update_evidence(
                     segments[0], segments[3], payload
                 )
-            self.send_json(result, no_store=is_hypothesis)
+            self.send_json(result, no_store=is_hypothesis or is_finding)
         except Exception as exc:
             self.handle_investigation_error(exc, segments[0])
 

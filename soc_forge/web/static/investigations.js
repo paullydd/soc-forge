@@ -34,6 +34,7 @@ async function refreshInvestigationAfterConflict(investigationId) {
   await loadInvestigationSummaries();
   await loadEvidenceSelections();
   await loadReasoning();
+  await loadFindings();
   renderInvestigations();
 }
 
@@ -58,6 +59,7 @@ async function openInvestigation(investigationId) {
   state.evidenceDraft = null;
   await loadEvidenceSelections();
   await loadReasoning();
+  await loadFindings();
   renderInvestigations();
 }
 
@@ -233,7 +235,20 @@ function renderInvestigations() {
         <div id="reasoningStatus" class="muted evidence-status"></div>
         <div id="reasoningWorkspace" class="workspace-records"></div>
       </section>
-      <section class="brief-section workbench-section">
+      <section class="brief-section findings-section">
+        <div class="panel-head">
+          <h3>Investigation Findings</h3>
+          <span class="muted">Analyst-authored conclusions</span>
+        </div>
+        <p class="muted">Confidence reflects analyst assessment, not machine certainty.</p>
+        <div id="findingCounts" class="evidence-counts"></div>
+        <div class="workspace-actions">
+          <button id="viewFindingsButton" type="button">View Findings</button>
+          <button id="createFindingButton" type="button">Create Finding</button>
+        </div>
+        <div id="findingStatus" class="muted evidence-status"></div>
+        <div id="findingWorkspace" class="workspace-records"></div>
+      </section>      <section class="brief-section workbench-section">
         <div class="panel-head">
           <h3>Timeline and Pivot Workbench</h3>
           <span class="pill">Read Only</span>
@@ -304,9 +319,11 @@ function renderInvestigations() {
   bindHandoffActions();
   bindEvidenceActions();
   bindReasoningActions();
+  bindFindingActions();
   bindInvestigationWorkbench();
   renderEvidenceSummary();
   renderReasoningSummary();
+  if (state.findings) renderFindingCounts(state.findings.counts);
   loadInvestigationSummary().catch(showInvestigationSummaryError);
 }
 
@@ -874,6 +891,7 @@ async function selectEvidence(candidate) {
 async function showSelectedEvidence() {
   await loadEvidenceSelections();
   await loadReasoning();
+  await loadFindings();
   renderInvestigations();
   const target = $('#evidenceWorkspace');
   if (!target) return;

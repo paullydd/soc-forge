@@ -207,7 +207,7 @@ def test_workspace_timeline_and_pivot_option_dispatches_read_only_controller(tmp
             return value
 
     controller.query_controller = QueryController()
-    controller.input = ScriptedInput(["12", "0"])
+    controller.input = ScriptedInput(["13", "0"])
 
     assert controller.workspace_loop(current) == current
     assert calls == [current.revision]
@@ -230,7 +230,7 @@ def test_workspace_handoff_option_dispatches_read_only_controller(tmp_path):
             return value
 
     controller.handoff_controller = HandoffController()
-    controller.input = ScriptedInput(["13", "0"])
+    controller.input = ScriptedInput(["14", "0"])
 
     assert controller.workspace_loop(current) == current
     assert calls == [current.revision]
@@ -264,8 +264,9 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     assert "[1] Investigation Summary" in messages
     assert "[10] Evidence workspace" in messages
     assert "[11] Hypotheses and Decisions" in messages
-    assert "[12] Timeline and Pivot Workbench (Read Only)" in messages
-    assert "[13] Investigation Handoff (Read Only)" in messages
+    assert "[12] Investigation Findings" in messages
+    assert "[13] Timeline and Pivot Workbench (Read Only)" in messages
+    assert "[14] Investigation Handoff (Read Only)" in messages
     assert "[9] Record decision" not in messages
 
 
@@ -577,7 +578,7 @@ def test_main_runtime_opens_durable_workbench_with_live_analysis(
     analysis_id = AnalysisEvidenceCatalog().source_analysis_id(analysis)
     prompts = ScriptedInput(
         [
-            "2", "6", "3", "INV-RUNTIME", "12",
+            "2", "6", "3", "INV-RUNTIME", "13",
             "0", "0", "", "0", "0", "0",
         ]
     )
@@ -656,7 +657,7 @@ def test_workspace_does_not_swallow_query_controller_exception(tmp_path):
             raise RuntimeError("query-controller-contract")
 
     controller.query_controller = FailingQueryController()
-    controller.input = ScriptedInput(["12"])
+    controller.input = ScriptedInput(["13"])
 
     with pytest.raises(RuntimeError, match="query-controller-contract"):
         controller.workspace_loop(current)

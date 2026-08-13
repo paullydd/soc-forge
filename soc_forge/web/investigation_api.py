@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Mapping
 from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
+from soc_forge.investigations.finding_service import InvestigationFindingService
 from soc_forge.investigations.handoff import (
     HandoffArtifactDigestMismatchError,
     HandoffBundleValidationError,
@@ -105,6 +106,7 @@ class InvestigationWebApplication:
         evidence_catalog: AnalysisEvidenceCatalog | None = None,
         evidence_service: InvestigationEvidenceService | None = None,
         reasoning_service: InvestigationReasoningService | None = None,
+        finding_service: InvestigationFindingService | None = None,
         handoff_service: InvestigationHandoffService | None = None,
         handoff_root: Path | None = None,
         snapshot_store: CompletedAnalysisSnapshotStore | None = None,
@@ -119,6 +121,9 @@ class InvestigationWebApplication:
         )
 
         self.reasoning_service = reasoning_service or InvestigationReasoningService(
+            workspace_service
+        )
+        self.finding_service = finding_service or InvestigationFindingService(
             workspace_service
         )
         self.timeline_service = InvestigationTimelineService()
@@ -869,6 +874,92 @@ class InvestigationWebApplication:
             )
         return hypothesis
 
+    def list_findings(self, investigation_id: str) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        findings = self.finding_service.list_findings(investigation_id)
+        counts = {
+            status: sum(item.status == status for item in findings)
+            for status in ("draft", "substantiated", "unsubstantiated", "inconclusive")
+        }
+        return {
+            "investigation_id": investigation_id,
+            "revision": current.revision,
+            "findings": [item.to_dict() for item in findings],
+            "counts": {"total": len(findings), **counts},
+        }
+
+    def get_finding(
+        self, investigation_id: str, finding_id: str
+    ) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        finding = self.finding_service.get_finding(investigation_id, finding_id)
+        return {
+            "investigation_id": investigation_id,
+            "revision": current.revision,
+            "finding": finding.to_dict(),
+        }
+
+    def create_finding(
+        self, investigation_id: str, payload: Mapping[str, Any]
+    ) -> Dict[str, Any]:
+        result = self.finding_service.create_finding(
+            investigation_id,
+            finding_id=self._required_text(payload, "finding_id"),
+            title=self._required_text(payload, "title"),
+            conclusion=self._required_text(payload, "conclusion"),
+            status=self._required_text(payload, "status"),
+            confidence=self._required_text(payload, "confidence"),
+            author=self._required_text(payload, "author"),
+            evidence_ids=self._optional_list(payload, "evidence_ids"),
+            hypothesis_ids=self._optional_list(payload, "hypothesis_ids"),
+            decision_ids=self._optional_list(payload, "decision_ids"),
+            attack_tactics=self._optional_list(payload, "attack_tactics"),
+            attack_techniques=self._optional_list(payload, "attack_techniques"),
+            limitations=self._optional_list(payload, "limitations"),
+            expected_revision=self._expected_revision(payload),
+        )
+        return {
+            **self._workspace_response(result),
+            "finding": self.finding_service.get_finding(
+                investigation_id, self._required_text(payload, "finding_id")
+            ).to_dict(),
+        }
+
+    def update_finding(
+        self,
+        investigation_id: str,
+        finding_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        list_fields = (
+            "evidence_ids",
+            "hypothesis_ids",
+            "decision_ids",
+            "attack_tactics",
+            "attack_techniques",
+            "limitations",
+        )
+        lists = {
+            field: self._optional_list(payload, field)
+            for field in list_fields if field in payload
+        }
+        result = self.finding_service.update_finding(
+            investigation_id,
+            finding_id,
+            expected_revision=self._expected_revision(payload),
+            title=self._optional_update_text(payload, "title"),
+            conclusion=self._optional_update_text(payload, "conclusion"),
+            status=self._optional_update_text(payload, "status"),
+            confidence=self._optional_update_text(payload, "confidence"),
+            author=self._optional_update_text(payload, "author"),
+            **lists,
+        )
+        return {
+            **self._workspace_response(result),
+            "finding": self.finding_service.get_finding(
+                investigation_id, finding_id
+            ).to_dict(),
+        }
     def get_timeline(
         self,
         investigation_id: str,

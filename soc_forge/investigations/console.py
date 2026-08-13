@@ -10,6 +10,8 @@ from soc_forge.investigations.bootstrap import (
 from soc_forge.investigations.evidence_catalog import AnalysisEvidenceCatalog
 from soc_forge.investigations.evidence_console import EvidenceConsoleController
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
+from soc_forge.investigations.finding_console import InvestigationFindingConsoleController
+from soc_forge.investigations.finding_service import InvestigationFindingService
 from soc_forge.investigations.handoff import InvestigationHandoffService
 from soc_forge.investigations.handoff_console import (
     InvestigationHandoffConsoleController,
@@ -56,6 +58,7 @@ class InvestigationConsoleController:
         query_controller: InvestigationQueryConsoleController | None = None,
         handoff_controller: InvestigationHandoffConsoleController | None = None,
         summary_controller: InvestigationSummaryConsoleController | None = None,
+        finding_controller: InvestigationFindingConsoleController | None = None,
         snapshot_store: CompletedAnalysisSnapshotStore | None = None,
         analysis_activator: Callable[[object], None] | None = None,
     ):
@@ -112,6 +115,15 @@ class InvestigationConsoleController:
             query_controller=self.query_controller,
             handoff_controller=self.handoff_controller,
             snapshot_loader=self.load_source_analysis,
+            input_func=input_func,
+            output_func=output_func,
+            screen_func=screen_func,
+            pause_func=self.pause,
+        )
+        self.finding_controller = finding_controller or InvestigationFindingConsoleController(
+            finding_service=InvestigationFindingService(workspace_service),
+            evidence_controller=self.evidence_controller,
+            reasoning_controller=self.reasoning_controller,
             input_func=input_func,
             output_func=output_func,
             screen_func=screen_func,
@@ -246,9 +258,10 @@ class InvestigationConsoleController:
             self.output("[9] View decisions")
             self.output("[10] Evidence workspace")
             self.output("[11] Hypotheses and Decisions")
-            self.output("[12] Timeline and Pivot Workbench (Read Only)")
-            self.output("[13] Investigation Handoff (Read Only)")
-            self.output("[14] Load source analysis snapshot")
+            self.output("[12] Investigation Findings")
+            self.output("[13] Timeline and Pivot Workbench (Read Only)")
+            self.output("[14] Investigation Handoff (Read Only)")
+            self.output("[15] Load source analysis snapshot")
             self.output("[0] Back")
 
             choice = self.input("\nSelect option: ").strip()
@@ -277,14 +290,16 @@ class InvestigationConsoleController:
             elif choice == "11":
                 current = self.reasoning_controller.run(current)
             elif choice == "12":
-                current = self.query_controller.run(current)
+                current = self.finding_controller.run(current)
             elif choice == "13":
-                current = self.handoff_controller.run(current)
+                current = self.query_controller.run(current)
             elif choice == "14":
+                current = self.handoff_controller.run(current)
+            elif choice == "15":
                 self.load_source_analysis(current)
             else:
                 self.output("Invalid option.")
-            if choice in {"2", "3", "4", "5", "6", "7", "8", "9", "14"}:
+            if choice in {"2", "3", "4", "5", "6", "7", "8", "9", "15"}:
                 self.pause()
 
     def load_source_analysis(self, current: WorkspaceResult) -> object | None:
