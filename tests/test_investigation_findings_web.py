@@ -149,6 +149,8 @@ def test_findings_http_validation_and_bounded_errors(tmp_path):
 def test_findings_browser_contract_is_safe_and_uses_existing_inspection():
     root = Path(__file__).parents[1]
     source = (root / "soc_forge/web/static/investigation_findings.js").read_text()
+    summary = (root / "soc_forge/web/static/investigation_summary.js").read_text()
+    styles = (root / "soc_forge/web/static/styles.css").read_text()
     workspace = (root / "soc_forge/web/static/investigations.js").read_text()
     index = (root / "soc_forge/web/static/index.html").read_text()
     assert "innerHTML" not in source
@@ -156,6 +158,13 @@ def test_findings_browser_contract_is_safe_and_uses_existing_inspection():
     assert "Supersede Finding" in source
     assert "View Active" in source
     assert "View History" in source
+    assert "finding-lifecycle-head" in source
+    assert "finding-lifecycle-badge finding-lifecycle-${finding.lifecycle_state}" in source
+    assert "finding-lifecycle-head" in summary
+    assert "finding-lifecycle-badge finding-lifecycle-${item.lifecycle_state}" in summary
+    assert ".finding-lifecycle-head" in styles
+    assert ".finding-lifecycle-active" in styles
+    assert ".finding-lifecycle-superseded" in styles
     assert "/supersede" in source
     assert "textContent" in source
     assert "inspectEvidence(id, false)" in source

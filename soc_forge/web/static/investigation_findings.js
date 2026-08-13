@@ -67,8 +67,14 @@ function renderFindingCounts(counts) {
 
 function renderFindingListCard(target, finding) {
   const card = findingNode('article', null, 'workspace-record finding-lifecycle-record');
-  card.appendChild(findingNode('strong', `${finding.finding_id}: ${finding.title}`));
-  card.appendChild(findingNode('span', finding.lifecycle_state.toUpperCase(), 'badge'));
+  const heading = findingNode('div', null, 'finding-lifecycle-head');
+  heading.appendChild(findingNode('strong', `${finding.finding_id}: ${finding.title}`));
+  heading.appendChild(findingNode(
+    'span',
+    finding.lifecycle_state.toUpperCase(),
+    `finding-lifecycle-badge finding-lifecycle-${finding.lifecycle_state}`
+  ));
+  card.appendChild(heading);
   card.appendChild(findingNode('p', `${finding.status} | analyst confidence: ${finding.confidence} | ${finding.author}`));
   card.appendChild(findingNode('p', `Updated: ${finding.updated_at}`));
   card.appendChild(findingNode('p', `Basis: ${finding.evidence_ids.length} evidence, ${finding.hypothesis_ids.length} hypotheses, ${finding.decision_ids.length} decisions`));

@@ -124,7 +124,14 @@ function renderInvestigationSummary(summary) {
     ));
     summary.analyst_findings.filter((item) => item.lifecycle_state === lifecycle).forEach((item) => {
       const record = summaryNode('article', null, 'workspace-record');
-    record.appendChild(summaryNode('strong', `${item.finding_id}: ${item.title}`));
+      const heading = summaryNode('div', null, 'finding-lifecycle-head');
+      heading.appendChild(summaryNode('strong', `${item.finding_id}: ${item.title}`));
+      heading.appendChild(summaryNode(
+        'span',
+        item.lifecycle_state.toUpperCase(),
+        `finding-lifecycle-badge finding-lifecycle-${item.lifecycle_state}`
+      ));
+      record.appendChild(heading);
     record.appendChild(summaryNode('span', item.status, 'badge'));
     record.appendChild(summaryNode('p', `Analyst confidence: ${item.confidence}`));
     record.appendChild(summaryNode('p', item.conclusion));
@@ -134,7 +141,6 @@ function renderInvestigationSummary(summary) {
     }
     item.limitations.forEach((value) => record.appendChild(summaryNode('p', `Limitation: ${value}`)));
     record.appendChild(summaryButton('Open Finding', () => openFinding(item.finding_id)));
-      record.appendChild(summaryNode('span', item.lifecycle_state, 'badge'));
       analystFindings.appendChild(record);
     });
   });

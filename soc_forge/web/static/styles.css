@@ -125,6 +125,11 @@ ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); line-height: 1.55
 .workbench-pivot-row { display: grid; gap: 5px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .workspace-records { display: grid; gap: 8px; margin-top: 10px; }
 .workspace-record p { margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.finding-lifecycle-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.finding-lifecycle-head strong { min-width: 0; overflow-wrap: anywhere; }
+.finding-lifecycle-badge { flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 800; line-height: 1.4; }
+.finding-lifecycle-active { border-color: #3c8f86; background: #17332f; color: #d7fffa; }
+.finding-lifecycle-superseded { border-color: #59636d; background: #232a31; color: #c5ced7; }
 .record-head .muted { margin-left: auto; }
 .danger-button { border-color: #704048; color: #ffb8bd; }
 .danger-button:hover { border-color: var(--danger); }
