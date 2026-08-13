@@ -31,3 +31,8 @@ The Command Center prints the compact application header before its existing das
 Later v3.2 slices can migrate individual console surfaces deliberately. Slice 1 does not redesign the Investigation Workspace, Summary, Evidence, Findings, Handoff, startup experience, or web UI.
 
 v3.2 Slice 1 establishes presentation primitives only. Existing console workflows remain behaviorally unchanged.
+
+
+## Existing Startup Presentation
+
+The Analyst Console continues to use its original large SOC ASCII logo and cyan/yellow SOC-Forge identity. The existing startup renderer reads the authoritative package version and presents readiness lines for Runtime, Detection Rules, Investigation Workspace, Analysis Snapshots, and Analyst Services beneath that branding. It remains the single startup implementation and does not use the compact Command Center application header as a replacement splash.

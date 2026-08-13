@@ -1,4 +1,6 @@
 import time
+
+from soc_forge import __version__
 from soc_forge.ui.colors import Colors
 
 
@@ -19,10 +21,13 @@ def progress_bar(label: str, percent: int = 100, width: int = 28) -> None:
     empty = width - filled
 
     bar = "█" * filled + "░" * empty
-    print(f"{Colors.CYAN}{label:<28}{Colors.RESET} {Colors.GREEN}{bar}{Colors.RESET} {percent}%")
+    print(
+        f"{Colors.CYAN}{label:<28}{Colors.RESET} "
+        f"{Colors.GREEN}{bar}{Colors.RESET} {percent}%"
+    )
 
 
-def startup_screen(clear_func=None, version: str = "v1.8.0-dev") -> None:
+def startup_screen(clear_func=None, version: str | None = None) -> None:
     if clear_func:
         clear_func()
 
@@ -41,30 +46,32 @@ def startup_screen(clear_func=None, version: str = "v1.8.0-dev") -> None:
 
     typewriter("       SOC-FORGE ", 0.03, Colors.YELLOW)
     typewriter("Security Operations Platform\n", 0.015, Colors.CYAN)
-    typewriter(f"       {version} | Investigation Workspace Edition\n\n", 0.01, Colors.GRAY)
 
-    boot_items = [
-        "Detection Engine",
-        "Correlation Engine",
-        "Attack Reconstruction",
-        "Case Management",
+    display_version = version or __version__
+    if not display_version.startswith("v"):
+        display_version = f"v{display_version}"
+    typewriter(
+        f"       {display_version} | Investigation Workspace Edition\n\n",
+        0.01,
+        Colors.GRAY,
+    )
+
+    readiness_items = (
+        "Runtime",
+        "Detection Rules",
         "Investigation Workspace",
-        "IOC Explorer",
-        "MITRE ATT&CK Mapping",
-        "Reporting Engine",
-    ]
+        "Analysis Snapshots",
+        "Analyst Services",
+    )
 
-    print(Colors.BOLD + "Initializing Platform...\n" + Colors.RESET)
-
-    for item in boot_items:
-        print(Colors.GREEN + "[✓] " + Colors.RESET + f"{item:<30} Loaded")
+    print(Colors.BOLD + "INITIALIZING PLATFORM\n" + Colors.RESET)
+    for item in readiness_items:
+        print(Colors.GREEN + "[READY]" + Colors.RESET + f" {item}")
         time.sleep(0.08)
 
     print()
-    progress_bar("Loading Command Center", 100)
-
-    print()
-    print(Colors.GREEN + "[+] SOC-FORGE READY" + Colors.RESET)
+    print("Platform Status: " + Colors.GREEN + "READY" + Colors.RESET)
+    print(Colors.CYAN + "Entering Analyst Console..." + Colors.RESET)
 
     time.sleep(1.2)
 
