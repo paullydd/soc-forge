@@ -382,3 +382,8 @@ See [Completed Analysis Snapshots](completed_analysis_snapshots.md).
 ### Investigation Summary Console
 
 The durable workspace presents **Investigation Summary** as its first investigation-level action. `InvestigationSummaryConsoleController` depends on `InvestigationSummaryService` and existing drill-down controllers; it owns presentation and navigation only. FULL mode requires the exact matching active analysis. OFFLINE mode remains usable from durable analyst state, and explicit snapshot recovery uses the existing completed-analysis loader. Summary reads and navigation do not write repository JSON or pipeline artifacts.
+
+
+### Investigation Findings
+
+`InvestigationFinding` is a frozen child of the durable `Investigation` aggregate. `InvestigationFindingService` validates analyst-selected evidence, hypothesis, and decision ownership before delegating one revisioned aggregate replacement to `InvestigationWorkspaceService`. Findings remain available offline and are not part of completed-analysis snapshots. Summary and Handoff integration are intentionally deferred.

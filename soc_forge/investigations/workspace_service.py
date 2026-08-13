@@ -10,6 +10,7 @@ from soc_forge.investigations.models import (
     Decision,
     EvidenceReference,
     Hypothesis,
+    InvestigationFinding,
     INTERNAL_ANNOTATION_TARGET_TYPES,
     Investigation,
     WorkspaceMetadata,
@@ -435,6 +436,26 @@ class InvestigationWorkspaceService:
             deleted_revision=current.revision,
         )
 
+    def replace_findings(
+        self,
+        investigation_id: str,
+        findings: Iterable[InvestigationFinding],
+        *,
+        expected_revision: int,
+    ) -> WorkspaceResult:
+        current = self._load_for_update(investigation_id, expected_revision)
+        normalized = tuple(findings)
+        if normalized == current.investigation.findings:
+            return current
+        updated = replace(
+            current.investigation,
+            findings=normalized,
+            metadata=replace(
+                current.investigation.metadata,
+                updated_at=self._now(),
+            ),
+        )
+        return self._save(updated, expected_revision)
     def _replace_status(
         self,
         current: WorkspaceResult,

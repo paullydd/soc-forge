@@ -355,6 +355,161 @@ class Decision(SerializableModel):
         return cls(**values)
 
 
+
+
+FINDING_STATUSES = frozenset(
+    {"draft", "substantiated", "unsubstantiated", "inconclusive"}
+)
+FINDING_CONFIDENCES = frozenset({"low", "medium", "high"})
+FINDING_TITLE_LIMIT = 160
+FINDING_CONCLUSION_LIMIT = 4000
+FINDING_LIMITATION_LIMIT = 1000
+DURABLE_MANUAL_ID_LIMIT = 128
+
+
+def _bounded_text(value: Any, field_name: str, limit: int) -> str:
+    _require_text(value, field_name)
+    normalized = value.strip()
+    if len(normalized) > limit:
+        raise ValueError(f"{field_name} must be at most {limit} characters")
+    return normalized
+
+
+def _manual_id(value: Any, field_name: str) -> str:
+    normalized = _bounded_text(value, field_name, DURABLE_MANUAL_ID_LIMIT)
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", normalized):
+        raise ValueError(
+            f"{field_name} must use letters, numbers, '.', '_', or '-'"
+        )
+    return normalized
+
+
+@dataclass(frozen=True)
+class InvestigationFinding(SerializableModel):
+    finding_id: str
+    investigation_id: str
+    title: str
+    conclusion: str
+    status: str
+    confidence: str
+    author: str
+    created_at: str
+    updated_at: str
+    evidence_ids: Tuple[str, ...] = ()
+    hypothesis_ids: Tuple[str, ...] = ()
+    decision_ids: Tuple[str, ...] = ()
+    attack_tactics: Tuple[str, ...] = ()
+    attack_techniques: Tuple[str, ...] = ()
+    limitations: Tuple[str, ...] = ()
+    schema_version: str = INVESTIGATION_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        _validate_schema_version(self.schema_version, type(self).__name__)
+        object.__setattr__(
+            self, "finding_id", _manual_id(
+                self.finding_id, "InvestigationFinding.finding_id"
+            )
+        )
+        object.__setattr__(
+            self,
+            "investigation_id",
+            _bounded_text(
+                self.investigation_id,
+                "InvestigationFinding.investigation_id",
+                DURABLE_MANUAL_ID_LIMIT,
+            ),
+        )
+        for field_name, limit in (
+            ("title", FINDING_TITLE_LIMIT),
+            ("conclusion", FINDING_CONCLUSION_LIMIT),
+            ("author", FINDING_TITLE_LIMIT),
+            ("created_at", FINDING_TITLE_LIMIT),
+            ("updated_at", FINDING_TITLE_LIMIT),
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _bounded_text(
+                    getattr(self, field_name),
+                    f"InvestigationFinding.{field_name}",
+                    limit,
+                ),
+            )
+        if self.status not in FINDING_STATUSES:
+            raise ValueError(
+                "InvestigationFinding.status must be one of: "
+                + ", ".join(sorted(FINDING_STATUSES))
+            )
+        if self.confidence not in FINDING_CONFIDENCES:
+            raise ValueError(
+                "InvestigationFinding.confidence must be one of: "
+                + ", ".join(sorted(FINDING_CONFIDENCES))
+            )
+        for field_name in (
+            "evidence_ids",
+            "hypothesis_ids",
+            "decision_ids",
+            "attack_tactics",
+            "attack_techniques",
+        ):
+            values = _id_tuple(
+                getattr(self, field_name),
+                f"InvestigationFinding.{field_name}",
+            )
+            if len(values) != len(set(values)):
+                raise ValueError(
+                    f"InvestigationFinding.{field_name} cannot contain duplicates"
+                )
+            object.__setattr__(self, field_name, values)
+        limitations = _tuple_copy(
+            self.limitations, "InvestigationFinding.limitations"
+        )
+        normalized_limitations = tuple(
+            _bounded_text(
+                item,
+                "InvestigationFinding.limitations item",
+                FINDING_LIMITATION_LIMIT,
+            )
+            for item in limitations
+        )
+        if len(normalized_limitations) != len(set(normalized_limitations)):
+            raise ValueError(
+                "InvestigationFinding.limitations cannot contain duplicates"
+            )
+        object.__setattr__(self, "limitations", normalized_limitations)
+        if not (self.evidence_ids or self.hypothesis_ids or self.decision_ids):
+            raise ValueError(
+                "InvestigationFinding requires at least one evidence, "
+                "hypothesis, or decision reference"
+            )
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "InvestigationFinding":
+        _require_fields(
+            data,
+            cls.__name__,
+            "finding_id",
+            "investigation_id",
+            "title",
+            "conclusion",
+            "status",
+            "confidence",
+            "author",
+            "created_at",
+            "updated_at",
+        )
+        values = dict(data)
+        for field_name in (
+            "evidence_ids",
+            "hypothesis_ids",
+            "decision_ids",
+            "attack_tactics",
+            "attack_techniques",
+            "limitations",
+        ):
+            values[field_name] = tuple(values.get(field_name, ()))
+        return cls(**values)
+
 @dataclass(frozen=True)
 class TimelineSelection(SerializableModel):
     selection_id: str
@@ -482,6 +637,7 @@ class Investigation(SerializableModel):
     evidence_references: Tuple[EvidenceReference, ...] = ()
     hypotheses: Tuple[Hypothesis, ...] = ()
     decisions: Tuple[Decision, ...] = ()
+    findings: Tuple[InvestigationFinding, ...] = ()
     timeline_selections: Tuple[TimelineSelection, ...] = ()
     annotations: Tuple[Annotation, ...] = ()
     handoff_manifest: HandoffManifest | None = None
@@ -503,6 +659,7 @@ class Investigation(SerializableModel):
             ("evidence_references", EvidenceReference),
             ("hypotheses", Hypothesis),
             ("decisions", Decision),
+            ("findings", InvestigationFinding),
             ("timeline_selections", TimelineSelection),
             ("annotations", Annotation),
         ):
@@ -534,6 +691,7 @@ class Investigation(SerializableModel):
                 "hypothesis", self.hypotheses, "hypothesis_id"
             ),
             "decision": self._unique_child_ids("decision", self.decisions, "decision_id"),
+            "finding": self._unique_child_ids("finding", self.findings, "finding_id"),
             "timeline selection": self._unique_child_ids(
                 "timeline selection", self.timeline_selections, "selection_id"
             ),
@@ -542,6 +700,10 @@ class Investigation(SerializableModel):
             ),
         }
         evidence_ids = child_ids["evidence reference"]
+        selected_evidence_ids = {
+            item.reference_id for item in self.evidence_references
+            if item.origin == "analyst_selection"
+        }
         hypothesis_ids = child_ids["hypothesis"]
         decision_ids = child_ids["decision"]
         timeline_ids = child_ids["timeline selection"]
@@ -589,6 +751,26 @@ class Investigation(SerializableModel):
                 decision.hypothesis_ids, hypothesis_ids,
             )
 
+
+        for finding in self.findings:
+            if finding.investigation_id != self.investigation_id:
+                raise MissingInvestigationReferenceError(
+                    f"Investigation {self.investigation_id!r} finding "
+                    f"{finding.finding_id!r} names investigation "
+                    f"{finding.investigation_id!r}"
+                )
+            self._require_references(
+                "finding", finding.finding_id, "evidence",
+                finding.evidence_ids, selected_evidence_ids,
+            )
+            self._require_references(
+                "finding", finding.finding_id, "hypothesis",
+                finding.hypothesis_ids, hypothesis_ids,
+            )
+            self._require_references(
+                "finding", finding.finding_id, "decision",
+                finding.decision_ids, decision_ids,
+            )
         for selection in self.timeline_selections:
             self._require_references(
                 "timeline selection", selection.selection_id, "evidence",
@@ -669,6 +851,9 @@ class Investigation(SerializableModel):
         )
         values["hypotheses"] = tuple(Hypothesis.from_dict(item) for item in values.get("hypotheses", ()))
         values["decisions"] = tuple(Decision.from_dict(item) for item in values.get("decisions", ()))
+        values["findings"] = tuple(
+            InvestigationFinding.from_dict(item) for item in values.get("findings", ())
+        )
         values["timeline_selections"] = tuple(
             TimelineSelection.from_dict(item) for item in values.get("timeline_selections", ())
         )
