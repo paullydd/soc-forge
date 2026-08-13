@@ -17,6 +17,7 @@ from soc_forge.menus.reporting import reporting_menu
 from soc_forge.menus.system import system_menu
 from soc_forge.dashboard.dashboard import show_dashboard
 from soc_forge.ui.screen import begin_screen, set_clear_screen
+from soc_forge.ui.terminal import render_application_header
 from soc_forge.cases.store import load_cases_file, save_cases_file
 from soc_forge.pipeline import AnalysisOptions, run_analysis
 from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
@@ -1191,6 +1192,7 @@ def main_menu():
     workspace_controller = build_investigation_console_controller()
     while True:
         clear_screen()
+        print(render_application_header())
         show_dashboard(
             get_dashboard_stats,
             get_recent_activity,
