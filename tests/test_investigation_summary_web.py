@@ -1,11 +1,13 @@
 import json
 import threading
 from copy import deepcopy
+from dataclasses import replace
 from hashlib import sha256
 from http.client import HTTPConnection
 from pathlib import Path
 
 from query_fixtures import build_query_analysis, build_query_investigation
+from soc_forge.investigations.models import InvestigationFinding
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.snapshots import CompletedAnalysisSnapshotStore
 from soc_forge.web.app import make_server
@@ -169,7 +171,52 @@ def test_summary_browser_contract_uses_safe_dom_and_existing_navigation():
     assert "showWebHypothesis(item.hypothesis_id)" in source
     assert "showQueryDecision(item.decision_id)" in source
     assert "openQueryTimeline" in source
+    assert "openFinding(item.finding_id)" in source
+    assert "innerHTML" not in source
     assert "/summary" in source
     assert "loadInvestigationSummary().catch" in investigations
     assert investigations.count("await loadInvestigationSummary()") == 0
     assert "/static/investigation_summary.js" in index
+
+
+def test_summary_route_keeps_analyst_finding_visible_offline_and_full(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = build_query_investigation(analysis)
+    evidence_id = next(
+        item.reference_id for item in investigation.evidence_references
+        if item.origin == "analyst_selection"
+    )
+    finding = InvestigationFinding(
+        finding_id="FIND-WEB-SUMMARY", investigation_id="INV-QUERY",
+        title="Analyst web summary finding",
+        conclusion="Analyst review supports control tampering.",
+        status="substantiated", confidence="high", author="alice",
+        created_at="2026-08-12T10:00:00Z", updated_at="2026-08-12T10:05:00Z",
+        evidence_ids=(evidence_id,), limitations=("Visibility is limited.",),
+    )
+    investigation = replace(investigation, findings=(finding,))
+    out_dir = tmp_path / "analysis"
+    workspace_root = tmp_path / "workspace"
+    repository = InvestigationRepository(workspace_root)
+    repository.save(investigation)
+    CompletedAnalysisSnapshotStore(out_dir).publish(analysis)
+    before = next(repository.investigations_root.glob("*.json")).read_bytes()
+    server, thread, info = _start(out_dir, workspace_root)
+    try:
+        status, _, offline = _request(info, "GET", "/api/investigations/INV-QUERY/summary")
+        loaded_status, _, loaded = _request(
+            info, "POST",
+            "/api/investigations/INV-QUERY/source-analysis/load", {},
+        )
+        status_full, _, full = _request(info, "GET", "/api/investigations/INV-QUERY/summary")
+    finally:
+        _stop(server, thread)
+    assert status == loaded_status == status_full == 200
+    assert loaded["loaded"] is True
+    assert offline["mode"] == "offline"
+    assert full["mode"] == "full"
+    assert offline["analyst_findings"] == full["analyst_findings"]
+    assert offline["finding_counts"]["substantiated"] == 1
+    assert offline["analyst_findings"][0]["attribution"] == "analyst"
+    assert "powershell.exe -enc sensitive" not in json.dumps(offline)
+    assert next(repository.investigations_root.glob("*.json")).read_bytes() == before

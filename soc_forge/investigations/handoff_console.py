@@ -248,6 +248,36 @@ class InvestigationHandoffConsoleController:
         self.output(f"Analyst-selected evidence: {preview.analyst_evidence_count}")
         self.output(f"Hypotheses: {preview.hypothesis_count}")
         self.output(f"Decisions: {preview.decision_count}")
+        self.output(f"Findings: {preview.finding_count}")
+        self.output("Findings are analyst-authored conclusions.")
+        if not preview.findings:
+            self.output("No analyst-authored findings.")
+        for finding in preview.findings:
+            self.output(
+                f"  {finding.finding_id} | {self._bounded(finding.title)} | "
+                f"{finding.status.upper()} | analyst confidence: "
+                f"{finding.confidence}"
+            )
+            self.output(f"    Conclusion: {self._bounded(finding.conclusion)}")
+            self.output(
+                f"    Basis: {finding.evidence_count} evidence | "
+                f"{finding.hypothesis_count} hypotheses | "
+                f"{finding.decision_count} decisions"
+            )
+            self.output(
+                "    Evidence IDs: "
+                + (", ".join(finding.evidence_ids) or "None")
+            )
+            self.output(
+                "    Hypothesis IDs: "
+                + (", ".join(finding.hypothesis_ids) or "None")
+            )
+            self.output(
+                "    Decision IDs: "
+                + (", ".join(finding.decision_ids) or "None")
+            )
+            for limitation in finding.limitations:
+                self.output(f"    Limitation: {self._bounded(limitation)}")
         self.output(f"Annotations: {preview.annotation_count}")
         self.output(f"Timed timeline entries: {preview.timed_entry_count}")
         self.output(f"Untimed timeline entries: {preview.untimed_entry_count}")

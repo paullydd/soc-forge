@@ -22,6 +22,7 @@ class InvestigationSummaryConsoleController:
         reasoning_controller: object,
         query_controller: object,
         handoff_controller: object,
+        finding_controller: object | None = None,
         snapshot_loader: Callable[[WorkspaceResult], object | None],
         input_func: Callable[[str], str] = input,
         output_func: Callable[[str], None] = print,
@@ -34,6 +35,7 @@ class InvestigationSummaryConsoleController:
         self.reasoning_controller = reasoning_controller
         self.query_controller = query_controller
         self.handoff_controller = handoff_controller
+        self.finding_controller = finding_controller
         self.snapshot_loader = snapshot_loader
         self.input = input_func
         self.output = output_func
@@ -52,7 +54,8 @@ class InvestigationSummaryConsoleController:
             self.output("[2] Hypotheses and Decisions")
             self.output("[3] Timeline and Pivot Workbench")
             self.output("[4] Investigation Handoff")
-            self.output("[5] Load Source Analysis Snapshot")
+            self.output("[5] Investigation Findings")
+            self.output("[6] Load Source Analysis Snapshot")
             self.output("[0] Back")
 
             choice = self.input("\nSelect option: ").strip()
@@ -66,7 +69,9 @@ class InvestigationSummaryConsoleController:
                 current = self.query_controller.run(current)
             elif choice == "4":
                 current = self.handoff_controller.run(current)
-            elif choice == "5":
+            elif choice == "5" and self.finding_controller is not None:
+                current = self.finding_controller.run(current)
+            elif choice == "6":
                 self.snapshot_loader(current)
                 self.pause()
             else:
@@ -109,6 +114,13 @@ class InvestigationSummaryConsoleController:
             f"  Supporting: {summary.state.supporting_evidence_count} | "
             f"Contradicting: {summary.state.contradicting_evidence_count} | "
             f"Context: {summary.state.context_evidence_count}"
+        )
+        self.output(
+            f"  Findings: {summary.finding_counts.total} | "
+            f"Draft: {summary.finding_counts.draft} | "
+            f"Substantiated: {summary.finding_counts.substantiated} | "
+            f"Unsubstantiated: {summary.finding_counts.unsubstantiated} | "
+            f"Inconclusive: {summary.finding_counts.inconclusive}"
         )
         self.output(
             f"  Hypotheses: {sum(states.values())} | "
@@ -208,6 +220,34 @@ class InvestigationSummaryConsoleController:
                 f"    Hypotheses: {len(decision.hypothesis_ids)} | "
                 f"Evidence: {len(decision.evidence_reference_ids)}"
             )
+
+        self.output("")
+        self.output("ANALYST FINDINGS")
+        self.output("Findings are analyst-authored conclusions.")
+        self.output("Confidence reflects analyst assessment, not machine certainty.")
+        if not summary.analyst_findings:
+            self.output("No analyst-authored findings.")
+        for finding in summary.analyst_findings:
+            self.output(
+                f"  {finding.finding_id} | {finding.title} | "
+                f"{finding.status.upper()} | {finding.confidence.upper()}"
+            )
+            self.output(f"    Analyst: {finding.author}")
+            self.output(f"    Conclusion: {finding.conclusion}")
+            self.output(
+                f"    Basis: {finding.evidence_count} evidence | "
+                f"{finding.hypothesis_count} hypotheses | "
+                f"{finding.decision_count} decisions"
+            )
+            if finding.attack_tactics or finding.attack_techniques:
+                self.output(
+                    "    ATT&CK: "
+                    + ", ".join(
+                        finding.attack_tactics + finding.attack_techniques
+                    )
+                )
+            for limitation in finding.limitations:
+                self.output(f"    Limitation: {limitation}")
 
         self.output("")
         self.output("TIMELINE SUMMARY")

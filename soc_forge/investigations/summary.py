@@ -76,6 +76,33 @@ class InvestigationDecisionSummary:
 
 
 @dataclass(frozen=True)
+class InvestigationAnalystFindingSummary:
+    finding_id: str
+    title: str
+    conclusion: str
+    status: str
+    confidence: str
+    author: str
+    updated_at: str
+    evidence_count: int
+    hypothesis_count: int
+    decision_count: int
+    attack_tactics: Tuple[str, ...] = ()
+    attack_techniques: Tuple[str, ...] = ()
+    limitations: Tuple[str, ...] = ()
+    attribution: str = ATTRIBUTION_ANALYST
+
+
+@dataclass(frozen=True)
+class InvestigationFindingStateSummary:
+    total: int
+    draft: int
+    substantiated: int
+    unsubstantiated: int
+    inconclusive: int
+
+
+@dataclass(frozen=True)
 class InvestigationTimelineMilestone:
     entry_id: str
     timestamp: str
@@ -120,6 +147,10 @@ class InvestigationSummary:
     evidence: Tuple[InvestigationEvidenceSummary, ...] = ()
     hypotheses: Tuple[InvestigationReasoningSummary, ...] = ()
     decisions: Tuple[InvestigationDecisionSummary, ...] = ()
+    analyst_findings: Tuple[InvestigationAnalystFindingSummary, ...] = ()
+    finding_counts: InvestigationFindingStateSummary = InvestigationFindingStateSummary(
+        total=0, draft=0, substantiated=0, unsubstantiated=0, inconclusive=0
+    )
     timeline: InvestigationTimelineSummary | None = None
     limitations: Tuple[str, ...] = ()
     contains_sensitive_content: bool = True
@@ -179,6 +210,7 @@ class InvestigationSummaryService:
         )
         hypotheses = self._hypothesis_summaries(investigation)
         decisions = self._decision_summaries(investigation)
+        analyst_findings = self._analyst_finding_summaries(investigation)
         findings = (
             self._findings(analysis, selected_case_ids, context)
             if context is not None and analysis is not None
@@ -207,13 +239,15 @@ class InvestigationSummaryService:
             mode=mode,
             narrative=self._narrative(
                 investigation, mode, selected_case_ids, findings, evidence,
-                hypotheses, decisions, timeline,
+                hypotheses, decisions, analyst_findings, timeline,
             ),
             state=state,
             findings=findings,
             evidence=evidence,
             hypotheses=hypotheses,
             decisions=decisions,
+            analyst_findings=analyst_findings,
+            finding_counts=self._finding_state_summary(analyst_findings),
             timeline=timeline,
             limitations=tuple(dict.fromkeys(limitations)),
         )
@@ -308,6 +342,43 @@ class InvestigationSummaryService:
             ),
             key=lambda item: (item.timestamp or "", item.decision_id),
         ))
+
+    @staticmethod
+    def _analyst_finding_summaries(
+        investigation: Investigation,
+    ) -> Tuple[InvestigationAnalystFindingSummary, ...]:
+        return tuple(
+            InvestigationAnalystFindingSummary(
+                finding_id=item.finding_id,
+                title=_bounded(item.title),
+                conclusion=_bounded(item.conclusion),
+                status=item.status,
+                confidence=item.confidence,
+                author=_bounded(item.author),
+                updated_at=item.updated_at,
+                evidence_count=len(item.evidence_ids),
+                hypothesis_count=len(item.hypothesis_ids),
+                decision_count=len(item.decision_ids),
+                attack_tactics=tuple(sorted(item.attack_tactics)),
+                attack_techniques=tuple(sorted(item.attack_techniques)),
+                limitations=tuple(_bounded(value) for value in item.limitations),
+            )
+            for item in sorted(
+                investigation.findings, key=lambda value: value.finding_id
+            )
+        )
+
+    @staticmethod
+    def _finding_state_summary(
+        findings: Tuple[InvestigationAnalystFindingSummary, ...],
+    ) -> InvestigationFindingStateSummary:
+        counts = {
+            status: sum(item.status == status for item in findings)
+            for status in (
+                "draft", "substantiated", "unsubstantiated", "inconclusive"
+            )
+        }
+        return InvestigationFindingStateSummary(total=len(findings), **counts)
 
     @staticmethod
     def _state_summary(
@@ -411,14 +482,20 @@ class InvestigationSummaryService:
         evidence: Tuple[InvestigationEvidenceSummary, ...],
         hypotheses: Tuple[InvestigationReasoningSummary, ...],
         decisions: Tuple[InvestigationDecisionSummary, ...],
+        analyst_findings: Tuple[InvestigationAnalystFindingSummary, ...],
         timeline: InvestigationTimelineSummary | None,
     ) -> str:
+        finding_text = InvestigationSummaryService._finding_narrative(
+            analyst_findings
+        )
         if mode == "offline":
             return _bounded(
                 f"Source analysis is not active. This summary reflects persisted "
                 f"analyst state only for investigation {investigation.investigation_id}: "
                 f"{len(evidence)} selected evidence item(s), {len(hypotheses)} "
-                f"hypothesis item(s), and {len(decisions)} decision(s).",
+                f"hypothesis item(s), {len(decisions)} decision(s), and "
+                f"{len(analyst_findings)} analyst-authored finding(s). "
+                f"{finding_text}",
                 SUMMARY_NARRATIVE_LIMIT,
             )
         case_text = ", ".join(
@@ -435,6 +512,27 @@ class InvestigationSummaryService:
             f"Investigation {investigation.investigation_id} covers {case_text}. "
             f"It contains {len(evidence)} analyst-selected evidence item(s) and "
             f"{len(decisions)} analyst decision(s).{assessment_text} "
-            f"{timed} timed investigation entry or entries are available.",
+            f"{timed} timed investigation entry or entries are available. "
+            f"{finding_text}",
             SUMMARY_NARRATIVE_LIMIT,
+        )
+
+    @staticmethod
+    def _finding_narrative(
+        findings: Tuple[InvestigationAnalystFindingSummary, ...],
+    ) -> str:
+        if not findings:
+            return "No analyst-authored findings are recorded."
+        templates = {
+            "draft": "The analyst recorded a draft finding that {conclusion}",
+            "substantiated": "The analyst substantiated the finding that {conclusion}",
+            "unsubstantiated": (
+                "The analyst marked as unsubstantiated the finding that {conclusion}"
+            ),
+            "inconclusive": "The analyst found inconclusive whether {conclusion}",
+        }
+        return " ".join(
+            templates[item.status].format(conclusion=item.conclusion)
+            + f" (analyst confidence: {item.confidence})."
+            for item in findings
         )

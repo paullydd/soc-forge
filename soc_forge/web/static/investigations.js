@@ -496,6 +496,37 @@ function renderHandoffPayload(title, payload) {
   workspace.appendChild(record);
 }
 
+function renderHandoffPreview(payload) {
+  renderHandoffPayload('Handoff Preview', payload);
+  const workspace = $('#handoffWorkspace');
+  if (!workspace) return;
+  const section = evidenceElement('section', 'workspace-record');
+  section.appendChild(evidenceElement('strong', null, 'Analyst Findings'));
+  section.appendChild(evidenceElement(
+    'p',
+    'muted',
+    'Findings are analyst-authored conclusions. Confidence reflects analyst assessment, not machine certainty.',
+  ));
+  if (!payload.findings.length) {
+    section.appendChild(evidenceElement('p', null, 'No analyst-authored findings.'));
+  }
+  payload.findings.forEach((finding) => {
+    const item = evidenceElement('article', 'workspace-record');
+    item.appendChild(evidenceElement('strong', null, `${finding.finding_id}: ${finding.title}`));
+    item.appendChild(evidenceElement('p', null, `${finding.status} | Analyst confidence: ${finding.confidence}`));
+    item.appendChild(evidenceElement('p', null, finding.conclusion));
+    item.appendChild(evidenceElement('p', null, `Basis: ${finding.evidence_count} evidence, ${finding.hypothesis_count} hypotheses, ${finding.decision_count} decisions`));
+    item.appendChild(evidenceElement('p', 'muted', `Evidence IDs: ${finding.evidence_ids.join(', ') || 'None'}`));
+    item.appendChild(evidenceElement('p', 'muted', `Hypothesis IDs: ${finding.hypothesis_ids.join(', ') || 'None'}`));
+    item.appendChild(evidenceElement('p', 'muted', `Decision IDs: ${finding.decision_ids.join(', ') || 'None'}`));
+    finding.limitations.forEach((value) => {
+      item.appendChild(evidenceElement('p', 'muted', `Limitation: ${value}`));
+    });
+    section.appendChild(item);
+  });
+  workspace.appendChild(section);
+}
+
 async function handoffGet(action) {
   const response = await fetch(`${handoffBase()}/${action}`, {
     cache: 'no-store',
@@ -519,7 +550,7 @@ function bindHandoffActions() {
     });
   };
   bind('#previewHandoffButton', async () => {
-    renderHandoffPayload('Handoff Preview', await handoffGet('preview'));
+    renderHandoffPreview(await handoffGet('preview'));
   });
   bind('#exportHandoffButton', async () => {
     const overwrite = Boolean($('#handoffOverwrite')?.checked);

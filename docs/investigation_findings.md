@@ -30,7 +30,7 @@ Older records load with an empty findings tuple. Findings are not stored in comp
 
 ## Offline Behavior
 
-Findings remain readable after restart and when source analysis is unavailable. The service accepts no `AnalysisResult`, performs no enrichment, and cannot rebind an investigation. Future Summary and Handoff slices may consume this state without changing its storage model.
+Findings remain readable after restart and when source analysis is unavailable. The service accepts no `AnalysisResult`, performs no enrichment, and cannot rebind an investigation. Investigation Summary and Handoff consume this durable state without changing its storage model. Findings remain visible in FULL and OFFLINE summaries, always with analyst attribution and analyst-confidence wording. Handoff schema `1.1` exports them in the separately validated `findings.json` component; legacy `1.0` bundles remain readable without that component.
 
 
 ## Console Workflow
@@ -50,4 +50,4 @@ Routes:
 
 Responses use `Cache-Control: no-store`. Reads and offline mutations do not require active analysis. Create and material updates increment revision once; no-op updates do not. Snapshot activation does not alter findings.
 
-Terminal scrollback and browser presentation can retain analyst-authored finding text. Raw protected evidence remains behind the existing explicit evidence reveal flow. There is no delete operation. Durable affected-entity references remain deferred, as do Summary and Handoff integration.
+Terminal scrollback and browser presentation can retain analyst-authored finding text. Raw protected evidence remains behind the existing explicit evidence reveal flow. There is no delete operation. Durable affected-entity references remain deferred. Summary and Handoff presentation never reveals protected evidence values automatically.

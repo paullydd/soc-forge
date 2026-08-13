@@ -34,6 +34,7 @@ Slice 1 produces a plain directory rather than ZIP or TAR:
   evidence_index.json
   hypotheses.json
   decisions.json
+  findings.json
   annotations.json
   timeline.json
   limitations.json
@@ -58,7 +59,7 @@ revision check.
 
 ## Manifest and Identity
 
-`manifest.json` is schema version `1.0` and contains:
+New `manifest.json` files use schema version `1.1` and contain:
 
 - deterministic handoff ID
 - investigation and source-analysis IDs
@@ -77,7 +78,7 @@ revision check.
 The handoff ID is SHA-256 derived from schema version, investigation ID,
 source-analysis ID, revision, selected cases, selected evidence identity and
 classification, evidence rationale, hypothesis IDs and states, decision IDs,
-annotation IDs, and timeline-selection IDs. It does not include output paths,
+Finding IDs, annotation IDs, and timeline-selection IDs. It does not include output paths,
 temporary paths, dictionary insertion order, file ordering, or an export-only
 clock value.
 
@@ -101,6 +102,14 @@ selection timestamps, related case IDs, sensitive-field indicators, and a
 bounded provenance summary. Scope references are not described as reviewed
 analyst evidence. Raw event and alert payloads are not embedded in the evidence
 index.
+
+## Findings
+
+`findings.json` preserves durable analyst-authored Findings, including title, conclusion, controlled status, analyst confidence, author and timestamps, evidence/hypothesis/decision basis IDs, optional ATT&CK context, and limitations. It does not resolve or copy protected evidence values. Finding confidence is analyst assessment, not machine certainty. Durable affected-entity references remain deferred.
+
+The validator reconstructs each Finding through the authoritative domain model, rejects malformed payloads, duplicate IDs, invalid status or confidence, and verifies every evidence, hypothesis, and decision reference against the included handoff components. The component participates in logical-type, size, and SHA-256 validation.
+
+Schema `1.0` bundles created before Findings integration remain valid without `findings.json`. Schema `1.1` requires it, including for investigations with zero Findings. New exports always use `1.1`; the compatibility reader does not invent Findings for older bundles.
 
 ## Reasoning and Annotations
 
@@ -173,6 +182,7 @@ transaction isolation.
 - assessment-decision references
 - decision-to-evidence and decision-to-hypothesis references
 - timeline hypothesis and decision references
+- Finding model validity, unique IDs, and evidence/hypothesis/decision references
 
 Future validator hardening may additionally check annotation targets,
 scope-to-case references, remaining timeline evidence and case references,
@@ -213,7 +223,7 @@ Open investigation
 
 Preview requires the active completed analysis whose provenance matches the
 investigation. It shows the authoritative revision, selected-case and
-analyst-state counts, timed and untimed timeline counts, artifact availability,
+analyst-state counts including bounded analyst Findings, timed and untimed timeline counts, artifact availability,
 and sensitive-data warning without writing a bundle. Missing or mismatched
 active analysis blocks preview and export; analysis is never rerun and artifact
 paths are never guessed from disk.

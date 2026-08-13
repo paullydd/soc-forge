@@ -29,6 +29,8 @@ The result and all nested models are frozen dataclasses. `to_dict()` provides a 
 
 ## Full And Offline Modes
 
+Durable analyst-authored Findings are included in both modes. Their persisted status, analyst confidence, basis counts, ATT&CK context, and limitations remain visible without resolving protected evidence values. Findings are never stored in or recovered from completed-analysis snapshots.
+
 **Full mode** requires the exact matching `AnalysisResult`. It includes selected case titles, relevant rules, severity and ATT&CK context, source-evidence sensitivity indicators, and the existing canonical timeline projection.
 
 **Offline mode** requires only durable investigation state. It includes identity, owner, status, revision, source-analysis ID, annotations and counts, persisted evidence metadata, hypotheses, assessments, and decisions. Case, rule, ATT&CK, source-detail, and timeline context are omitted and named as limitations.
@@ -40,7 +42,9 @@ A missing, mismatched, or reference-incompatible analysis produces a bounded off
 Summary entries label their ownership:
 
 - `machine`: cases, alerts, reconstructions, rule metadata, severity, and ATT&CK mappings.
-- `analyst`: evidence classifications and rationales, hypotheses, assessments, decisions, and annotations.
+- `analyst`: evidence classifications and rationales, hypotheses, assessments, decisions, findings, and annotations.
+
+The dedicated **Analyst Findings** section identifies Findings as analyst-authored conclusions. `substantiated` means the analyst substantiated the Finding; it is not machine confirmation. Draft, unsubstantiated, and inconclusive states retain their uncertainty, and confidence is always labeled as analyst confidence.
 
 Hypothesis state is described as an analyst assessment. A supported hypothesis is never presented as a confirmed attack.
 
@@ -76,4 +80,4 @@ Open **Investigation Workspaces**, open a durable investigation, and select **In
 
 The screen labels FULL and OFFLINE modes, separates machine-generated detection context from analyst-authored evidence and reasoning, and keeps protected source values out of the summary. Terminal scrollback can retain investigation identity and bounded analyst-authored content, so analysts should use the same care applied to other console evidence and reasoning screens.
 
-The summary owns one navigation loop. Evidence, hypotheses and decisions, timeline and pivots, and handoff delegate to their existing controllers and return to the summary. **Load Source Analysis Snapshot** delegates to the existing validated snapshot loader; successful activation rerenders the summary in FULL mode without changing the investigation revision. **Back** returns exactly one level to the investigation workspace.
+The summary owns one navigation loop. Evidence, hypotheses and decisions, analyst Findings, timeline and pivots, and handoff delegate to their existing controllers and return to the summary. **Load Source Analysis Snapshot** delegates to the existing validated snapshot loader; successful activation rerenders the summary in FULL mode without changing the investigation revision. **Back** returns exactly one level to the investigation workspace.

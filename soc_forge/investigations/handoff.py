@@ -11,20 +11,26 @@ import tempfile
 from typing import Any, Callable, Dict, Mapping, Tuple
 
 from soc_forge import __version__
-from soc_forge.investigations.models import HandoffManifest, Investigation
+from soc_forge.investigations.models import (
+    HandoffManifest,
+    Investigation,
+    InvestigationFinding,
+)
 from soc_forge.investigations.query_context import InvestigationQueryContext
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.timeline_query import InvestigationTimelineService
 from soc_forge.pipeline import AnalysisResult
 
 
-HANDOFF_SCHEMA_VERSION = "1.0"
+HANDOFF_SCHEMA_VERSION = "1.1"
+LEGACY_HANDOFF_SCHEMA_VERSION = "1.0"
 HANDOFF_TOOL = "SOC-Forge"
+HANDOFF_PREVIEW_TEXT_LIMIT = 240
 SENSITIVE_DATA_WARNING = (
     "This handoff may contain sensitive security telemetry and analyst-authored "
     "content. Review and redact before external sharing."
 )
-REQUIRED_COMPONENTS = frozenset(
+LEGACY_REQUIRED_COMPONENTS = frozenset(
     {
         "investigation.json",
         "evidence_index.json",
@@ -34,6 +40,10 @@ REQUIRED_COMPONENTS = frozenset(
         "timeline.json",
         "limitations.json",
     }
+)
+REQUIRED_COMPONENTS = LEGACY_REQUIRED_COMPONENTS | {"findings.json"}
+SUPPORTED_HANDOFF_SCHEMA_VERSIONS = frozenset(
+    {LEGACY_HANDOFF_SCHEMA_VERSION, HANDOFF_SCHEMA_VERSION}
 )
 ARTIFACT_FILENAMES = {
     "alerts": "alerts.json",
@@ -107,6 +117,27 @@ class HandoffResult:
 
 
 @dataclass(frozen=True)
+class HandoffFindingPreview:
+    finding_id: str
+    title: str
+    conclusion: str
+    status: str
+    confidence: str
+    author: str
+    updated_at: str
+    evidence_count: int
+    hypothesis_count: int
+    decision_count: int
+    evidence_ids: Tuple[str, ...]
+    hypothesis_ids: Tuple[str, ...]
+    decision_ids: Tuple[str, ...]
+    attack_tactics: Tuple[str, ...]
+    attack_techniques: Tuple[str, ...]
+    limitations: Tuple[str, ...]
+    attribution: str = "analyst"
+
+
+@dataclass(frozen=True)
 class HandoffPreview:
     investigation_id: str
     title: str
@@ -118,6 +149,8 @@ class HandoffPreview:
     analyst_evidence_count: int
     hypothesis_count: int
     decision_count: int
+    finding_count: int
+    findings: Tuple[HandoffFindingPreview, ...]
     annotation_count: int
     timed_entry_count: int
     untimed_entry_count: int
@@ -141,6 +174,13 @@ class HandoffManifestSummary:
     files: Tuple[HandoffFile, ...]
     limitations: Tuple[str, ...]
     sensitive_data_warning: str
+
+
+def _preview_text(value: object) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= HANDOFF_PREVIEW_TEXT_LIMIT:
+        return text
+    return text[: HANDOFF_PREVIEW_TEXT_LIMIT - 3].rstrip() + "..."
 
 
 def _json_bytes(payload: Any) -> bytes:
@@ -286,6 +326,17 @@ def _serialize_decisions(investigation: Investigation) -> Dict[str, Any]:
     }
 
 
+def _serialize_findings(investigation: Investigation) -> Dict[str, Any]:
+    return {
+        "findings": [
+            finding.to_dict()
+            for finding in sorted(
+                investigation.findings, key=lambda item: item.finding_id
+            )
+        ]
+    }
+
+
 def _serialize_annotations(investigation: Investigation) -> Dict[str, Any]:
     return {
         "annotations": [
@@ -389,6 +440,7 @@ def _identity_payload(investigation: Investigation, revision: int) -> Dict[str, 
             )
         ],
         "decision_ids": sorted(item.decision_id for item in investigation.decisions),
+        "finding_ids": sorted(item.finding_id for item in investigation.findings),
         "annotation_ids": sorted(item.annotation_id for item in investigation.annotations),
         "timeline_selection_ids": sorted(
             item.selection_id for item in investigation.timeline_selections
@@ -443,6 +495,32 @@ class InvestigationHandoffService:
             ),
             hypothesis_count=len(investigation.hypotheses),
             decision_count=len(investigation.decisions),
+            finding_count=len(investigation.findings),
+            findings=tuple(
+                HandoffFindingPreview(
+                    finding_id=item.finding_id,
+                    title=_preview_text(item.title),
+                    conclusion=_preview_text(item.conclusion),
+                    status=item.status,
+                    confidence=item.confidence,
+                    author=_preview_text(item.author),
+                    updated_at=item.updated_at,
+                    evidence_count=len(item.evidence_ids),
+                    hypothesis_count=len(item.hypothesis_ids),
+                    decision_count=len(item.decision_ids),
+                    evidence_ids=tuple(sorted(item.evidence_ids)),
+                    hypothesis_ids=tuple(sorted(item.hypothesis_ids)),
+                    decision_ids=tuple(sorted(item.decision_ids)),
+                    attack_tactics=tuple(sorted(item.attack_tactics)),
+                    attack_techniques=tuple(sorted(item.attack_techniques)),
+                    limitations=tuple(
+                        _preview_text(value) for value in item.limitations
+                    ),
+                )
+                for item in sorted(
+                    investigation.findings, key=lambda value: value.finding_id
+                )
+            ),
             annotation_count=len(investigation.annotations),
             timed_entry_count=len(timeline.entries),
             untimed_entry_count=len(timeline.untimed_entries),
@@ -569,6 +647,7 @@ class InvestigationHandoffService:
             "evidence_index.json": _serialize_evidence(investigation),
             "hypotheses.json": _serialize_hypotheses(investigation),
             "decisions.json": _serialize_decisions(investigation),
+            "findings.json": _serialize_findings(investigation),
             "annotations.json": _serialize_annotations(investigation),
             "timeline.json": timeline_payload,
         }
@@ -768,6 +847,38 @@ def _validate_references(bundle: Path, manifest: Mapping[str, Any]) -> None:
         item.get("hypothesis_id") for item in hypotheses.get("hypotheses", [])
     }
     decision_ids = {item.get("decision_id") for item in decisions.get("decisions", [])}
+    findings_path = bundle / "findings.json"
+    if findings_path.is_file():
+        findings = _read_json(findings_path).get("findings")
+        if not isinstance(findings, list):
+            raise HandoffBundleValidationError("Handoff findings component is invalid")
+        finding_ids = set()
+        for payload in findings:
+            if not isinstance(payload, Mapping):
+                raise HandoffBundleValidationError("Handoff finding is invalid")
+            try:
+                finding = InvestigationFinding.from_dict(payload)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise HandoffBundleValidationError("Handoff finding is invalid") from exc
+            if finding.finding_id in finding_ids:
+                raise HandoffBundleValidationError("Handoff finding IDs must be unique")
+            finding_ids.add(finding.finding_id)
+            if finding.investigation_id != manifest.get("investigation_id"):
+                raise HandoffReferenceIntegrityError(
+                    "Finding references a different investigation"
+                )
+            if not set(finding.evidence_ids).issubset(evidence_ids):
+                raise HandoffReferenceIntegrityError(
+                    "Finding references missing evidence"
+                )
+            if not set(finding.hypothesis_ids).issubset(hypothesis_ids):
+                raise HandoffReferenceIntegrityError(
+                    "Finding references missing hypothesis"
+                )
+            if not set(finding.decision_ids).issubset(decision_ids):
+                raise HandoffReferenceIntegrityError(
+                    "Finding references missing decision"
+                )
     for hypothesis in hypotheses.get("hypotheses", []):
         linked = set(hypothesis.get("supporting_evidence_ids", ())) | set(
             hypothesis.get("contradicting_evidence_ids", ())
@@ -796,12 +907,17 @@ def validate_handoff_bundle(path: Path | str) -> bool:
     if not manifest_path.is_file() or manifest_path.is_symlink():
         raise HandoffBundleValidationError("Handoff manifest is missing")
     manifest = _read_json(manifest_path)
-    if manifest.get("schema_version") != HANDOFF_SCHEMA_VERSION:
+    schema_version = manifest.get("schema_version")
+    if schema_version not in SUPPORTED_HANDOFF_SCHEMA_VERSIONS:
         raise UnsupportedHandoffSchemaError("Unsupported handoff schema version")
     inventory = manifest.get("files")
     if not isinstance(inventory, list):
         raise HandoffBundleValidationError("Handoff file inventory is invalid")
-    expected = set(REQUIRED_COMPONENTS)
+    expected = set(
+        REQUIRED_COMPONENTS
+        if schema_version == HANDOFF_SCHEMA_VERSION
+        else LEGACY_REQUIRED_COMPONENTS
+    )
     inventory_names = set()
     for item in inventory:
         if not isinstance(item, dict):
@@ -809,6 +925,13 @@ def validate_handoff_bundle(path: Path | str) -> bool:
         filename = item.get("filename")
         if not isinstance(filename, str):
             raise HandoffBundleValidationError("Handoff file inventory is invalid")
+        if (
+            filename == "findings.json"
+            and item.get("logical_type") != "component:findings"
+        ):
+            raise HandoffBundleValidationError(
+                "Handoff findings logical type is invalid"
+            )
         relative = Path(filename)
         if relative.is_absolute() or ".." in relative.parts or "\\" in filename:
             raise HandoffBundleValidationError("Handoff inventory path is unsafe")

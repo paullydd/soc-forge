@@ -396,6 +396,8 @@ def test_handoff_ui_contract_uses_safe_browser_primitives():
     assert "handoffOverwrite" in source
     assert "Inspect Manifest" in source
     assert "Validate Bundle" in source
+    assert "renderHandoffPreview" in source
+    assert "Findings are analyst-authored conclusions" in source
     assert "replaceChildren" in source
     assert "textContent" in source
     assert "localStorage" not in source
@@ -467,3 +469,52 @@ def test_validation_rejects_client_paths_or_bundle_identifiers(handoff_server):
     assert status == 400
     assert headers["Cache-Control"] == "no-store"
     assert error["error"]["code"] == "invalid_handoff_request"
+
+
+def _add_web_finding(server, current):
+    status, _, candidates = _request(
+        server, "GET", "/api/investigations/INV-HANDOFF-WEB/evidence/candidates"
+    )
+    assert status == 200
+    evidence_id = candidates["candidates"][0]["evidence_id"]
+    status, _, selected = _request(
+        server, "POST", "/api/investigations/INV-HANDOFF-WEB/evidence/selections",
+        {"evidence_id": evidence_id, "classification": "supporting",
+         "rationale": "Supports the analyst finding", "author": "alice",
+         "expected_revision": current["revision"]},
+    )
+    assert status == 201
+    status, _, updated = _request(
+        server, "POST", "/api/investigations/INV-HANDOFF-WEB/findings",
+        {"finding_id": "FIND-WEB-HANDOFF", "title": "Analyst finding",
+         "conclusion": "Analyst review supports suspicious activity.",
+         "status": "draft", "confidence": "medium", "author": "alice",
+         "evidence_ids": [evidence_id], "hypothesis_ids": [], "decision_ids": [],
+         "attack_tactics": [], "attack_techniques": [],
+         "limitations": ["Visibility is limited."],
+         "expected_revision": selected["revision"]},
+    )
+    assert status == 201
+    return updated
+
+
+def test_web_handoff_preview_and_manifest_include_analyst_findings(handoff_server):
+    current = _create(handoff_server)
+    current = _add_web_finding(handoff_server, current)
+    status, headers, preview = _request(
+        handoff_server, "GET",
+        "/api/investigations/INV-HANDOFF-WEB/handoff/preview",
+    )
+    assert status == 200
+    assert headers["Cache-Control"] == "no-store"
+    assert preview["finding_count"] == 1
+    assert preview["findings"][0]["attribution"] == "analyst"
+    assert preview["findings"][0]["status"] == "draft"
+    assert _export(handoff_server, current)[0] == 200
+    status, _, manifest = _request(
+        handoff_server, "GET",
+        "/api/investigations/INV-HANDOFF-WEB/handoff/manifest",
+    )
+    assert status == 200
+    finding_file = next(item for item in manifest["files"] if item["filename"] == "findings.json")
+    assert finding_file["logical_type"] == "component:findings"

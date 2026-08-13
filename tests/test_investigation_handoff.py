@@ -25,7 +25,9 @@ from soc_forge.investigations.handoff import (
     UnsupportedHandoffSchemaError,
     validate_handoff_bundle,
 )
-from soc_forge.investigations.models import Decision, TimelineSelection
+from soc_forge.investigations.models import (
+    Decision, InvestigationFinding, TimelineSelection,
+)
 from soc_forge.investigations.repository import InvestigationRepository
 
 
@@ -87,7 +89,7 @@ def test_handoff_manifest_snapshot_and_bundle_contract(tmp_path):
     assert validate_handoff_bundle(result.output_path)
     assert {path.name for path in result.output_path.iterdir()} == {
         "manifest.json", "investigation.json", "evidence_index.json",
-        "hypotheses.json", "decisions.json", "annotations.json",
+        "hypotheses.json", "decisions.json", "findings.json", "annotations.json",
         "timeline.json", "limitations.json", "source_artifacts",
     }
     manifest = read_json(result.manifest_path)
@@ -496,3 +498,107 @@ def test_architecture_uses_read_only_query_layer_without_pipeline_execution():
         "reasoning_service", ".save(", ".delete(",
     ):
         assert forbidden not in source
+
+
+def _finding_investigation(analysis):
+    investigation = build_query_investigation(analysis)
+    evidence_id = next(
+        item.reference_id for item in investigation.evidence_references
+        if item.origin == "analyst_selection"
+    )
+    finding = InvestigationFinding(
+        finding_id="FIND-001",
+        investigation_id=investigation.investigation_id,
+        title="Security control tampering",
+        conclusion="Analyst review links selected evidence to control tampering.",
+        status="substantiated",
+        confidence="high",
+        author="alice",
+        created_at="2026-08-12T10:00:00Z",
+        updated_at="2026-08-12T10:05:00Z",
+        evidence_ids=(evidence_id,),
+        hypothesis_ids=(investigation.hypotheses[0].hypothesis_id,),
+        decision_ids=(investigation.decisions[0].decision_id,),
+        attack_tactics=("Defense Evasion",),
+        attack_techniques=("T1562.001",),
+        limitations=("Command-line visibility may be incomplete.",),
+    )
+    return replace(investigation, findings=(finding,))
+
+
+def test_findings_component_preview_manifest_and_read_only_export(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _finding_investigation(analysis)
+    result, _analysis, _investigation, repository, workspace = build_export(
+        tmp_path, investigation=investigation, analysis=analysis
+    )
+    payload = read_json(result.output_path / "findings.json")
+    manifest = read_json(result.manifest_path)
+    preview = InvestigationHandoffService(repository).preview("INV-QUERY", analysis)
+
+    assert payload["findings"] == [investigation.findings[0].to_dict()]
+    entry = next(item for item in manifest["files"] if item["filename"] == "findings.json")
+    data = (result.output_path / "findings.json").read_bytes()
+    assert entry["logical_type"] == "component:findings"
+    assert entry["size"] == len(data)
+    assert entry["sha256"] == sha256(data).hexdigest()
+    assert preview.finding_count == 1
+    assert preview.findings[0].attribution == "analyst"
+    assert preview.findings[0].conclusion == investigation.findings[0].conclusion
+    assert preview.findings[0].evidence_count == 1
+    assert preview.findings[0].evidence_ids == investigation.findings[0].evidence_ids
+    assert preview.findings[0].hypothesis_ids == investigation.findings[0].hypothesis_ids
+    assert preview.findings[0].decision_ids == investigation.findings[0].decision_ids
+    assert repository.load_record("INV-QUERY").revision == 1
+    assert repository_bytes(workspace)["INV-QUERY.json"]
+
+
+@pytest.mark.parametrize(
+    ("kind", "error"),
+    [
+        ("malformed", HandoffBundleValidationError),
+        ("status", HandoffBundleValidationError),
+        ("confidence", HandoffBundleValidationError),
+        ("evidence", HandoffReferenceIntegrityError),
+        ("hypothesis", HandoffReferenceIntegrityError),
+        ("decision", HandoffReferenceIntegrityError),
+        ("duplicate", HandoffBundleValidationError),
+        ("logical", HandoffBundleValidationError),
+    ],
+)
+def test_findings_component_validation_rejects_invalid_content(tmp_path, kind, error):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _finding_investigation(analysis)
+    result, *_ = build_export(tmp_path, investigation=investigation, analysis=analysis)
+    payload = read_json(result.output_path / "findings.json")
+    if kind == "malformed":
+        payload["findings"] = ["bad"]
+    elif kind in {"status", "confidence"}:
+        payload["findings"][0][kind] = "invalid"
+    elif kind in {"evidence", "hypothesis", "decision"}:
+        payload["findings"][0][f"{kind}_ids"] = [f"{kind.upper()}-MISSING"]
+    elif kind == "duplicate":
+        payload["findings"].append(payload["findings"][0])
+    else:
+        manifest = read_json(result.manifest_path)
+        next(item for item in manifest["files"] if item["filename"] == "findings.json")["logical_type"] = "wrong"
+        result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with pytest.raises(error):
+            validate_handoff_bundle(result.output_path)
+        return
+    rewrite_component(result.output_path, "findings.json", payload)
+    with pytest.raises(error):
+        validate_handoff_bundle(result.output_path)
+
+
+def test_legacy_schema_one_bundle_without_findings_remains_valid(tmp_path):
+    result, *_ = build_export(tmp_path)
+    (result.output_path / "findings.json").unlink()
+    manifest = read_json(result.manifest_path)
+    manifest["schema_version"] = "1.0"
+    manifest["files"] = [
+        item for item in manifest["files"] if item["filename"] != "findings.json"
+    ]
+    result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    assert validate_handoff_bundle(result.output_path) is True

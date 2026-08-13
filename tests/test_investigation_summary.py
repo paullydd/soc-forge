@@ -4,7 +4,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from query_fixtures import build_query_analysis, build_query_investigation
-from soc_forge.investigations.models import Decision
+from soc_forge.investigations.models import Decision, InvestigationFinding
 from soc_forge.investigations.query_context import InvestigationQueryContext
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.summary import (
@@ -241,3 +241,84 @@ def test_summary_delegates_chronology_to_timeline_service(tmp_path):
     assert len(timeline_service.contexts) == 1
     assert timeline_service.contexts[0].source_analysis_id == investigation.analysis_id
     assert summary.timeline is not None
+
+
+def _with_findings(investigation):
+    selected = tuple(
+        item.reference_id for item in investigation.evidence_references
+        if item.origin == "analyst_selection"
+    )
+    statuses = ("substantiated", "draft", "unsubstantiated", "inconclusive")
+    findings = tuple(
+        InvestigationFinding(
+            finding_id=f"FIND-{index:03d}",
+            investigation_id=investigation.investigation_id,
+            title=f"Analyst finding {status}",
+            conclusion=f"the reviewed activity is {status}",
+            status=status,
+            confidence=("high" if status == "substantiated" else "medium"),
+            author="alice",
+            created_at="2026-08-12T10:00:00Z",
+            updated_at=f"2026-08-12T10:0{index}:00Z",
+            evidence_ids=selected[:1],
+            hypothesis_ids=(investigation.hypotheses[0].hypothesis_id,),
+            decision_ids=(investigation.decisions[0].decision_id,),
+            attack_tactics=("Defense Evasion",),
+            attack_techniques=("T1562.001",),
+            limitations=("Visibility is limited.",),
+        )
+        for index, status in enumerate(statuses, 1)
+    )
+    return replace(investigation, findings=tuple(reversed(findings)))
+
+
+def test_summary_projects_analyst_findings_deterministically_in_full_and_offline(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _with_findings(build_query_investigation(analysis))
+    analysis, investigation, repository, service = build_summary_fixture(
+        tmp_path / "fixture", investigation
+    )
+    before = repository_bytes(repository)
+
+    full = service.summarize("INV-QUERY", analysis)
+    offline = service.summarize("INV-QUERY")
+
+    assert [item.finding_id for item in full.analyst_findings] == [
+        "FIND-001", "FIND-002", "FIND-003", "FIND-004"
+    ]
+    assert full.analyst_findings == offline.analyst_findings
+    assert full.finding_counts.total == 4
+    assert full.finding_counts.draft == 1
+    assert full.finding_counts.substantiated == 1
+    assert full.finding_counts.unsubstantiated == 1
+    assert full.finding_counts.inconclusive == 1
+    assert all(item.attribution == ATTRIBUTION_ANALYST for item in full.analyst_findings)
+    assert full.analyst_findings[0].evidence_count == 1
+    assert full.analyst_findings[0].hypothesis_count == 1
+    assert full.analyst_findings[0].decision_count == 1
+    assert full.analyst_findings[0].limitations == ("Visibility is limited.",)
+    assert "The analyst substantiated" in full.narrative
+    assert "draft finding" in full.narrative
+    assert "marked as unsubstantiated" in full.narrative
+    assert "found inconclusive" in full.narrative
+    assert "analyst confidence" in full.narrative
+    assert "SOC-Forge confirmed" not in full.narrative
+    assert "powershell.exe -enc sensitive" not in full.to_dict().__str__()
+    assert repository_bytes(repository) == before
+
+
+def test_mismatched_analysis_does_not_change_durable_findings(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _with_findings(build_query_investigation(analysis))
+    _analysis, _investigation, repository, service = build_summary_fixture(
+        tmp_path / "fixture", investigation
+    )
+    wrong = build_query_analysis(tmp_path / "wrong")
+    wrong.events[0]["host"] = "WRONG"
+    before = repository_bytes(repository)
+
+    summary = service.summarize("INV-QUERY", wrong)
+
+    assert summary.mode == "offline"
+    assert len(summary.analyst_findings) == 4
+    assert repository_bytes(repository) == before

@@ -58,6 +58,10 @@ function renderInvestigationSummary(summary) {
   identity.appendChild(summaryMetric('Selected cases', summary.selected_case_ids.length));
   identity.appendChild(summaryMetric('Evidence', summary.state.selected_evidence_count));
   identity.appendChild(summaryMetric('Decisions', summary.state.decision_count));
+  identity.appendChild(summaryMetric('Findings', summary.finding_counts.total));
+  identity.appendChild(summaryMetric('Draft', summary.finding_counts.draft));
+  identity.appendChild(summaryMetric('Substantiated', summary.finding_counts.substantiated));
+  identity.appendChild(summaryMetric('Inconclusive', summary.finding_counts.inconclusive));
   mount.appendChild(identity);
 
   if (summary.mode === 'full' && summary.findings.length) {
@@ -105,6 +109,27 @@ function renderInvestigationSummary(summary) {
     reasoning.appendChild(record);
   });
   mount.appendChild(reasoning);
+
+  const analystFindings = summarySection('Analyst Findings', 'Analyst-authored');
+  analystFindings.appendChild(summaryNode('p', 'Findings are analyst-authored conclusions. Confidence reflects analyst assessment, not machine certainty.'));
+  if (!summary.analyst_findings.length) {
+    analystFindings.appendChild(summaryNode('p', 'No analyst-authored findings.'));
+  }
+  summary.analyst_findings.forEach((item) => {
+    const record = summaryNode('article', null, 'workspace-record');
+    record.appendChild(summaryNode('strong', `${item.finding_id}: ${item.title}`));
+    record.appendChild(summaryNode('span', item.status, 'badge'));
+    record.appendChild(summaryNode('p', `Analyst confidence: ${item.confidence}`));
+    record.appendChild(summaryNode('p', item.conclusion));
+    record.appendChild(summaryNode('p', `Basis: ${item.evidence_count} evidence, ${item.hypothesis_count} hypotheses, ${item.decision_count} decisions`));
+    if (item.attack_tactics.length || item.attack_techniques.length) {
+      record.appendChild(summaryNode('p', `ATT&CK: ${item.attack_tactics.concat(item.attack_techniques).join(', ')}`));
+    }
+    item.limitations.forEach((value) => record.appendChild(summaryNode('p', `Limitation: ${value}`)));
+    record.appendChild(summaryButton('Open Finding', () => openFinding(item.finding_id)));
+    analystFindings.appendChild(record);
+  });
+  mount.appendChild(analystFindings);
 
   const timeline = summarySection('Timeline', 'Machine and analyst context');
   if (summary.timeline) {

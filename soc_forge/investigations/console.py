@@ -107,6 +107,15 @@ class InvestigationConsoleController:
             screen_func=screen_func,
             pause_func=self.pause,
         )
+        self.finding_controller = finding_controller or InvestigationFindingConsoleController(
+            finding_service=InvestigationFindingService(workspace_service),
+            evidence_controller=self.evidence_controller,
+            reasoning_controller=self.reasoning_controller,
+            input_func=input_func,
+            output_func=output_func,
+            screen_func=screen_func,
+            pause_func=self.pause,
+        )
         self.summary_controller = summary_controller or InvestigationSummaryConsoleController(
             summary_service=InvestigationSummaryService(workspace_service),
             analysis_provider=analysis_provider,
@@ -114,16 +123,8 @@ class InvestigationConsoleController:
             reasoning_controller=self.reasoning_controller,
             query_controller=self.query_controller,
             handoff_controller=self.handoff_controller,
+            finding_controller=self.finding_controller,
             snapshot_loader=self.load_source_analysis,
-            input_func=input_func,
-            output_func=output_func,
-            screen_func=screen_func,
-            pause_func=self.pause,
-        )
-        self.finding_controller = finding_controller or InvestigationFindingConsoleController(
-            finding_service=InvestigationFindingService(workspace_service),
-            evidence_controller=self.evidence_controller,
-            reasoning_controller=self.reasoning_controller,
             input_func=input_func,
             output_func=output_func,
             screen_func=screen_func,

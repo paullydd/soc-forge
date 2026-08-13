@@ -62,6 +62,7 @@ def _build(tmp_path, analysis_marker=True, investigation=None, inputs=("0",)):
         reasoning_controller=NestedController("reasoning", calls),
         query_controller=NestedController("query", calls),
         handoff_controller=NestedController("handoff", calls),
+        finding_controller=NestedController("finding", calls),
         snapshot_loader=lambda _current: None,
         input_func=input_func,
         output_func=messages.append,
@@ -134,7 +135,7 @@ def test_offline_and_wrong_analysis_render_persisted_state_without_machine_conte
 
 
 def test_summary_drilldowns_delegate_and_return_to_summary_once(tmp_path):
-    values = _build(tmp_path, inputs=("1", "2", "3", "4", "0"))
+    values = _build(tmp_path, inputs=("1", "2", "3", "4", "5", "0"))
     current, controller, screens, calls, input_func = (
         values[4], values[6], values[8], values[10], values[11]
     )
@@ -146,9 +147,10 @@ def test_summary_drilldowns_delegate_and_return_to_summary_once(tmp_path):
         ("reasoning", 1),
         ("query", 1),
         ("handoff", 1),
+        ("finding", 1),
     ]
-    assert screens == ["INVESTIGATION SUMMARY"] * 5
-    assert input_func.calls == 5
+    assert screens == ["INVESTIGATION SUMMARY"] * 6
+    assert input_func.calls == 6
 
 
 def test_invalid_input_pauses_and_renders_again_without_double_consumption(tmp_path):
@@ -176,7 +178,7 @@ def test_existing_snapshot_loader_recovers_full_summary_without_revision_change(
     active = {"value": None}
     messages = []
     screens = []
-    input_func = ScriptedInput(["5", "0"])
+    input_func = ScriptedInput(["6", "0"])
     parent = InvestigationConsoleController(
         bootstrap_adapter=InvestigationBootstrapAdapter(service),
         workspace_service=service,
