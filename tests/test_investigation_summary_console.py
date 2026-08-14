@@ -13,6 +13,7 @@ from soc_forge.investigations.summary_console import (
     InvestigationSummaryConsoleController,
 )
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
+from soc_forge.ui.terminal import strip_ansi
 
 
 class ScriptedInput:
@@ -91,11 +92,11 @@ def test_full_summary_renders_authoritative_projection_without_mutation(tmp_path
 
     rendered = "\n".join(messages)
     assert screens == ["INVESTIGATION SUMMARY"]
-    assert "Summary mode     : FULL" in rendered
-    assert expected.narrative in rendered
+    assert "Summary Mode" in strip_ansi(rendered) and "[FULL]" in strip_ansi(rendered)
+    assert expected.narrative in " ".join(strip_ansi(rendered).replace("│", " ").split())
     assert "MACHINE-GENERATED DETECTION CONTEXT" in rendered
     assert expected.findings[0].case_id in rendered
-    assert "Analyst assessment: open" in rendered
+    assert "Analyst assessment" in strip_ansi(rendered) and "[OPEN]" in strip_ansi(rendered)
     assert "TIMELINE SUMMARY" in rendered
     assert "powershell.exe -enc sensitive" not in rendered
     assert "Confirmed attack" not in rendered
@@ -111,7 +112,7 @@ def test_offline_and_wrong_analysis_render_persisted_state_without_machine_conte
 
     assert controller.run(current) == current
     rendered = "\n".join(messages)
-    assert "Summary mode     : OFFLINE" in rendered
+    assert "Summary Mode" in strip_ansi(rendered) and "[OFFLINE]" in strip_ansi(rendered)
     assert "Source analysis is not active." in rendered
     selected_id = next(
         item.reference_id for item in investigation.evidence_references
@@ -129,7 +130,7 @@ def test_offline_and_wrong_analysis_render_persisted_state_without_machine_conte
     controller.input = ScriptedInput(["0"])
     assert controller.run(current) == current
     rendered = "\n".join(messages)
-    assert "Summary mode     : OFFLINE" in rendered
+    assert "Summary Mode" in strip_ansi(rendered) and "[OFFLINE]" in strip_ansi(rendered)
     assert "SOCF-021" not in rendered
     assert investigation.analysis_id in rendered
 
@@ -196,8 +197,14 @@ def test_existing_snapshot_loader_recovers_full_summary_without_revision_change(
 
     assert parent.summary_controller.run(current) == current
 
-    modes = [line for line in messages if "Summary mode" in line]
-    assert modes == ["  Summary mode     : OFFLINE", "  Summary mode     : FULL"]
+    modes = [
+        strip_ansi(line)
+        for line in messages
+        if "Summary Mode" in strip_ansi(line)
+    ]
+    assert len(modes) == 2
+    assert "[OFFLINE]" in modes[0]
+    assert "[FULL]" in modes[1]
     assert active["value"] is not None
     assert service.get_investigation("INV-QUERY").revision == 1
     assert next(repository.investigations_root.glob("*.json")).read_bytes() == before

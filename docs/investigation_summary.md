@@ -81,3 +81,14 @@ Open **Investigation Workspaces**, open a durable investigation, and select **In
 The screen labels FULL and OFFLINE modes, separates machine-generated detection context from analyst-authored evidence and reasoning, and keeps protected source values out of the summary. Terminal scrollback can retain investigation identity and bounded analyst-authored content, so analysts should use the same care applied to other console evidence and reasoning screens.
 
 The summary owns one navigation loop. Evidence, hypotheses and decisions, analyst Findings, timeline and pivots, and handoff delegate to their existing controllers and return to the summary. **Load Source Analysis Snapshot** delegates to the existing validated snapshot loader; successful activation rerenders the summary in FULL mode without changing the investigation revision. **Back** returns exactly one level to the investigation workspace.
+
+
+## v3.2 Terminal Hierarchy
+
+The terminal presentation now organizes the existing immutable summary into an Investigation panel, an Analyst Assessment panel, Investigation State, machine-generated detection context, analyst evidence, analyst hypotheses, analyst decisions, active Findings, historical or superseded Findings, Timeline Summary, and Limitations.
+
+FULL and OFFLINE are explicit textual badges. OFFLINE mode does not imply that durable analyst work is invalid: it keeps persisted evidence selections, hypotheses, decisions, annotations, and Findings visible while naming machine detection and chronology context as unavailable. It never activates a snapshot automatically.
+
+The Analyst Assessment panel renders the exact service narrative. Finding metadata shown beside it comes only from existing active Finding summaries. Machine context is kept visually and semantically separate from analyst conclusions. Active Findings receive primary emphasis, while superseded Findings remain visible as historical context with their existing lifecycle relationships.
+
+The console retains its exact drill-down contract: 1 Evidence, 2 Hypotheses and Decisions, 3 Timeline and Pivots, 4 Handoff, 5 Findings, 6 explicit snapshot loading, and 0 Back. Grouping is presentation only. Rendering remains read-only and uses shared bounded-width and no-color behavior.

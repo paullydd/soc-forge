@@ -61,3 +61,16 @@ The workspace uses the centralized width policy. Metadata becomes more compact a
 Only the Investigation Workspace entry screen is migrated in this slice. Investigation Summary, Evidence, Hypotheses and Decisions, Findings, Timeline and Pivots, and Handoff internals remain deferred.
 
 v3.2 Slice 4 changes Investigation Workspace presentation only. Investigation behavior, menu numbers, dispatch semantics, repository state, and revision semantics remain unchanged.
+
+
+## Investigation Summary Presentation
+
+The terminal Investigation Summary uses the shared v3.2 hierarchy beneath the breadcrumb SOC-FORGE > INVESTIGATIONS > INVESTIGATION ID > SUMMARY. A compact Investigation panel presents existing identity, status, owner, revision, source analysis, selected cases, and the prominent FULL or OFFLINE mode badge.
+
+The Analyst Assessment panel displays the exact deterministic narrative from InvestigationSummaryService and may highlight existing active Finding metadata. Machine-generated detection context remains separate from analyst-selected evidence, hypotheses, decisions, active Findings, and historical or superseded Findings. Historical Findings remain visible with secondary styling and explicit lifecycle text.
+
+Timeline chronology and all existing limitations have dedicated bounded sections. OFFLINE summaries retain durable analyst state while clearly naming unavailable machine and chronology context; snapshot loading remains explicit.
+
+The drill-down menu preserves options 1 through 6 and 0 exactly. Visual grouping does not change dispatch, input, pause, Back, snapshot, persistence, or revision behavior. Text wraps through the centralized width policy, and badges retain their labels when ANSI is disabled.
+
+v3.2 Slice 5 changes Investigation Summary presentation only. InvestigationSummaryService semantics, FULL/OFFLINE behavior, Finding lifecycle, drill-down behavior, persistence, and revision semantics remain unchanged.

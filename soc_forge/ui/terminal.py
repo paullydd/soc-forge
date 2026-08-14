@@ -16,6 +16,7 @@ MAX_CONTENT_LENGTH = 500
 
 _BADGES = {
     "system": {"online": Colors.GREEN},
+    "summary_mode": {"full": Colors.GREEN, "offline": Colors.YELLOW},
     "investigation": {"open": Colors.CYAN, "in_progress": Colors.YELLOW, "closed": Colors.GRAY},
     "evidence": {"supporting": Colors.GREEN, "contradicting": Colors.RED, "context": Colors.CYAN},
     "hypothesis": {"open": Colors.CYAN, "supported": Colors.GREEN, "rejected": Colors.RED, "inconclusive": Colors.YELLOW},
