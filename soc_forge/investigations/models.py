@@ -362,6 +362,23 @@ FINDING_STATUSES = frozenset(
 )
 FINDING_CONFIDENCES = frozenset({"low", "medium", "high"})
 FINDING_LIFECYCLE_STATES = frozenset({"active", "superseded"})
+RESPONSE_ACTION_TYPES = frozenset(
+    {
+        "containment",
+        "credential_action",
+        "host_action",
+        "network_action",
+        "collection",
+        "validation",
+        "monitoring",
+        "communication",
+        "other",
+    }
+)
+RESPONSE_ACTION_PRIORITIES = frozenset({"low", "medium", "high", "critical"})
+RESPONSE_ACTION_STATUSES = frozenset(
+    {"proposed", "approved", "in_progress", "completed", "dismissed"}
+)
 FINDING_TITLE_LIMIT = 160
 FINDING_CONCLUSION_LIMIT = 4000
 FINDING_LIMITATION_LIMIT = 1000
@@ -535,6 +552,96 @@ class InvestigationFinding(SerializableModel):
         return cls(**values)
 
 @dataclass(frozen=True)
+class ResponseAction(SerializableModel):
+    action_id: str
+    investigation_id: str
+    finding_ids: Tuple[str, ...]
+    title: str
+    description: str
+    action_type: str
+    priority: str
+    status: str
+    rationale: str
+    owner: str
+    created_by: str
+    created_at: str
+    updated_at: str
+    schema_version: str = INVESTIGATION_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        _validate_schema_version(self.schema_version, type(self).__name__)
+        action_id = _manual_id(self.action_id, "ResponseAction.action_id")
+        if not action_id.startswith("ACT-"):
+            raise ValueError("ResponseAction.action_id must use the ACT- prefix")
+        object.__setattr__(self, "action_id", action_id)
+        object.__setattr__(
+            self,
+            "investigation_id",
+            _bounded_text(
+                self.investigation_id,
+                "ResponseAction.investigation_id",
+                DURABLE_MANUAL_ID_LIMIT,
+            ),
+        )
+        finding_ids = _id_tuple(self.finding_ids, "ResponseAction.finding_ids")
+        if not finding_ids:
+            raise ValueError("ResponseAction requires at least one Finding")
+        if len(finding_ids) != len(set(finding_ids)):
+            raise ValueError("ResponseAction.finding_ids cannot contain duplicates")
+        object.__setattr__(self, "finding_ids", finding_ids)
+        for field_name, limit in (
+            ("title", FINDING_TITLE_LIMIT),
+            ("description", FINDING_CONCLUSION_LIMIT),
+            ("rationale", FINDING_CONCLUSION_LIMIT),
+            ("owner", FINDING_TITLE_LIMIT),
+            ("created_by", FINDING_TITLE_LIMIT),
+            ("created_at", FINDING_TITLE_LIMIT),
+            ("updated_at", FINDING_TITLE_LIMIT),
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _bounded_text(
+                    getattr(self, field_name),
+                    f"ResponseAction.{field_name}",
+                    limit,
+                ),
+            )
+        for field_name, allowed in (
+            ("action_type", RESPONSE_ACTION_TYPES),
+            ("priority", RESPONSE_ACTION_PRIORITIES),
+            ("status", RESPONSE_ACTION_STATUSES),
+        ):
+            if getattr(self, field_name) not in allowed:
+                raise ValueError(
+                    f"ResponseAction.{field_name} must be one of: "
+                    + ", ".join(sorted(allowed))
+                )
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "ResponseAction":
+        _require_fields(
+            data,
+            cls.__name__,
+            "action_id",
+            "investigation_id",
+            "finding_ids",
+            "title",
+            "description",
+            "action_type",
+            "priority",
+            "status",
+            "rationale",
+            "owner",
+            "created_by",
+            "created_at",
+            "updated_at",
+        )
+        values = dict(data)
+        values["finding_ids"] = tuple(values["finding_ids"])
+        return cls(**values)
+
+@dataclass(frozen=True)
 class TimelineSelection(SerializableModel):
     selection_id: str
     evidence_reference_ids: Tuple[str, ...] = ()
@@ -662,6 +769,7 @@ class Investigation(SerializableModel):
     hypotheses: Tuple[Hypothesis, ...] = ()
     decisions: Tuple[Decision, ...] = ()
     findings: Tuple[InvestigationFinding, ...] = ()
+    response_actions: Tuple[ResponseAction, ...] = ()
     timeline_selections: Tuple[TimelineSelection, ...] = ()
     annotations: Tuple[Annotation, ...] = ()
     handoff_manifest: HandoffManifest | None = None
@@ -684,6 +792,7 @@ class Investigation(SerializableModel):
             ("hypotheses", Hypothesis),
             ("decisions", Decision),
             ("findings", InvestigationFinding),
+            ("response_actions", ResponseAction),
             ("timeline_selections", TimelineSelection),
             ("annotations", Annotation),
         ):
@@ -716,6 +825,9 @@ class Investigation(SerializableModel):
             ),
             "decision": self._unique_child_ids("decision", self.decisions, "decision_id"),
             "finding": self._unique_child_ids("finding", self.findings, "finding_id"),
+            "response action": self._unique_child_ids(
+                "response action", self.response_actions, "action_id"
+            ),
             "timeline selection": self._unique_child_ids(
                 "timeline selection", self.timeline_selections, "selection_id"
             ),
@@ -730,6 +842,7 @@ class Investigation(SerializableModel):
         }
         hypothesis_ids = child_ids["hypothesis"]
         decision_ids = child_ids["decision"]
+        finding_ids = child_ids["finding"]
         timeline_ids = child_ids["timeline selection"]
         annotation_ids = child_ids["annotation"]
         for evidence in self.evidence_references:
@@ -814,6 +927,17 @@ class Investigation(SerializableModel):
                 seen.add(current.finding_id)
                 current = findings_by_id[current.superseded_by_finding_id]
 
+        for action in self.response_actions:
+            if action.investigation_id != self.investigation_id:
+                raise MissingInvestigationReferenceError(
+                    f"Investigation {self.investigation_id!r} response action "
+                    f"{action.action_id!r} names investigation {action.investigation_id!r}"
+                )
+            self._require_references(
+                "response action", action.action_id, "finding",
+                action.finding_ids, finding_ids,
+            )
+
         for selection in self.timeline_selections:
             self._require_references(
                 "timeline selection", selection.selection_id, "evidence",
@@ -896,6 +1020,9 @@ class Investigation(SerializableModel):
         values["decisions"] = tuple(Decision.from_dict(item) for item in values.get("decisions", ()))
         values["findings"] = tuple(
             InvestigationFinding.from_dict(item) for item in values.get("findings", ())
+        )
+        values["response_actions"] = tuple(
+            ResponseAction.from_dict(item) for item in values.get("response_actions", ())
         )
         values["timeline_selections"] = tuple(
             TimelineSelection.from_dict(item) for item in values.get("timeline_selections", ())

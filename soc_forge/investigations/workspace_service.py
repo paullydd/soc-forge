@@ -11,6 +11,7 @@ from soc_forge.investigations.models import (
     EvidenceReference,
     Hypothesis,
     InvestigationFinding,
+    ResponseAction,
     INTERNAL_ANNOTATION_TARGET_TYPES,
     Investigation,
     WorkspaceMetadata,
@@ -456,6 +457,28 @@ class InvestigationWorkspaceService:
             ),
         )
         return self._save(updated, expected_revision)
+
+    def replace_response_actions(
+        self,
+        investigation_id: str,
+        response_actions: Iterable[ResponseAction],
+        *,
+        expected_revision: int,
+    ) -> WorkspaceResult:
+        current = self._load_for_update(investigation_id, expected_revision)
+        normalized = tuple(response_actions)
+        if normalized == current.investigation.response_actions:
+            return current
+        updated = replace(
+            current.investigation,
+            response_actions=normalized,
+            metadata=replace(
+                current.investigation.metadata,
+                updated_at=self._now(),
+            ),
+        )
+        return self._save(updated, expected_revision)
+
     def _replace_status(
         self,
         current: WorkspaceResult,
