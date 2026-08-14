@@ -23,6 +23,10 @@ from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.console import InvestigationConsoleController
 from soc_forge.investigations.paths import resolve_workspace_root
 from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.investigations.operations_queue import OperationsQueueService
+from soc_forge.investigations.operations_queue_console import (
+    OperationsQueueConsoleController,
+)
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
 from soc_forge.investigations.snapshots import CompletedAnalysisSnapshotStore
 
@@ -74,6 +78,20 @@ def build_investigation_console_controller(
         pause_func=pause_func,
         snapshot_store=CompletedAnalysisSnapshotStore(Path(workspace_root).parent),
         analysis_activator=activate_completed_analysis,
+    )
+
+
+def build_operations_queue_controller(workspace_controller):
+    return OperationsQueueConsoleController(
+        queue_service=OperationsQueueService(
+            workspace_controller.workspace_service.repository
+        ),
+        workspace_service=workspace_controller.workspace_service,
+        response_action_controller=workspace_controller.response_action_controller,
+        finding_controller=workspace_controller.finding_controller,
+        input_func=input,
+        output_func=print,
+        screen_func=begin_screen,
     )
 
 
@@ -1189,6 +1207,9 @@ def view_or_add_notes():
 
 def main_menu():
     workspace_controller = build_investigation_console_controller()
+    operations_queue_service = OperationsQueueService(
+        InvestigationRepository(WORKSPACE_ROOT)
+    )
     while True:
         clear_screen()
         show_dashboard(
@@ -1197,6 +1218,7 @@ def main_menu():
             box_row,
             color_status,
             color_severity,
+            operations_queue_service.summarize,
         )
 
         choice = input("\nSelect option: ").strip()
@@ -1245,6 +1267,9 @@ def main_menu():
                 pause,
                 create_demo_case,
             )
+
+        elif choice == "6":
+            build_operations_queue_controller(workspace_controller).run()
 
         elif choice == "0":
             print("\nExiting SOC-Forge Analyst Console.")

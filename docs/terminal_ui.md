@@ -153,3 +153,11 @@ Display width still uses Python string length after ANSI removal. Exact alignmen
 ## Response Actions
 
 Investigation Workspace option `16` opens the Response Actions workspace without changing options `1` through `15`. The screen uses shared breadcrumbs, panels, status/priority badges, semantic notices, grouped menus, width handling, and color fallbacks. It works from durable Investigation state without an active source analysis and records workflow only; it never executes remediation.
+
+## Analyst Operations Queue
+
+Command Center option 6 adds a compact ANALYST QUEUE summary after recent activity while preserving the existing dashboard content and option numbers. The SOC-FORGE > OPERATIONS QUEUE workspace uses the shared v3.2 header, breadcrumb, bounded panels, badges, grouped navigation, width handling, and no-color behavior.
+
+Queue views are read-only filters over the deterministic Operations Queue projection. Selecting an item first shows its complete projection card, then offers direct navigation to the existing Response Action or Finding detail workflow. Returning refreshes the projection from durable Investigation state. Empty views state "No analyst attention items."
+
+The terminal queue works offline because membership uses durable Investigation state only. It does not recover or infer source-analysis context, create a queue store, or execute remediation.

@@ -69,4 +69,15 @@ Building, filtering, sorting, retrieving, or summarizing queue items does not mo
 
 ## Current limitations and non-scope
 
-Slice 1 has no terminal or web UI, Command Center integration, persistence, acknowledgement, queue assignment, due dates, timers, SLAs, aging, notifications, reminders, escalation, automation, external integrations, SOAR behavior, AI scoring, heuristic scoring, automatic Findings, automatic Actions, or remediation execution.
+Slice 2 adds a read-only Analyst Console surface and Command Center summary. It still has no web UI, persistence, acknowledgement, queue assignment, due dates, timers, SLAs, aging, notifications, reminders, escalation, automation, external integrations, SOAR behavior, AI scoring, heuristic scoring, automatic Findings, automatic Actions, or remediation execution.
+
+
+## Terminal Operations Queue
+
+Command Center option 6 opens the Analyst Operations Queue. The Command Center summary and workspace are rebuilt from durable Investigation state each time they render. Existing options 1 through 5 and 0 retain their prior meanings.
+
+The terminal workspace provides deterministic views for all attention items, Response Actions, uncovered Findings, and high/critical items. Cards retain the queue ID, priority, item type, Investigation identity/title, authoritative source ID/status, timestamps, and exact projection reason. An empty projection displays "No analyst attention items."
+
+Opening an item delegates to the existing authoritative Response Action or Finding controller. Returning from that controller reprojects the queue so completed, dismissed, superseded, or newly uncovered work is reflected without storing queue state. The queue itself remains read-only, offline-capable, and independent of source analysis.
+
+This terminal surface introduces no due dates, timers, aging, SLAs, notifications, assignments, acknowledgement state, AI scoring, automation, or remediation execution. SOC-Forge records analyst-controlled response work and does not execute remediation.

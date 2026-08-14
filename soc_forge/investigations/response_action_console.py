@@ -122,9 +122,12 @@ class InvestigationResponseActionConsoleController:
         self.output(f"Investigation revision: {result.revision}")
         return result
 
-    def open_action(self, current: WorkspaceResult) -> WorkspaceResult:
-        self.list_actions(current)
-        action_id = self.input("Action ID (blank to cancel): ").strip()
+    def open_action(
+        self, current: WorkspaceResult, action_id: str | None = None
+    ) -> WorkspaceResult:
+        if action_id is None:
+            self.list_actions(current)
+            action_id = self.input("Action ID (blank to cancel): ").strip()
         if not action_id:
             return current
         while True:

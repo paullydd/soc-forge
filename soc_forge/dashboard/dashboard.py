@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Mapping
 
+from soc_forge.investigations.operations_queue import OperationsQueueSummary
 from soc_forge.ui.terminal import (
     ansi_safe_truncate,
     render_application_header,
@@ -23,6 +24,7 @@ COMMAND_CENTER_GROUPS = (
             ("1", "Detection"),
             ("2", "Investigations"),
             ("3", "Analysis"),
+            ("6", "Operations Queue"),
         ),
     ),
     (
@@ -33,6 +35,9 @@ COMMAND_CENTER_GROUPS = (
         ),
     ),
 )
+
+
+EMPTY_QUEUE_SUMMARY = OperationsQueueSummary(*(0 for _ in range(10)))
 
 
 def render_platform_overview(
@@ -92,10 +97,33 @@ def render_recent_activity(
     )
 
 
+def render_operations_queue_summary(
+    summary: OperationsQueueSummary,
+    *,
+    width: int | None = None,
+    ansi: bool | None = None,
+) -> str:
+    resolved = resolve_terminal_width(width)
+    rows = (
+        ("Attention Items", summary.total_items),
+        ("Critical / High", f"{summary.critical} / {summary.high}"),
+        ("Medium / Low", f"{summary.medium} / {summary.low}"),
+        ("Response Actions", summary.response_actions),
+        ("Uncovered Findings", summary.uncovered_findings),
+    )
+    return render_panel(
+        render_metadata(rows, width=resolved - 4, ansi=ansi),
+        title="ANALYST QUEUE",
+        width=resolved,
+        ansi=ansi,
+    )
+
+
 def render_command_center(
     stats: Mapping[str, Any],
     recent: Iterable[Mapping[str, Any]],
     *,
+    queue_summary: OperationsQueueSummary = EMPTY_QUEUE_SUMMARY,
     width: int | None = None,
     ansi: bool | None = None,
 ) -> str:
@@ -109,6 +137,7 @@ def render_command_center(
         ),
         render_platform_overview(stats, width=resolved, ansi=ansi),
         render_recent_activity(recent, width=resolved, ansi=ansi),
+        render_operations_queue_summary(queue_summary, width=resolved, ansi=ansi),
         render_grouped_menu(
             COMMAND_CENTER_GROUPS,
             back_option=("0", "Exit"),
@@ -125,5 +154,15 @@ def show_dashboard(
     box_row: object = None,
     color_status: object = None,
     color_severity: object = None,
+    get_queue_summary: Callable[[], OperationsQueueSummary] | None = None,
 ) -> None:
-    print(render_command_center(get_dashboard_stats(), get_recent_activity()))
+    queue_summary = (
+        EMPTY_QUEUE_SUMMARY if get_queue_summary is None else get_queue_summary()
+    )
+    print(
+        render_command_center(
+            get_dashboard_stats(),
+            get_recent_activity(),
+            queue_summary=queue_summary,
+        )
+    )

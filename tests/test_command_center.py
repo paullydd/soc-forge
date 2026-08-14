@@ -79,7 +79,15 @@ def test_recent_activity_empty_state_is_explicit_and_no_color_safe(monkeypatch):
 
 def test_grouped_navigation_keeps_exact_numbers_and_labels():
     assert COMMAND_CENTER_GROUPS == (
-        ("OPERATIONS", (("1", "Detection"), ("2", "Investigations"), ("3", "Analysis"))),
+        (
+            "OPERATIONS",
+            (
+                ("1", "Detection"),
+                ("2", "Investigations"),
+                ("3", "Analysis"),
+                ("6", "Operations Queue"),
+            ),
+        ),
         ("OUTPUT & ADMINISTRATION", (("4", "Reporting"), ("5", "System"))),
     )
     rendered = render_command_center(dashboard_stats(), (), width=80, ansi=False)
@@ -156,6 +164,15 @@ def test_main_menu_returns_from_each_target_without_extra_input_or_pause(
     monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
     monkeypatch.setattr(analyst_console, "show_dashboard", lambda *_args: renders.append("render"))
     monkeypatch.setattr(analyst_console, "build_investigation_console_controller", lambda: object())
+    queue_controller = type("QueueController", (), {"run": lambda self: None})()
+    queue_controller.queue_service = type(
+        "QueueService", (), {"summarize": lambda self: None}
+    )()
+    monkeypatch.setattr(
+        analyst_console,
+        "build_operations_queue_controller",
+        lambda _workspace: queue_controller,
+    )
     monkeypatch.setattr(analyst_console, "pause", lambda: pauses.append("pause"))
     monkeypatch.setattr(analyst_console, target, lambda *_args: dispatches.append(target))
 

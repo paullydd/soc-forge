@@ -135,9 +135,12 @@ class InvestigationFindingConsoleController:
         self.output(f"Investigation revision: {result.revision}")
         return result
 
-    def open_finding(self, current: WorkspaceResult) -> WorkspaceResult:
-        self.list_findings(current)
-        finding_id = self.input("Finding ID (blank to cancel): ").strip()
+    def open_finding(
+        self, current: WorkspaceResult, finding_id: str | None = None
+    ) -> WorkspaceResult:
+        if finding_id is None:
+            self.list_findings(current)
+            finding_id = self.input("Finding ID (blank to cancel): ").strip()
         if not finding_id:
             return current
         try:
