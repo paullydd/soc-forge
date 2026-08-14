@@ -1,5 +1,7 @@
 # Investigation Findings
 
+![Investigation Findings workspace separating analyst-authored conclusions from machine certainty](screenshots/investigation-findings.png)
+
 An investigation finding is a durable, explicitly analyst-authored conclusion grounded in persisted investigation evidence and reasoning. It is not a detection, machine verdict, automated recommendation, or confirmation that an attack occurred.
 
 ## Domain Boundary

@@ -184,21 +184,29 @@ The detection-lab scenario demonstrates process-chain and credential-access dete
 
 ## Screenshots
 
-### Analyst Web UI Overview
+### v3.2 Terminal Experience
 
-![SOC-Forge web overview showing 8 alerts, 3 correlations, 1 hunt, and 100/100 case quality](docs/screenshots/web-overview.png)
+![SOC-Forge v3.2 startup experience showing platform readiness](docs/screenshots/startup-experience.png)
 
-### Case Detail And Findings
+![SOC-Forge v3.2 Command Center with platform overview and recent SOC activity](docs/screenshots/command-center.png)
 
-![SOC-Forge case detail showing executive summary, key findings, containment guidance, and evidence](docs/screenshots/case-detail.png)
+### Durable Investigation Workflow
 
-### Entity Relationship Explorer
+![SOC-Forge Investigation Workspace showing durable state and grouped analyst workflows](docs/screenshots/investigation-workspace.png)
 
-![SOC-Forge terminal entity relationship explorer showing IP, user, host, action, and graph summary](docs/screenshots/entity-relationship-explorer.png)
+![SOC-Forge offline Investigation Summary separating durable analyst assessment from unavailable source analysis](docs/screenshots/investigation-summary.png)
 
-### HTML Report Export
+### v3.3 Response Actions
 
-![SOC-Forge HTML report showing critical risk, MITRE coverage, and correlation summary](docs/screenshots/html-report.png)
+![SOC-Forge Response Action detail with completed analyst-controlled lifecycle history](docs/screenshots/response-action-detail.png)
+
+Response Actions record analyst-controlled response work. SOC-Forge does not execute remediation. See [Response Actions](docs/response_actions.md) for the terminal and web workflow.
+
+### Offline Investigation Handoff
+
+![SOC-Forge offline handoff schema 1.3 validation with verified digests and reference integrity](docs/screenshots/handoff-schema-1-3-validation.png)
+
+Offline handoffs preserve durable investigation state, including Findings, Response Actions, and transition histories. Analysis-derived timeline data and source artifacts remain unavailable without the matching completed analysis. See [Investigation Handoff](docs/investigation_handoff.md).
 
 ## Demo Walkthrough
 

@@ -1,5 +1,7 @@
 # Hypotheses and Decisions
 
+![Hypotheses and Decisions workspace showing durable reasoning state and analyst-authoring actions](screenshots/hypotheses-decisions.png)
+
 SOC-Forge keeps analyst reasoning in the investigation layer:
 
     Pipeline-owned analysis

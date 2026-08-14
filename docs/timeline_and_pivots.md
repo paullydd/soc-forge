@@ -1,5 +1,7 @@
 # Timeline and Pivot Query Foundation
 
+![Offline Timeline and Pivot Workbench showing that chronology requires the matching completed analysis](screenshots/timeline-pivot-workbench.png)
+
 ## Ownership
 
 The read-only investigation query layer sits between a completed analysis and

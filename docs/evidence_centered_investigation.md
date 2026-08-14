@@ -1,5 +1,7 @@
 # Evidence-Centered Investigation
 
+![Investigation Evidence workspace showing scope, selected evidence, and classification counts](screenshots/evidence-workspace.png)
+
 SOC-Forge keeps completed analysis immutable while allowing an analyst to record
 how specific evidence is used inside an investigation:
 

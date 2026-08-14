@@ -1,5 +1,19 @@
 # Response Actions
 
+Response Actions are records of analyst-controlled response work. Creating, approving, advancing, completing, or dismissing an Action records workflow state only; **SOC-Forge does not execute remediation**.
+
+## Visual workflow
+
+![Response Actions workspace showing status counts and an analyst-controlled proposed Action](screenshots/response-actions-workspace.png)
+
+![Completed Response Action detail showing the full proposed, approved, in-progress, and completed transition history](screenshots/response-action-detail.png)
+
+The web workspace exposes the same durable Action and lifecycle without changing the non-execution boundary.
+
+![Web Response Action detail with the non-execution notice](screenshots/web-response-action-detail.png)
+
+![Web Response Action transition history](screenshots/web-response-action-history.png)
+
 SOC-Forge v3.3 provides durable, analyst-controlled Response Actions. An action records response work proposed or reported during an investigation. Creating or transitioning an action never executes containment, remediation, commands, webhooks, or external API calls.
 
 ## Domain boundary
