@@ -111,6 +111,30 @@ class InvestigationFindingStateSummary:
 
 
 @dataclass(frozen=True)
+class InvestigationResponseActionSummary:
+    action_id: str
+    title: str
+    action_type: str
+    priority: str
+    status: str
+    owner: str
+    finding_ids: Tuple[str, ...]
+    rationale: str
+    transition_count: int
+    attribution: str = ATTRIBUTION_ANALYST
+
+
+@dataclass(frozen=True)
+class InvestigationResponseActionStateSummary:
+    total: int
+    proposed: int
+    approved: int
+    in_progress: int
+    completed: int
+    dismissed: int
+
+
+@dataclass(frozen=True)
 class InvestigationTimelineMilestone:
     entry_id: str
     timestamp: str
@@ -159,6 +183,8 @@ class InvestigationSummary:
     finding_counts: InvestigationFindingStateSummary = InvestigationFindingStateSummary(
         total=0, active=0, superseded=0, draft=0, substantiated=0, unsubstantiated=0, inconclusive=0
     )
+    response_actions: Tuple[InvestigationResponseActionSummary, ...] = ()
+    response_action_counts: InvestigationResponseActionStateSummary = InvestigationResponseActionStateSummary(total=0, proposed=0, approved=0, in_progress=0, completed=0, dismissed=0)
     timeline: InvestigationTimelineSummary | None = None
     limitations: Tuple[str, ...] = ()
     contains_sensitive_content: bool = True
@@ -219,6 +245,7 @@ class InvestigationSummaryService:
         hypotheses = self._hypothesis_summaries(investigation)
         decisions = self._decision_summaries(investigation)
         analyst_findings = self._analyst_finding_summaries(investigation)
+        response_actions = self._response_action_summaries(investigation)
         findings = (
             self._findings(analysis, selected_case_ids, context)
             if context is not None and analysis is not None
@@ -256,6 +283,8 @@ class InvestigationSummaryService:
             decisions=decisions,
             analyst_findings=analyst_findings,
             finding_counts=self._finding_state_summary(analyst_findings),
+            response_actions=response_actions,
+            response_action_counts=self._response_action_state_summary(response_actions),
             timeline=timeline,
             limitations=tuple(dict.fromkeys(limitations)),
         )
@@ -401,6 +430,16 @@ class InvestigationSummaryService:
             superseded=sum(item.lifecycle_state == "superseded" for item in findings),
             **counts,
         )
+
+    @staticmethod
+    def _response_action_summaries(investigation: Investigation) -> Tuple[InvestigationResponseActionSummary, ...]:
+        return tuple(InvestigationResponseActionSummary(action_id=item.action_id, title=_bounded(item.title), action_type=item.action_type, priority=item.priority, status=item.status, owner=_bounded(item.owner), finding_ids=tuple(sorted(item.finding_ids)), rationale=_bounded(item.rationale), transition_count=len(item.transition_history)) for item in sorted(investigation.response_actions, key=lambda value: value.action_id))
+
+    @staticmethod
+    def _response_action_state_summary(actions: Tuple[InvestigationResponseActionSummary, ...]) -> InvestigationResponseActionStateSummary:
+        statuses = ("proposed", "approved", "in_progress", "completed", "dismissed")
+        counts = {status: sum(item.status == status for item in actions) for status in statuses}
+        return InvestigationResponseActionStateSummary(total=len(actions), **counts)
 
     @staticmethod
     def _state_summary(

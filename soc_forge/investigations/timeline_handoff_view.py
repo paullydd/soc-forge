@@ -500,6 +500,7 @@ def render_handoff_preview(
                     ("Selected evidence", preview.analyst_evidence_count),
                     ("Hypotheses", preview.hypothesis_count),
                     ("Decisions", preview.decision_count),
+                    ("Response Actions", preview.response_action_count),
                     ("Annotations", preview.annotation_count),
                     ("Timed entries", preview.timed_entry_count),
                     ("Untimed entries", preview.untimed_entry_count),
@@ -563,6 +564,14 @@ def render_handoff_preview(
             for limitation in finding.limitations:
                 body.extend(_wrapped(f"Limitation: {limitation}", resolved - 4))
             parts.append(render_panel(body, width=resolved, ansi=ansi))
+    parts.append("\n".join(_wrapped("RESPONSE ACTIONS", resolved)))
+    parts.append("\n".join(_wrapped("Response Actions record analyst-controlled work and do not represent executed remediation.", resolved)))
+    if not preview.response_actions:
+        parts.append(render_empty_state("No analyst-controlled Response Actions.", width=resolved, ansi=ansi))
+    for action in preview.response_actions:
+        body = list(render_metadata((("Action ID", action.action_id), ("Type", action.action_type), ("Priority", render_badge("priority", action.priority, ansi=ansi)), ("Current status", render_badge("response_action_status", action.status, ansi=ansi)), ("Owner", action.owner), ("Related Findings", ", ".join(action.finding_ids)), ("Lifecycle transitions", action.transition_count)), width=resolved - 4, ansi=ansi))
+        body.extend(_wrapped(f"Title: {action.title}", resolved - 4))
+        parts.append(render_panel(body, width=resolved, ansi=ansi))
     parts.append(
         render_panel(
             render_metadata(

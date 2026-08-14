@@ -149,10 +149,12 @@ def render_summary_state(
             ("Supported", states.get("supported", 0)),
             ("Rejected", states.get("rejected", 0)),
             ("Inconclusive", states.get("inconclusive", 0)),
+            ("Response Actions", f"{summary.response_action_counts.total} total | {summary.response_action_counts.proposed} proposed | {summary.response_action_counts.approved} approved | {summary.response_action_counts.in_progress} in progress | {summary.response_action_counts.completed} completed | {summary.response_action_counts.dismissed} dismissed"),
             ("Decisions", summary.state.decision_count),
             ("Findings", summary.finding_counts.total),
             ("Active Findings", summary.finding_counts.active),
             ("Finding history", summary.finding_counts.superseded),
+            ("Response Actions", summary.response_action_counts.total),
             ("Timed entries", timed),
             ("Untimed entries", untimed),
         )
@@ -344,6 +346,19 @@ def render_findings(summary: InvestigationSummary, *, width: int, ansi: bool | N
     return "\n".join(parts)
 
 
+def render_response_actions(summary: InvestigationSummary, *, width: int, ansi: bool | None) -> str:
+    parts = [render_section_header("RESPONSE ACTIONS", width=width, ansi=ansi)]
+    parts.append(_warning_block("Response Actions record analyst-controlled work and do not represent executed remediation.", width=width, ansi=ansi))
+    if not summary.response_actions:
+        parts.append(render_empty_state("No analyst-controlled Response Actions.", width=width, ansi=ansi))
+    for action in summary.response_actions:
+        body = list(render_metadata((("Action", action.action_id), ("Type", action.action_type), ("Priority", render_badge("priority", action.priority, ansi=ansi)), ("Status", render_badge("response_action_status", action.status, ansi=ansi)), ("Owner", action.owner), ("Related Findings", ", ".join(action.finding_ids)), ("Lifecycle transitions", action.transition_count)), width=width - 4, ansi=ansi))
+        body.extend(_wrapped(f"Title: {action.title}", width - 4))
+        body.extend(_wrapped(f"Rationale: {action.rationale}", width - 4))
+        parts.append(render_panel(body, width=width, ansi=ansi))
+    return "\n".join(parts)
+
+
 def render_timeline(summary: InvestigationSummary, *, width: int, ansi: bool | None) -> str:
     if summary.timeline is None:
         body = (_warning_block("Chronology requires the matching source analysis.", width=width - 4, ansi=ansi),)
@@ -399,6 +414,7 @@ def render_investigation_summary(
         render_hypotheses(summary, width=resolved, ansi=ansi),
         render_decisions(summary, width=resolved, ansi=ansi),
         render_findings(summary, width=resolved, ansi=ansi),
+        render_response_actions(summary, width=resolved, ansi=ansi),
         render_timeline(summary, width=resolved, ansi=ansi),
         render_limitations(summary, width=resolved, ansi=ansi),
         render_grouped_menu(SUMMARY_DRILLDOWN_GROUPS, back_option=("0", "Back"), width=resolved, ansi=ansi),

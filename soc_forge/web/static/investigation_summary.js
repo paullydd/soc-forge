@@ -64,6 +64,12 @@ function renderInvestigationSummary(summary) {
   identity.appendChild(summaryMetric('Draft', summary.finding_counts.draft));
   identity.appendChild(summaryMetric('Substantiated', summary.finding_counts.substantiated));
   identity.appendChild(summaryMetric('Inconclusive', summary.finding_counts.inconclusive));
+  identity.appendChild(summaryMetric('Actions', summary.response_action_counts.total));
+  identity.appendChild(summaryMetric('Proposed', summary.response_action_counts.proposed));
+  identity.appendChild(summaryMetric('Approved', summary.response_action_counts.approved));
+  identity.appendChild(summaryMetric('In progress', summary.response_action_counts.in_progress));
+  identity.appendChild(summaryMetric('Completed', summary.response_action_counts.completed));
+  identity.appendChild(summaryMetric('Dismissed', summary.response_action_counts.dismissed));
   mount.appendChild(identity);
 
   if (summary.mode === 'full' && summary.findings.length) {
@@ -145,6 +151,22 @@ function renderInvestigationSummary(summary) {
     });
   });
   mount.appendChild(analystFindings);
+
+  const responseActions = summarySection('Response Actions', 'Analyst-controlled');
+  responseActions.appendChild(summaryNode('p', 'Response Actions record analyst-controlled work and do not represent executed remediation.'));
+  if (!summary.response_actions.length) responseActions.appendChild(summaryNode('p', 'No analyst-controlled Response Actions.'));
+  summary.response_actions.forEach((item) => {
+    const record = summaryNode('article', null, 'workspace-record');
+    record.appendChild(summaryNode('strong', `${item.action_id}: ${item.title}`));
+    record.appendChild(summaryNode('span', item.status.toUpperCase(), `badge response-action-${item.status}`));
+    record.appendChild(summaryNode('p', `Type: ${item.action_type} | Priority: ${item.priority}`));
+    record.appendChild(summaryNode('p', `Owner: ${item.owner}`));
+    record.appendChild(summaryNode('p', `Related Findings: ${item.finding_ids.join(', ')}`));
+    record.appendChild(summaryNode('p', `Rationale: ${item.rationale}`));
+    record.appendChild(summaryNode('p', `Lifecycle transitions: ${item.transition_count}`));
+    responseActions.appendChild(record);
+  });
+  mount.appendChild(responseActions);
 
   const timeline = summarySection('Timeline', 'Machine and analyst context');
   if (summary.timeline) {

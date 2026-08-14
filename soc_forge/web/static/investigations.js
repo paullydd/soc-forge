@@ -545,6 +545,20 @@ function renderHandoffPreview(payload) {
     section.appendChild(item);
   });
   workspace.appendChild(section);
+  const actions = evidenceElement('section', 'workspace-record');
+  actions.appendChild(evidenceElement('strong', null, 'Response Actions'));
+  actions.appendChild(evidenceElement('p', 'muted', 'Response Actions record analyst-controlled work and do not represent executed remediation.'));
+  if (!payload.response_actions.length) actions.appendChild(evidenceElement('p', null, 'No analyst-controlled Response Actions.'));
+  payload.response_actions.forEach((action) => {
+    const item = evidenceElement('article', 'workspace-record');
+    item.appendChild(evidenceElement('strong', null, `${action.action_id}: ${action.title}`));
+    item.appendChild(evidenceElement('p', null, `${action.status} | ${action.priority} | ${action.action_type}`));
+    item.appendChild(evidenceElement('p', null, `Owner: ${action.owner}`));
+    item.appendChild(evidenceElement('p', 'muted', `Related Findings: ${action.finding_ids.join(', ')}`));
+    item.appendChild(evidenceElement('p', 'muted', `Lifecycle transitions: ${action.transition_count}`));
+    actions.appendChild(item);
+  });
+  workspace.appendChild(actions);
 }
 
 async function handoffGet(action) {

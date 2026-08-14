@@ -35,6 +35,7 @@ Slice 1 produces a plain directory rather than ZIP or TAR:
   hypotheses.json
   decisions.json
   findings.json
+  response_actions.json
   annotations.json
   timeline.json
   limitations.json
@@ -105,11 +106,13 @@ index.
 
 ## Findings
 
+`response_actions.json` preserves durable analyst-controlled Response Actions, including investigation and Finding relationships, title, description, type, priority, current status, owner, creator attribution, rationale, timestamps, and complete immutable transition history. Validation checks Action IDs, Finding references, transition uniqueness and continuity, and agreement between the final transition and current status. Links to Findings that were later superseded remain historically valid.
+
 `findings.json` preserves durable analyst-authored Findings, including title, conclusion, controlled status, analyst confidence, author and timestamps, evidence/hypothesis/decision basis IDs, optional ATT&CK context, and limitations. It does not resolve or copy protected evidence values. Finding confidence is analyst assessment, not machine certainty. Durable affected-entity references remain deferred.
 
 The validator reconstructs each Finding through the authoritative domain model, rejects malformed payloads, duplicate IDs, invalid status or confidence, and verifies every evidence, hypothesis, and decision reference against the included handoff components. The component participates in logical-type, size, and SHA-256 validation.
 
-Schema `1.0` bundles created before Findings integration remain valid without `findings.json`. Schemas `1.1` and `1.2` require it, including for investigations with zero Findings. Schema `1.1` Findings without lifecycle metadata load as active. New exports always use `1.2`; the compatibility reader does not invent Findings for older bundles.
+Schema `1.0` bundles created before Findings integration remain valid without `findings.json`. Schemas `1.1`, `1.2`, and `1.3` require it, including for investigations with zero Findings. Schema `1.1` Findings without lifecycle metadata load as active. New exports always use `1.3`; the compatibility reader does not invent Findings for older bundles.
 
 ## Reasoning and Annotations
 

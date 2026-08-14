@@ -93,6 +93,8 @@ def _preview():
             ),
             _finding("FIND-ACTIVE", "active", supersedes="FIND-OLD"),
         ),
+        response_action_count=0,
+        response_actions=(),
         annotation_count=1,
         timed_entry_count=8,
         untimed_entry_count=2,

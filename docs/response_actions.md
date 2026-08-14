@@ -51,7 +51,7 @@ The local web Investigation Workspace provides the same durable operations throu
 
 Console-created actions appear in the web workspace, web-created actions appear in the console, and transitions share the same persisted history because neither interface owns action state. Successful create or transition operations increment revision once; reads and rejected mutations do not increment revision or rewrite repository bytes.
 
-v3.3 Slice 3 exposes Response Actions through analyst interfaces only. It does not execute containment/remediation or integrate Actions into Summary/Handoff yet.
+v3.3 Slice 4 integrates Response Actions into the authoritative Investigation Summary and Handoff paths. Actions remain durable in OFFLINE summaries. Handoff schema 1.3 exports complete immutable lifecycle histories and validates Action/Finding relationships; this remains read-only presentation and export, not containment or remediation execution.
 
 ## Current scope
 Slice 2 provides the model, lifecycle rules, durable history, aggregate integrity, and create/get/list/transition service boundary. Console and web interfaces, Summary and Handoff integration, due dates, reminders, comments, permissions, automation, deletion, external integrations, and real response execution remain deferred.

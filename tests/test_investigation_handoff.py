@@ -26,7 +26,8 @@ from soc_forge.investigations.handoff import (
     validate_handoff_bundle,
 )
 from soc_forge.investigations.models import (
-    Decision, InvestigationFinding, TimelineSelection,
+    Decision, InvestigationFinding, ResponseAction, ResponseActionTransition,
+    TimelineSelection,
 )
 from soc_forge.investigations.repository import InvestigationRepository
 
@@ -90,7 +91,7 @@ def test_handoff_manifest_snapshot_and_bundle_contract(tmp_path):
     assert {path.name for path in result.output_path.iterdir()} == {
         "manifest.json", "investigation.json", "evidence_index.json",
         "hypotheses.json", "decisions.json", "findings.json", "annotations.json",
-        "timeline.json", "limitations.json", "source_artifacts",
+        "timeline.json", "limitations.json", "response_actions.json", "source_artifacts",
     }
     manifest = read_json(result.manifest_path)
     assert manifest["schema_version"] == HANDOFF_SCHEMA_VERSION
@@ -619,7 +620,7 @@ def test_handoff_schema_12_preserves_and_validates_supersession_lifecycle(tmp_pa
     investigation = replace(investigation, findings=(old, new))
     result, *_ = build_export(tmp_path, investigation=investigation, analysis=analysis)
     payload = read_json(result.output_path / "findings.json")
-    assert read_json(result.manifest_path)["schema_version"] == "1.2"
+    assert read_json(result.manifest_path)["schema_version"] == HANDOFF_SCHEMA_VERSION
     assert payload["findings"][0]["lifecycle_state"] == "superseded"
     assert payload["findings"][1]["supersedes_finding_id"] == "FIND-001"
     assert validate_handoff_bundle(result.output_path)
@@ -639,5 +640,75 @@ def test_schema_11_findings_without_lifecycle_metadata_remain_valid(tmp_path):
     rewrite_component(result.output_path, "findings.json", payload)
     manifest = read_json(result.manifest_path)
     manifest["schema_version"] = "1.1"
+    result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    assert validate_handoff_bundle(result.output_path)
+
+
+def _with_response_action(investigation):
+    action = ResponseAction(
+        action_id="ACT-001", investigation_id=investigation.investigation_id,
+        finding_ids=("FIND-001",), title="Coordinate credential reset",
+        description="Coordinate reset after analyst approval.",
+        action_type="credential_action", priority="high", status="in_progress",
+        rationale="Reduce continued access risk.", owner="identity-team",
+        created_by="alice", created_at="2026-08-14T10:00:00Z",
+        updated_at="2026-08-14T10:02:00Z",
+        transition_history=(
+            ResponseActionTransition(transition_id="TRANS-001", from_status="proposed", to_status="approved", author="alice", rationale="Approved by incident lead.", timestamp="2026-08-14T10:01:00Z"),
+            ResponseActionTransition(transition_id="TRANS-002", from_status="approved", to_status="in_progress", author="bob", rationale="Assigned to identity team.", timestamp="2026-08-14T10:02:00Z"),
+        ),
+    )
+    return replace(investigation, response_actions=(action,))
+
+
+def test_response_actions_export_preview_validation_and_read_only_state(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _with_response_action(_finding_investigation(analysis))
+    result, _analysis, _investigation, repository, workspace = build_export(
+        tmp_path, investigation=investigation, analysis=analysis
+    )
+    before = repository_bytes(workspace)
+    payload = read_json(result.output_path / "response_actions.json")
+    preview = InvestigationHandoffService(repository).preview("INV-QUERY", analysis)
+
+    assert payload["response_actions"] == [investigation.response_actions[0].to_dict()]
+    assert preview.response_action_count == 1
+    assert preview.response_actions[0].status == "in_progress"
+    assert preview.response_actions[0].transition_count == 2
+    assert validate_handoff_bundle(result.output_path)
+    assert repository.load_record("INV-QUERY").revision == 1
+    assert repository_bytes(workspace) == before
+
+
+@pytest.mark.parametrize("tamper", ("status", "missing_finding", "duplicate_transition", "discontinuous_transition"))
+def test_response_action_handoff_tampering_is_rejected(tmp_path, tamper):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _with_response_action(_finding_investigation(analysis))
+    result, *_ = build_export(tmp_path, investigation=investigation, analysis=analysis)
+    payload = read_json(result.output_path / "response_actions.json")
+    action = payload["response_actions"][0]
+    if tamper == "status":
+        action["status"] = "completed"
+    elif tamper == "missing_finding":
+        action["finding_ids"] = ["FIND-MISSING"]
+    elif tamper == "duplicate_transition":
+        action["transition_history"].append(dict(action["transition_history"][0]))
+    else:
+        action["transition_history"][1]["from_status"] = "proposed"
+    rewrite_component(result.output_path, "response_actions.json", payload)
+    error = HandoffReferenceIntegrityError if tamper == "missing_finding" else HandoffBundleValidationError
+    with pytest.raises(error):
+        validate_handoff_bundle(result.output_path)
+
+
+def test_schema_12_bundle_without_response_actions_remains_valid(tmp_path):
+    result, *_ = build_export(tmp_path)
+    (result.output_path / "response_actions.json").unlink()
+    manifest = read_json(result.manifest_path)
+    manifest["schema_version"] = "1.2"
+    manifest["files"] = [
+        item for item in manifest["files"]
+        if item["filename"] != "response_actions.json"
+    ]
     result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     assert validate_handoff_bundle(result.output_path)

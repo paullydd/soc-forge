@@ -92,3 +92,7 @@ FULL and OFFLINE are explicit textual badges. OFFLINE mode does not imply that d
 The Analyst Assessment panel renders the exact service narrative. Finding metadata shown beside it comes only from existing active Finding summaries. Machine context is kept visually and semantically separate from analyst conclusions. Active Findings receive primary emphasis, while superseded Findings remain visible as historical context with their existing lifecycle relationships.
 
 The console retains its exact drill-down contract: 1 Evidence, 2 Hypotheses and Decisions, 3 Timeline and Pivots, 4 Handoff, 5 Findings, 6 explicit snapshot loading, and 0 Back. Grouping is presentation only. Rendering remains read-only and uses shared bounded-width and no-color behavior.
+
+## Response Actions
+
+The authoritative summary includes durable analyst-controlled Response Actions after active Findings, with total and per-status counts plus Action identity, type, priority, current status, owner, related Finding IDs, rationale, and lifecycle-history count. Findings remain analyst-authored conclusions; Response Actions record analyst-controlled work and do not represent executed remediation. Actions remain available in OFFLINE mode because they belong to durable investigation state rather than source analysis. Summary reads do not transition Actions or change repository revision.

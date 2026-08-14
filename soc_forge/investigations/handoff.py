@@ -15,6 +15,7 @@ from soc_forge.investigations.models import (
     HandoffManifest,
     Investigation,
     InvestigationFinding,
+    ResponseAction,
 )
 from soc_forge.investigations.query_context import InvestigationQueryContext
 from soc_forge.investigations.repository import InvestigationRepository
@@ -22,9 +23,10 @@ from soc_forge.investigations.timeline_query import InvestigationTimelineService
 from soc_forge.pipeline import AnalysisResult
 
 
-HANDOFF_SCHEMA_VERSION = "1.2"
+HANDOFF_SCHEMA_VERSION = "1.3"
 LEGACY_HANDOFF_SCHEMA_VERSION = "1.0"
 FINDINGS_HANDOFF_SCHEMA_VERSION = "1.1"
+FINDING_LIFECYCLE_HANDOFF_SCHEMA_VERSION = "1.2"
 HANDOFF_TOOL = "SOC-Forge"
 HANDOFF_PREVIEW_TEXT_LIMIT = 240
 SENSITIVE_DATA_WARNING = (
@@ -43,8 +45,9 @@ LEGACY_REQUIRED_COMPONENTS = frozenset(
     }
 )
 REQUIRED_COMPONENTS = LEGACY_REQUIRED_COMPONENTS | {"findings.json"}
+CURRENT_REQUIRED_COMPONENTS = REQUIRED_COMPONENTS | {"response_actions.json"}
 SUPPORTED_HANDOFF_SCHEMA_VERSIONS = frozenset(
-    {LEGACY_HANDOFF_SCHEMA_VERSION, FINDINGS_HANDOFF_SCHEMA_VERSION, HANDOFF_SCHEMA_VERSION}
+    {LEGACY_HANDOFF_SCHEMA_VERSION, FINDINGS_HANDOFF_SCHEMA_VERSION, FINDING_LIFECYCLE_HANDOFF_SCHEMA_VERSION, HANDOFF_SCHEMA_VERSION}
 )
 ARTIFACT_FILENAMES = {
     "alerts": "alerts.json",
@@ -145,6 +148,18 @@ class HandoffFindingPreview:
 
 
 @dataclass(frozen=True)
+class HandoffResponseActionPreview:
+    action_id: str
+    title: str
+    action_type: str
+    priority: str
+    status: str
+    owner: str
+    finding_ids: Tuple[str, ...]
+    transition_count: int
+
+
+@dataclass(frozen=True)
 class HandoffPreview:
     investigation_id: str
     title: str
@@ -158,6 +173,8 @@ class HandoffPreview:
     decision_count: int
     finding_count: int
     findings: Tuple[HandoffFindingPreview, ...]
+    response_action_count: int
+    response_actions: Tuple[HandoffResponseActionPreview, ...]
     annotation_count: int
     timed_entry_count: int
     untimed_entry_count: int
@@ -344,6 +361,10 @@ def _serialize_findings(investigation: Investigation) -> Dict[str, Any]:
     }
 
 
+def _serialize_response_actions(investigation: Investigation) -> Dict[str, Any]:
+    return {"response_actions": [action.to_dict() for action in sorted(investigation.response_actions, key=lambda item: item.action_id)]}
+
+
 def _serialize_annotations(investigation: Investigation) -> Dict[str, Any]:
     return {
         "annotations": [
@@ -448,6 +469,7 @@ def _identity_payload(investigation: Investigation, revision: int) -> Dict[str, 
         ],
         "decision_ids": sorted(item.decision_id for item in investigation.decisions),
         "finding_ids": sorted(item.finding_id for item in investigation.findings),
+        "response_action_ids": sorted(item.action_id for item in investigation.response_actions),
         "annotation_ids": sorted(item.annotation_id for item in investigation.annotations),
         "timeline_selection_ids": sorted(
             item.selection_id for item in investigation.timeline_selections
@@ -540,6 +562,8 @@ class InvestigationHandoffService:
                     investigation.findings, key=lambda value: value.finding_id
                 )
             ),
+            response_action_count=len(investigation.response_actions),
+            response_actions=tuple(HandoffResponseActionPreview(action_id=item.action_id, title=_preview_text(item.title), action_type=item.action_type, priority=item.priority, status=item.status, owner=_preview_text(item.owner), finding_ids=tuple(sorted(item.finding_ids)), transition_count=len(item.transition_history)) for item in sorted(investigation.response_actions, key=lambda value: value.action_id)),
             annotation_count=len(investigation.annotations),
             timed_entry_count=len(timeline.entries),
             untimed_entry_count=len(timeline.untimed_entries),
@@ -667,6 +691,7 @@ class InvestigationHandoffService:
             "hypotheses.json": _serialize_hypotheses(investigation),
             "decisions.json": _serialize_decisions(investigation),
             "findings.json": _serialize_findings(investigation),
+            "response_actions.json": _serialize_response_actions(investigation),
             "annotations.json": _serialize_annotations(investigation),
             "timeline.json": timeline_payload,
         }
@@ -867,6 +892,7 @@ def _validate_references(bundle: Path, manifest: Mapping[str, Any]) -> None:
     }
     decision_ids = {item.get("decision_id") for item in decisions.get("decisions", [])}
     findings_path = bundle / "findings.json"
+    finding_ids = set()
     if findings_path.is_file():
         findings = _read_json(findings_path).get("findings")
         if not isinstance(findings, list):
@@ -881,7 +907,7 @@ def _validate_references(bundle: Path, manifest: Mapping[str, Any]) -> None:
                 finding = InvestigationFinding.from_dict(payload)
             except (KeyError, TypeError, ValueError) as exc:
                 raise HandoffBundleValidationError("Handoff finding is invalid") from exc
-            if manifest.get("schema_version") == HANDOFF_SCHEMA_VERSION and not lifecycle_fields.issubset(payload):
+            if manifest.get("schema_version") in {FINDING_LIFECYCLE_HANDOFF_SCHEMA_VERSION, HANDOFF_SCHEMA_VERSION} and not lifecycle_fields.issubset(payload):
                 raise HandoffBundleValidationError("Handoff finding lifecycle metadata is missing")
             if finding.finding_id in finding_ids:
                 raise HandoffBundleValidationError("Handoff finding IDs must be unique")
@@ -921,6 +947,24 @@ def _validate_references(bundle: Path, manifest: Mapping[str, Any]) -> None:
                     raise HandoffReferenceIntegrityError("Finding supersession graph contains a cycle")
                 seen.add(current.finding_id)
                 current = by_id[current.superseded_by_finding_id]
+    actions_path = bundle / "response_actions.json"
+    if actions_path.is_file():
+        actions = _read_json(actions_path).get("response_actions")
+        if not isinstance(actions, list): raise HandoffBundleValidationError("Handoff Response Actions component is invalid")
+        action_ids = set()
+        for payload in actions:
+            if not isinstance(payload, Mapping): raise HandoffBundleValidationError("Handoff Response Action is invalid")
+            try: action = ResponseAction.from_dict(payload)
+            except (KeyError, TypeError, ValueError) as exc: raise HandoffBundleValidationError("Handoff Response Action is invalid") from exc
+            timestamps = [item.timestamp for item in action.transition_history]
+            if timestamps != sorted(timestamps):
+                raise HandoffBundleValidationError(
+                    "Handoff Response Action transition history is not ordered"
+                )
+            if action.action_id in action_ids: raise HandoffBundleValidationError("Handoff Response Action IDs must be unique")
+            action_ids.add(action.action_id)
+            if action.investigation_id != manifest.get("investigation_id"): raise HandoffReferenceIntegrityError("Response Action references a different investigation")
+            if not set(action.finding_ids).issubset(finding_ids): raise HandoffReferenceIntegrityError("Response Action references missing Finding")
     for hypothesis in hypotheses.get("hypotheses", []):
         linked = set(hypothesis.get("supporting_evidence_ids", ())) | set(
             hypothesis.get("contradicting_evidence_ids", ())
@@ -956,7 +1000,9 @@ def validate_handoff_bundle(path: Path | str) -> bool:
     if not isinstance(inventory, list):
         raise HandoffBundleValidationError("Handoff file inventory is invalid")
     expected = set(
-        REQUIRED_COMPONENTS
+        CURRENT_REQUIRED_COMPONENTS
+        if schema_version == HANDOFF_SCHEMA_VERSION
+        else REQUIRED_COMPONENTS
         if schema_version != LEGACY_HANDOFF_SCHEMA_VERSION
         else LEGACY_REQUIRED_COMPONENTS
     )
@@ -974,6 +1020,8 @@ def validate_handoff_bundle(path: Path | str) -> bool:
             raise HandoffBundleValidationError(
                 "Handoff findings logical type is invalid"
             )
+        if filename == "response_actions.json" and item.get("logical_type") != "component:response_actions":
+            raise HandoffBundleValidationError("Handoff Response Actions logical type is invalid")
         relative = Path(filename)
         if relative.is_absolute() or ".." in relative.parts or "\\" in filename:
             raise HandoffBundleValidationError("Handoff inventory path is unsafe")

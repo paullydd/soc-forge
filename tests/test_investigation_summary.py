@@ -4,7 +4,9 @@ from hashlib import sha256
 from pathlib import Path
 
 from query_fixtures import build_query_analysis, build_query_investigation
-from soc_forge.investigations.models import Decision, InvestigationFinding
+from soc_forge.investigations.models import (
+    Decision, InvestigationFinding, ResponseAction, ResponseActionTransition,
+)
 from soc_forge.investigations.query_context import InvestigationQueryContext
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.summary import (
@@ -356,3 +358,35 @@ def test_superseded_finding_is_history_and_only_active_replacement_drives_narrat
     assert "earlier analyst finding" in full.narrative
     assert next(item for item in full.analyst_findings if item.finding_id == "FIND-OLD").lifecycle_state == "superseded"
     assert repository.load_record("INV-QUERY").revision == 1
+
+
+def test_response_actions_are_durable_summary_state_in_full_and_offline(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _with_findings(build_query_investigation(analysis))
+    action = ResponseAction(
+        action_id="ACT-001", investigation_id="INV-QUERY",
+        finding_ids=("FIND-001",), title="Coordinate credential reset",
+        description="Coordinate reset after analyst approval.",
+        action_type="credential_action", priority="high", status="in_progress",
+        rationale="Reduce continued access risk.", owner="identity-team",
+        created_by="alice", created_at="2026-08-14T10:00:00Z",
+        updated_at="2026-08-14T10:02:00Z",
+        transition_history=(
+            ResponseActionTransition(transition_id="TRANS-001", from_status="proposed", to_status="approved", author="alice", rationale="Approved by incident lead.", timestamp="2026-08-14T10:01:00Z"),
+            ResponseActionTransition(transition_id="TRANS-002", from_status="approved", to_status="in_progress", author="bob", rationale="Assigned to identity team.", timestamp="2026-08-14T10:02:00Z"),
+        ),
+    )
+    investigation = replace(investigation, response_actions=(action,))
+    _a, _i, repository, service = build_summary_fixture(tmp_path / "fixture", investigation)
+    before = repository_bytes(repository)
+
+    full = service.summarize("INV-QUERY", analysis)
+    offline = service.summarize("INV-QUERY")
+
+    assert full.response_actions == offline.response_actions
+    assert offline.response_action_counts.total == 1
+    assert offline.response_action_counts.in_progress == 1
+    assert offline.response_actions[0].finding_ids == ("FIND-001",)
+    assert offline.response_actions[0].transition_count == 2
+    assert offline.response_actions[0].attribution == ATTRIBUTION_ANALYST
+    assert repository_bytes(repository) == before
