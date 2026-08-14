@@ -116,3 +116,26 @@ Both workspaces use the centralized 100-, 80-, 60-, and minimum-width behavior. 
 v3.2 Slice 7 changes Timeline, Pivot, and Handoff terminal presentation only. Timeline construction, pivot semantics, handoff generation, bundle validation, export safety, schema compatibility, repository behavior, and investigation state semantics remain unchanged.
 
 Broad fixed metadata-label behavior remains deferred to the final v3.2 terminal consistency and polish slice.
+
+## Final v3.2 Visual Conventions
+
+Slice 8 standardizes the completed terminal experience without changing product behavior.
+
+- **Spacing:** migrated workspace screens use a breadcrumb, one blank line, a primary state or identity panel, one blank line between distinct sections, and one blank line before grouped navigation. Dense object lists may remain compact.
+- **Metadata:** labels use a bounded proportion of available row width instead of a fixed 18-character column. Meaningful labels remain complete at normal widths while values retain useful scan space. Below 40 columns, metadata uses the established stacked fallback.
+- **Badges:** status meaning is always present in brackets. Investigation, availability, evidence classification, hypothesis assessment, Finding status/lifecycle/confidence, severity, activity origin, readiness, and validation use centralized badge rendering. Color is supplementary.
+- **Breadcrumbs:** migrated screens use the shared dim breadcrumb, consistent separator, uppercase workspace leaf, bounded segments, and the current investigation ID where applicable. Breadcrumbs remain presentation-only.
+- **Messages:** semantic messages use one textual prefix such as `WARNING:`, `INFO:`, `OK:`, or `ERROR:`. Wrapped continuation lines align beneath the message body without repeating or interrupting the prefix.
+- **Menus:** grouped menus retain two-space option indentation, `[n]` formatting, one blank line between groups, and a separate `[0] Back` or `[0] Exit` row. Menu numbers and dispatch remain controller-owned.
+- **Long text:** analyst statements, rationales, conclusions, limitations, supersession reasons, and exact export paths wrap where identity or readability matters. Compact scan rows may truncate bounded display text without changing source data.
+- **Attribution:** machine context remains explicitly machine-generated. Evidence, hypotheses, decisions, and Findings retain analyst attribution. Timeline origin remains textual as `[MACHINE]` or `[ANALYST]`.
+- **Finding lifecycle:** active Findings receive current emphasis. Historical or superseded Findings remain fully readable with explicit `[SUPERSEDED]` state and secondary styling.
+- **Read only:** Timeline/Pivot and Handoff surfaces use restrained read-only language describing behavior, not permissions or authorization.
+
+The same semantic content remains available with `NO_COLOR`, `TERM=dumb`, redirected output, and captured output. Shared panels continue to support Unicode borders and the existing explicit ASCII fallback.
+
+Rendering remains passive: it does not read input, clear screens, dispatch actions, invoke mutation services, change revisions, write repositories, alter snapshots or artifacts, or modify `AnalysisResult`.
+
+### Known Limitations
+
+Display width still uses Python string length after ANSI removal. Exact alignment for uncommon double-width or combining Unicode characters remains approximate, and no new width dependency is introduced. At minimum terminal width, very long labels and identifiers may truncate deliberately to preserve borders and usable value space. This affects presentation only; exact domain values remain unchanged and exact Handoff paths use wrapped presentation.

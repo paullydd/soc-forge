@@ -11,9 +11,9 @@ from soc_forge.ui.terminal import (
     render_empty_state,
     render_grouped_menu,
     render_metadata,
+    render_message_block,
     render_panel,
     render_section_header,
-    render_warning,
     resolve_terminal_width,
 )
 
@@ -57,10 +57,12 @@ def _section(title: str, bodies: Iterable[str], *, width: int, ansi: bool | None
 
 
 def _warning_block(message: object, *, width: int, ansi: bool | None) -> str:
-    fragments = _wrapped(message, max(8, width - 9))
-    lines = [render_warning(fragments[0], width=width, ansi=ansi)]
-    lines.extend(f"         {fragment}" for fragment in fragments[1:])
-    return "\n".join(lines)
+    return render_message_block(
+        "warning",
+        message,
+        width=width,
+        ansi=ansi,
+    )
 
 
 def render_summary_investigation(

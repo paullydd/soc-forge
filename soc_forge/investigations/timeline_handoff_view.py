@@ -22,8 +22,8 @@ from soc_forge.ui.terminal import (
     render_empty_state,
     render_grouped_menu,
     render_metadata,
+    render_message_block,
     render_panel,
-    render_warning,
     resolve_terminal_width,
 )
 
@@ -87,13 +87,6 @@ def _wrapped(value: object, width: int) -> tuple[str, ...]:
     ) or ("",)
 
 
-def _warning_block(message: str, width: int, ansi: bool | None) -> str:
-    return "\n".join(
-        render_warning(line, width=width, ansi=ansi)
-        for line in _wrapped(message, width - 9)
-    )
-
-
 def _breadcrumb(
     current: WorkspaceResult,
     leaf: str,
@@ -132,11 +125,11 @@ def render_timeline_workspace(
         ("Revision", current.revision),
     )
     parts = [
-        _breadcrumb(current, "TIMELINE", resolved, ansi),
-        _warning_block(
+        _breadcrumb(current, "TIMELINE", width=resolved, ansi=ansi),
+        render_message_block("warning",
             "Timeline/Pivot Workbench is read only. Terminal scrollback may retain displayed values.",
-            resolved,
-            ansi,
+            width=resolved,
+            ansi=ansi,
         ),
         render_panel(
             render_metadata(rows, width=resolved - 4, ansi=ansi),
@@ -147,18 +140,18 @@ def render_timeline_workspace(
     ]
     if timeline is None:
         parts.append(
-            _warning_block(
+            render_message_block("warning",
                 "Chronology requires the matching completed analysis. The durable investigation remains available.",
-                resolved,
-                ansi,
+                width=resolved,
+                ansi=ansi,
             )
         )
     if stale:
         parts.append(
-            _warning_block(
+            render_message_block("warning",
                 "The investigation changed. Refresh the workbench before continuing with reasoning overlays.",
-                resolved,
-                ansi,
+                width=resolved,
+                ansi=ansi,
             )
         )
     parts.append(
@@ -193,7 +186,7 @@ def render_timeline(
     if not timeline.entries:
         lines.append(render_empty_state("No timed entries.", width=resolved, ansi=ansi))
     for entry in timeline.entries:
-        lines.extend(_timeline_entry_lines(index, entry, resolved, ansi))
+        lines.extend(_timeline_entry_lines(index, entry, width=resolved, ansi=ansi))
         index += 1
     lines.extend(("", "UNTIMED ACTIVITY"))
     if not timeline.untimed_entries:
@@ -464,11 +457,11 @@ def render_handoff_workspace(
     )
     return "\n\n".join(
         (
-            _breadcrumb(current, "HANDOFF", resolved, ansi),
-            _warning_block(
+            _breadcrumb(current, "HANDOFF", width=resolved, ansi=ansi),
+            render_message_block("warning",
                 "Read-only snapshot/export workflow. Investigation state is not modified.",
-                resolved,
-                ansi,
+                width=resolved,
+                ansi=ansi,
             ),
             render_panel(
                 render_metadata(rows, width=resolved - 4, ansi=ansi),
@@ -600,8 +593,8 @@ def render_handoff_preview(
             ansi=ansi,
         )
     )
-    parts.append(_warning_block(preview.sensitive_data_warning, resolved, ansi))
-    parts.append(_warning_block("Terminal scrollback may retain displayed handoff metadata.", resolved, ansi))
+    parts.append(render_message_block("warning", preview.sensitive_data_warning, width=resolved, ansi=ansi))
+    parts.append(render_message_block("warning", "Terminal scrollback may retain displayed handoff metadata.", width=resolved, ansi=ansi))
     return "\n\n".join(parts)
 
 
@@ -619,12 +612,21 @@ def render_handoff_result(
                 ("Handoff ID", result.handoff_id),
                 ("Investigation", result.investigation_id),
                 ("Revision", result.revision),
-                ("Output path", result.output_path),
-                ("Manifest path", result.manifest_path),
                 ("Files", len(result.files)),
             ),
             width=resolved - 4,
             ansi=ansi,
+        )
+    )
+    body.extend(
+        render_metadata(
+            (
+                ("Output path", result.output_path),
+                ("Manifest path", result.manifest_path),
+            ),
+            width=resolved - 4,
+            ansi=ansi,
+            wrap_values=True,
         )
     )
     for warning in result.warnings:

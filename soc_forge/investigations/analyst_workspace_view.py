@@ -18,6 +18,7 @@ from soc_forge.ui.terminal import (
     render_empty_state,
     render_grouped_menu,
     render_metadata,
+    render_message_block,
     render_panel,
     render_warning,
     resolve_terminal_width,
@@ -96,13 +97,6 @@ def _breadcrumb(current: WorkspaceResult, leaf: str, width: int, ansi: bool | No
     )
 
 
-def _warning_block(message: str, width: int, ansi: bool | None) -> str:
-    return "\n".join(
-        render_warning(line, width=width, ansi=ansi)
-        for line in _wrapped(message, width - 9)
-    )
-
-
 def render_evidence_workspace(
     current: WorkspaceResult,
     *,
@@ -121,7 +115,7 @@ def render_evidence_workspace(
     )
     return "\n\n".join(
         (
-            _breadcrumb(current, "EVIDENCE", resolved, ansi),
+            _breadcrumb(current, "EVIDENCE", width=resolved, ansi=ansi),
             render_panel(
                 render_metadata(rows, width=resolved - 4, ansi=ansi),
                 title="EVIDENCE STATE",
@@ -241,16 +235,16 @@ def render_reasoning_workspace(
         )
     return "\n\n".join(
         (
-            _breadcrumb(current, "REASONING", resolved, ansi),
+            _breadcrumb(current, "REASONING", width=resolved, ansi=ansi),
             render_warning(
                 "Hypothesis states reflect analyst assessment, not machine certainty.",
                 width=resolved,
                 ansi=ansi,
             ),
-            _warning_block(
+            render_message_block("warning",
                 "Terminal scrollback may retain analyst reasoning and evidence values.",
-                resolved,
-                ansi,
+                width=resolved,
+                ansi=ansi,
             ),
             state,
             render_grouped_menu(
@@ -384,11 +378,11 @@ def render_findings_workspace(
     )
     return "\n\n".join(
         (
-            _breadcrumb(current, "FINDINGS", resolved, ansi),
-            _warning_block(
+            _breadcrumb(current, "FINDINGS", width=resolved, ansi=ansi),
+            render_message_block("warning",
                 "Findings are analyst-authored conclusions. Confidence is analyst assessment, not machine certainty.",
-                resolved,
-                ansi,
+                width=resolved,
+                ansi=ansi,
             ),
             render_panel(
                 render_metadata(rows, width=resolved - 4, ansi=ansi),

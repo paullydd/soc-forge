@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+from textwrap import wrap
 from typing import Iterable, Tuple
 
 from soc_forge.ui.colors import Colors
@@ -24,6 +25,17 @@ _BADGES = {
     "finding_lifecycle": {"active": Colors.GREEN, "superseded": Colors.GRAY},
     "confidence": {"low": Colors.GREEN, "medium": Colors.YELLOW, "high": Colors.RED},
     "severity": {"informational": Colors.CYAN, "low": Colors.GREEN, "medium": Colors.YELLOW, "high": Colors.RED, "critical": Colors.RED + Colors.BOLD},
+    "availability": {
+        "online": Colors.GREEN,
+        "available": Colors.GREEN,
+        "full": Colors.GREEN,
+        "offline": Colors.YELLOW,
+        "missing": Colors.RED,
+        "optional": Colors.GRAY,
+    },
+    "activity_origin": {"machine": Colors.GRAY, "analyst": Colors.CYAN},
+    "validation": {"valid": Colors.GREEN, "invalid": Colors.RED},
+    "readiness": {"ready": Colors.GREEN},
 }
 _MESSAGES = {
     "success": ("OK", Colors.GREEN), "info": ("INFO", Colors.CYAN),
@@ -143,19 +155,38 @@ def render_section_header(title: object, **kwargs: object) -> str:
 
 
 def render_metadata(rows: Iterable[Tuple[object, object]], *, width: int | None = None,
-                    ansi: bool | None = None) -> Tuple[str, ...]:
+                    ansi: bool | None = None,
+                    wrap_values: bool = False) -> Tuple[str, ...]:
     resolved = resolve_terminal_width(width)
     values = [(_bound(key, 40), _bound(value)) for key, value in rows]
     if not values:
         return ()
-    key_width = min(max(visible_length(key) for key, _ in values), 18)
+    longest_key = max(visible_length(key) for key, _ in values)
+    # Labels may use up to 40% of a normal-width row, bounded so values retain
+    # useful scan space and narrow terminals continue using stacked rows.
+    label_budget = max(18, min(28, (resolved * 2) // 5))
+    key_width = min(longest_key, label_budget)
     lines = []
     for key, value in values:
         if resolved < 40:
             lines.append(ansi_safe_truncate(f"{key}: {value}", resolved))
         else:
             label = ansi_safe_truncate(key, key_width)
-            lines.append(f"{label:<{key_width}}  {ansi_safe_truncate(value, resolved - key_width - 2)}")
+            padding = " " * max(0, key_width - visible_length(label))
+            value_width = resolved - key_width - 2
+            if wrap_values and visible_length(value) > value_width and not ANSI_PATTERN.search(value):
+                chunks = wrap(
+                    value,
+                    width=max(1, value_width),
+                    break_long_words=True,
+                    break_on_hyphens=False,
+                ) or [""]
+                lines.append(f"{label}{padding}  {chunks[0]}")
+                continuation = " " * (key_width + 2)
+                lines.extend(f"{continuation}{chunk}" for chunk in chunks[1:])
+            else:
+                rendered_value = ansi_safe_truncate(value, value_width)
+                lines.append(f"{label}{padding}  {rendered_value}")
     return tuple(lines)
 
 
@@ -171,6 +202,30 @@ def render_message(kind: str, message: object, *, width: int | None = None,
     indicator, color = _MESSAGES.get(str(kind).lower(), ("INFO", Colors.CYAN))
     text = ansi_safe_truncate(f"{indicator}: {_bound(message)}", resolve_terminal_width(width))
     return _style(text, color, ansi)
+
+
+def render_message_block(
+    kind: str,
+    message: object,
+    *,
+    width: int | None = None,
+    ansi: bool | None = None,
+) -> str:
+    resolved = resolve_terminal_width(width)
+    indicator, color = _MESSAGES.get(str(kind).lower(), ("INFO", Colors.CYAN))
+    prefix = f"{indicator}: "
+    content_width = max(1, resolved - visible_length(prefix))
+    fragments = wrap(
+        _bound(message),
+        width=content_width,
+        break_long_words=True,
+        break_on_hyphens=False,
+    ) or [""]
+    continuation = " " * visible_length(prefix)
+    return "\n".join(
+        _style((prefix if index == 0 else continuation) + fragment, color, ansi)
+        for index, fragment in enumerate(fragments)
+    )
 
 
 def render_success(message: object, **kwargs: object) -> str:

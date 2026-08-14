@@ -46,3 +46,28 @@ def test_startup_preserves_explicit_version_override_without_double_prefix(
     output = strip_ansi(capsys.readouterr().out)
     assert "v9.9.9 | Investigation Workspace Edition" in output
     assert "vv9.9.9" not in output
+
+def test_startup_respects_no_color_without_changing_readiness_content(
+    monkeypatch, capsys
+):
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setattr(loading.time, "sleep", lambda _delay: None)
+
+    loading.startup_screen(version="3.2.0")
+
+    output = capsys.readouterr().out
+    assert "\x1b" not in output
+    assert "SOC-FORGE Security Operations Platform" in output
+    assert "[READY] Runtime" in output
+    assert "Platform Status: READY" in output
+
+def test_progress_bar_respects_term_dumb(monkeypatch, capsys):
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "dumb")
+
+    loading.progress_bar("Runtime", percent=50, width=4)
+
+    output = capsys.readouterr().out
+    assert "\x1b" not in output
+    assert "Runtime" in output
+    assert "50%" in output

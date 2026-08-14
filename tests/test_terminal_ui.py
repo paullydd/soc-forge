@@ -11,6 +11,7 @@ from soc_forge.ui.terminal import (
     render_error,
     render_grouped_menu,
     render_info,
+    render_message_block,
     render_metadata,
     render_panel,
     render_screen_title,
@@ -68,6 +69,68 @@ def test_metadata_alignment_long_values_and_narrow_fallback():
     assert all(visible_length(line) <= 24 for line in render_metadata(rows, width=24, ansi=False))
 
 
+def test_metadata_uses_available_width_without_unnecessary_label_truncation():
+    rows = (
+        ("Supporting evidence", "12"),
+        ("Contradicting evidence", "3"),
+        ("Superseded by analyst", "Analyst"),
+    )
+    wide = render_metadata(rows, width=76, ansi=False)
+    narrow = render_metadata(rows, width=24, ansi=False)
+
+    assert "Supporting evidence" in wide[0] and "..." not in wide[0]
+    assert "Contradicting evidence" in wide[1] and "..." not in wide[1]
+    assert "Superseded by analyst" in wide[2] and "..." not in wide[2]
+    value_columns = [line.index(value) for line, value in zip(wide, ("12", "3", "Analyst"))]
+    assert len(set(value_columns)) == 1
+    assert all(visible_length(line) <= 24 for line in narrow)
+
+
+def test_metadata_wraps_exact_long_paths_when_requested():
+    path = (
+        "/home/analyst/investigations/INV-TEST-001/"
+        "handoffs/INV-TEST-001/manifest.json"
+    )
+    rendered = render_metadata(
+        (("Manifest path", path),),
+        width=60,
+        ansi=False,
+        wrap_values=True,
+    )
+
+    assert "Manifest path" in rendered[0]
+    assert "".join(line.strip() for line in rendered).endswith("manifest.json")
+    assert "..." not in "\n".join(rendered)
+    assert all(visible_length(line) <= 60 for line in rendered)
+
+
+def test_wrapped_message_uses_consistent_prefix_and_preserves_content():
+    message = "Sensitive telemetry and analyst-authored rationale must be reviewed before sharing."
+    rendered = render_message_block("warning", message, width=32, ansi=False)
+
+    lines = rendered.splitlines()
+    assert lines[0].startswith("WARNING: ")
+    assert all(line.startswith(" " * len("WARNING: ")) for line in lines[1:])
+    content = [lines[0].removeprefix("WARNING: ")]
+    content.extend(line.strip() for line in lines[1:])
+    assert " ".join(content) == message
+    assert_bounded(rendered, 32)
+
+
+def test_grouped_menu_spacing_has_one_blank_line_between_sections():
+    rendered = render_grouped_menu(
+        (
+            ("Review", (("1", "Summary"),)),
+            ("Output", (("2", "Export"),)),
+        ),
+        width=60,
+        ansi=False,
+    )
+    assert "  [1] Summary\n\nOUTPUT\n  [2] Export" in rendered
+    assert "  [2] Export\n\n  [0] Back" in rendered
+    assert "\n\n\n" not in rendered
+
+
 @pytest.mark.parametrize(
     ("family", "states"),
     [
@@ -78,6 +141,10 @@ def test_metadata_alignment_long_values_and_narrow_fallback():
         ("finding_lifecycle", ("active", "superseded")),
         ("confidence", ("low", "medium", "high")),
         ("severity", ("informational", "low", "medium", "high", "critical")),
+        ("availability", ("online", "available", "full", "offline", "missing", "optional")),
+        ("activity_origin", ("machine", "analyst")),
+        ("validation", ("valid", "invalid")),
+        ("readiness", ("ready",)),
     ],
 )
 def test_supported_badge_families_retain_text_without_ansi(family, states):
