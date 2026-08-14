@@ -35,6 +35,7 @@ async function refreshInvestigationAfterConflict(investigationId) {
   await loadEvidenceSelections();
   await loadReasoning();
   await loadFindings();
+  await loadResponseActions();
   renderInvestigations();
 }
 
@@ -60,6 +61,7 @@ async function openInvestigation(investigationId) {
   await loadEvidenceSelections();
   await loadReasoning();
   await loadFindings();
+  await loadResponseActions();
   renderInvestigations();
 }
 
@@ -235,6 +237,20 @@ function renderInvestigations() {
         <div id="reasoningStatus" class="muted evidence-status"></div>
         <div id="reasoningWorkspace" class="workspace-records"></div>
       </section>
+      <section class="brief-section response-actions-section">
+        <div class="panel-head">
+          <h3>Response Actions</h3>
+          <span class="muted">Analyst-controlled response work</span>
+        </div>
+        <p class="muted">Creating or advancing a Response Action does not execute remediation.</p>
+        <div id="responseActionCounts" class="evidence-counts"></div>
+        <div class="workspace-actions">
+          <button id="viewResponseActionsButton" type="button">View Actions</button>
+          <button id="createResponseActionButton" type="button">Create Action</button>
+        </div>
+        <div id="responseActionStatus" class="muted evidence-status"></div>
+        <div id="responseActionWorkspace" class="workspace-records"></div>
+      </section>
       <section class="brief-section findings-section">
         <div class="panel-head">
           <h3>Investigation Findings</h3>
@@ -320,10 +336,14 @@ function renderInvestigations() {
   bindEvidenceActions();
   bindReasoningActions();
   bindFindingActions();
+  bindResponseActionActions();
   bindInvestigationWorkbench();
   renderEvidenceSummary();
   renderReasoningSummary();
   if (state.findings) renderFindingCounts(state.findings.counts);
+  if (state.responseActions) {
+    renderResponseActionCounts(state.responseActions.counts);
+  }
   loadInvestigationSummary().catch(showInvestigationSummaryError);
 }
 
@@ -923,6 +943,7 @@ async function showSelectedEvidence() {
   await loadEvidenceSelections();
   await loadReasoning();
   await loadFindings();
+  await loadResponseActions();
   renderInvestigations();
   const target = $('#evidenceWorkspace');
   if (!target) return;

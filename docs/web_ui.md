@@ -259,3 +259,7 @@ placed in URLs or browser storage.
 Opening a durable investigation loads a compact summary near the top of the workspace. When the exact source analysis is active, full mode includes bounded machine context and canonical timeline milestones. Otherwise offline mode shows durable analyst-owned state and explicit limitations. Loading the source analysis refreshes the same summary without changing the investigation revision.
 
 Evidence, hypothesis, decision, and timeline actions open the existing investigation workflows. Summary content is rendered as untrusted text, sensitive evidence values are not automatically revealed, and the route is read-only with `Cache-Control: no-store`.
+
+## Response Actions
+
+The local Investigation Workspace exposes durable Response Actions with authoritative counts, ACTIVE-Finding selection, safe list/detail/history rendering, and controlled lifecycle forms. Routes are investigation-scoped under `/api/investigations/{investigation_id}/response-actions`, remain usable when source analysis is unavailable, require optimistic revisions for mutations, and use `Cache-Control: no-store` for reads. The interface records analyst workflow and does not execute containment or remediation. Summary and Handoff integration are not part of v3.3 Slice 3.

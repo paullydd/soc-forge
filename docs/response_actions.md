@@ -43,6 +43,15 @@ Existing Slice 1 actions without `transition_history` retain their persisted sta
 
 Response Actions are workflow and audit records only. `approved` does not mean executed, `in_progress` does not represent an automation job, and `completed` does not mean SOC-Forge performed remediation. The action service does not invoke the pipeline, detections, subprocesses, shells, networks, integrations, or source `AnalysisResult` mutation.
 
-## Current scope
+## Analyst interfaces
 
+The terminal Investigation Workspace exposes **Response Actions** as option `16`. Its dedicated workspace supports list, create, detail, related-Finding inspection, and only the lifecycle transitions valid for the current status. Creation presents persisted ACTIVE Findings as numbered choices and does not require source analysis. List, detail, creation, and transitions therefore remain available offline.
+
+The local web Investigation Workspace provides the same durable operations through investigation-scoped `response-actions` endpoints. It shows authoritative status counts, an ACTIVE-Finding-only creation form, safe detail/history rendering, related Finding navigation, and valid lifecycle controls. API reads use `Cache-Control: no-store`; mutations carry the current Investigation revision and return bounded errors.
+
+Console-created actions appear in the web workspace, web-created actions appear in the console, and transitions share the same persisted history because neither interface owns action state. Successful create or transition operations increment revision once; reads and rejected mutations do not increment revision or rewrite repository bytes.
+
+v3.3 Slice 3 exposes Response Actions through analyst interfaces only. It does not execute containment/remediation or integrate Actions into Summary/Handoff yet.
+
+## Current scope
 Slice 2 provides the model, lifecycle rules, durable history, aggregate integrity, and create/get/list/transition service boundary. Console and web interfaces, Summary and Handoff integration, due dates, reminders, comments, permissions, automation, deletion, external integrations, and real response execution remain deferred.

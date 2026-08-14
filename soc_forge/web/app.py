@@ -71,6 +71,13 @@ from soc_forge.investigations.reasoning_service import (
     InvalidReasoningAuthorError,
     ReasoningReferenceError,
 )
+from soc_forge.investigations.response_action_service import (
+    DuplicateResponseActionError,
+    InvalidResponseActionFindingError,
+    InvalidResponseActionTransitionError,
+    ResponseActionNotFoundError,
+    TerminalResponseActionError,
+)
 from soc_forge.investigations.repository import (
     CorruptInvestigationRecordError,
     InvestigationAlreadyExistsError,
@@ -578,6 +585,47 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                     latest=latest,
                 )
                 return
+        response_action_errors = (
+            (
+                TerminalResponseActionError,
+                "response_action_terminal",
+                "The response action is in a terminal state.",
+                409,
+            ),
+            (
+                InvalidResponseActionTransitionError,
+                "invalid_response_action_transition",
+                "The response action lifecycle transition is invalid.",
+                409,
+            ),
+            (
+                ResponseActionNotFoundError,
+                "response_action_not_found",
+                "Response action not found.",
+                404,
+            ),
+            (
+                DuplicateResponseActionError,
+                "duplicate_response_action",
+                "Response action ID already exists.",
+                409,
+            ),
+            (
+                InvalidResponseActionFindingError,
+                "invalid_response_action_finding",
+                "A Finding relationship is invalid for this investigation.",
+                400,
+            ),
+        )
+        for error_type, code, message, status in response_action_errors:
+            if isinstance(exc, error_type):
+                self.send_investigation_error(
+                    code,
+                    message,
+                    status,
+                    investigation_id=investigation_id,
+                )
+                return
         finding_errors = (
             (
                 SupersededFindingReadOnlyError,
@@ -900,6 +948,22 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 result = self.investigation_app.reopen(investigation_id, payload)
             elif len(segments) == 2 and segments[1] == "annotations":
                 result = self.investigation_app.add_annotation(investigation_id, payload)
+            elif len(segments) == 2 and segments[1] == "response-actions":
+                result = self.investigation_app.create_response_action(
+                    investigation_id, payload
+                )
+                self.send_json(result, status=201, no_store=True)
+                return True
+            elif (
+                len(segments) == 4
+                and segments[1] == "response-actions"
+                and segments[3] == "transition"
+            ):
+                result = self.investigation_app.transition_response_action(
+                    investigation_id, segments[2], payload
+                )
+                self.send_json(result, no_store=True)
+                return True
             elif len(segments) == 2 and segments[1] == "findings":
                 result = self.investigation_app.create_finding(
                     investigation_id, payload
@@ -1234,6 +1298,20 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 ):
                     self.send_json(
                         self.investigation_app.list_evidence_selections(segments[0])
+                    )
+                    return
+                if len(segments) == 2 and segments[1] == "response-actions":
+                    self.send_json(
+                        self.investigation_app.list_response_actions(segments[0]),
+                        no_store=True,
+                    )
+                    return
+                if len(segments) == 3 and segments[1] == "response-actions":
+                    self.send_json(
+                        self.investigation_app.get_response_action(
+                            segments[0], segments[2]
+                        ),
+                        no_store=True,
                     )
                     return
                 if len(segments) == 2 and segments[1] == "findings":

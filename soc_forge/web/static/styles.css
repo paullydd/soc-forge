@@ -222,3 +222,15 @@ th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; fon
 .summary-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
 .summary-metric { border: 1px solid var(--line); background: #12181f; border-radius: 6px; padding: 10px; display: grid; gap: 4px; }
 .summary-metric-label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }
+
+.response-status-proposed,
+.response-priority-medium { border-color: #d6a84b; color: #f2ca72; }
+.response-status-approved,
+.response-status-in_progress,
+.response-priority-high { border-color: #58b9cc; color: #8dd9e8; }
+.response-status-completed { border-color: #67c38a; color: #8ee0aa; }
+.response-status-dismissed { border-color: #74808c; color: #aab3bc; }
+.response-priority-critical { border-color: #e35d6a; color: #ff8994; }
+.response-priority-low { border-color: #67c38a; color: #8ee0aa; }
+.response-actions-section fieldset { display: grid; gap: 0.4rem; }
+.response-actions-section fieldset label { display: block; }

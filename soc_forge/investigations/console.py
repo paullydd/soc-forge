@@ -16,6 +16,12 @@ from soc_forge.investigations.handoff import InvestigationHandoffService
 from soc_forge.investigations.handoff_console import (
     InvestigationHandoffConsoleController,
 )
+from soc_forge.investigations.response_action_console import (
+    InvestigationResponseActionConsoleController,
+)
+from soc_forge.investigations.response_action_service import (
+    InvestigationResponseActionService,
+)
 from soc_forge.investigations.reasoning_console import ReasoningConsoleController
 from soc_forge.investigations.reasoning_service import InvestigationReasoningService
 from soc_forge.investigations.query_console import InvestigationQueryConsoleController
@@ -60,6 +66,9 @@ class InvestigationConsoleController:
         handoff_controller: InvestigationHandoffConsoleController | None = None,
         summary_controller: InvestigationSummaryConsoleController | None = None,
         finding_controller: InvestigationFindingConsoleController | None = None,
+        response_action_controller: (
+            InvestigationResponseActionConsoleController | None
+        ) = None,
         snapshot_store: CompletedAnalysisSnapshotStore | None = None,
         analysis_activator: Callable[[object], None] | None = None,
     ):
@@ -116,6 +125,19 @@ class InvestigationConsoleController:
             output_func=output_func,
             screen_func=screen_func,
             pause_func=self.pause,
+        )
+        self.response_action_controller = (
+            response_action_controller
+            or InvestigationResponseActionConsoleController(
+                response_action_service=InvestigationResponseActionService(
+                    workspace_service
+                ),
+                finding_controller=self.finding_controller,
+                input_func=input_func,
+                output_func=output_func,
+                screen_func=screen_func,
+                pause_func=self.pause,
+            )
         )
         self.summary_controller = summary_controller or InvestigationSummaryConsoleController(
             summary_service=InvestigationSummaryService(workspace_service),
@@ -282,6 +304,8 @@ class InvestigationConsoleController:
                 current = self.handoff_controller.run(current)
             elif choice == "15":
                 self.load_source_analysis(current)
+            elif choice == "16":
+                current = self.response_action_controller.run(current)
             else:
                 self.output("Invalid option.")
             if choice in {"2", "3", "4", "5", "6", "7", "8", "9", "15"}:

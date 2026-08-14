@@ -23,6 +23,19 @@ _BADGES = {
     "hypothesis": {"open": Colors.CYAN, "supported": Colors.GREEN, "rejected": Colors.RED, "inconclusive": Colors.YELLOW},
     "finding_status": {"draft": Colors.GRAY, "substantiated": Colors.GREEN, "unsubstantiated": Colors.RED, "inconclusive": Colors.YELLOW},
     "finding_lifecycle": {"active": Colors.GREEN, "superseded": Colors.GRAY},
+    "status": {
+        "proposed": Colors.YELLOW,
+        "approved": Colors.CYAN,
+        "in_progress": Colors.CYAN,
+        "completed": Colors.GREEN,
+        "dismissed": Colors.GRAY,
+    },
+    "priority": {
+        "low": Colors.GREEN,
+        "medium": Colors.YELLOW,
+        "high": Colors.RED,
+        "critical": Colors.RED + Colors.BOLD,
+    },
     "confidence": {"low": Colors.GREEN, "medium": Colors.YELLOW, "high": Colors.RED},
     "severity": {"informational": Colors.CYAN, "low": Colors.GREEN, "medium": Colors.YELLOW, "high": Colors.RED, "critical": Colors.RED + Colors.BOLD},
     "availability": {

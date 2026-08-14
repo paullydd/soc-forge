@@ -34,6 +34,9 @@ from soc_forge.investigations.query_models import (
 )
 from soc_forge.investigations.timeline_query import InvestigationTimelineService
 from soc_forge.investigations.reasoning_service import InvestigationReasoningService
+from soc_forge.investigations.response_action_service import (
+    InvestigationResponseActionService,
+)
 from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
     WorkspaceDeletionResult,
@@ -107,6 +110,7 @@ class InvestigationWebApplication:
         evidence_service: InvestigationEvidenceService | None = None,
         reasoning_service: InvestigationReasoningService | None = None,
         finding_service: InvestigationFindingService | None = None,
+        response_action_service: InvestigationResponseActionService | None = None,
         handoff_service: InvestigationHandoffService | None = None,
         handoff_root: Path | None = None,
         snapshot_store: CompletedAnalysisSnapshotStore | None = None,
@@ -125,6 +129,10 @@ class InvestigationWebApplication:
         )
         self.finding_service = finding_service or InvestigationFindingService(
             workspace_service
+        )
+        self.response_action_service = (
+            response_action_service
+            or InvestigationResponseActionService(workspace_service)
         )
         self.timeline_service = InvestigationTimelineService()
         self.summary_service = InvestigationSummaryService(
@@ -993,8 +1001,101 @@ class InvestigationWebApplication:
             ).to_dict(),
         }
 
-    def get_timeline(
+    def list_response_actions(self, investigation_id: str) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        actions = self.response_action_service.list_actions(investigation_id)
+        statuses = ("proposed", "approved", "in_progress", "completed", "dismissed")
+        active_findings = tuple(
+            item for item in current.investigation.findings
+            if item.lifecycle_state == "active"
+        )
+        return {
+            "investigation_id": investigation_id,
+            "revision": current.revision,
+            "actions": [item.to_dict() for item in actions],
+            "counts": {
+                "total": len(actions),
+                **{
+                    status: sum(item.status == status for item in actions)
+                    for status in statuses
+                },
+            },
+            "active_findings": [
+                {
+                    "finding_id": item.finding_id,
+                    "title": item.title,
+                    "lifecycle_state": item.lifecycle_state,
+                }
+                for item in active_findings
+            ],
+        }
+
+    def get_response_action(
+        self, investigation_id: str, action_id: str
+    ) -> Dict[str, Any]:
+        current = self.workspace_service.get_investigation(investigation_id)
+        action = self.response_action_service.get_action(
+            investigation_id, action_id
+        )
+        findings = {
+            item.finding_id: item for item in current.investigation.findings
+        }
+        return {
+            "investigation_id": investigation_id,
+            "revision": current.revision,
+            "action": action.to_dict(),
+            "related_findings": [
+                findings[finding_id].to_dict()
+                for finding_id in action.finding_ids
+            ],
+        }
+
+    def create_response_action(
+        self, investigation_id: str, payload: Mapping[str, Any]
+    ) -> Dict[str, Any]:
+        result = self.response_action_service.create_action(
+            investigation_id,
+            action_id=self._optional_text(payload, "action_id"),
+            finding_ids=self._required_list(payload, "finding_ids"),
+            title=self._required_text(payload, "title"),
+            description=self._required_text(payload, "description"),
+            action_type=self._required_text(payload, "action_type"),
+            priority=self._required_text(payload, "priority"),
+            rationale=self._required_text(payload, "rationale"),
+            owner=self._required_text(payload, "owner"),
+            created_by=self._required_text(payload, "created_by"),
+            expected_revision=self._expected_revision(payload),
+        )
+        action = result.investigation.response_actions[-1]
+        return {
+            **self._workspace_response(result),
+            "action": action.to_dict(),
+        }
+
+    def transition_response_action(
         self,
+        investigation_id: str,
+        action_id: str,
+        payload: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        result = self.response_action_service.transition_action(
+            investigation_id,
+            action_id,
+            target_status=self._required_text(payload, "target_status"),
+            author=self._required_text(payload, "author"),
+            rationale=self._required_text(payload, "rationale"),
+            expected_revision=self._expected_revision(payload),
+        )
+        action = self.response_action_service.get_action(
+            investigation_id, action_id
+        )
+        return {
+            **self._workspace_response(result),
+            "action": action.to_dict(),
+            "transition": action.transition_history[-1].to_dict(),
+        }
+
+    def get_timeline(        self,
         investigation_id: str,
         filters: Mapping[str, Any] | None = None,
     ) -> Dict[str, Any]:

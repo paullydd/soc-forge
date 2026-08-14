@@ -139,3 +139,7 @@ Rendering remains passive: it does not read input, clear screens, dispatch actio
 ### Known Limitations
 
 Display width still uses Python string length after ANSI removal. Exact alignment for uncommon double-width or combining Unicode characters remains approximate, and no new width dependency is introduced. At minimum terminal width, very long labels and identifiers may truncate deliberately to preserve borders and usable value space. This affects presentation only; exact domain values remain unchanged and exact Handoff paths use wrapped presentation.
+
+## Response Actions
+
+Investigation Workspace option `16` opens the Response Actions workspace without changing options `1` through `15`. The screen uses shared breadcrumbs, panels, status/priority badges, semantic notices, grouped menus, width handling, and color fallbacks. It works from durable Investigation state without an active source analysis and records workflow only; it never executes remediation.

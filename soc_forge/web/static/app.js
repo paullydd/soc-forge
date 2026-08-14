@@ -7,6 +7,7 @@ const state = {
   evidenceFilter: "all",
   evidenceDraft: null,
   investigationDraft: null,
+  responseActions: null,
   reasoningSummary: null,
   reasoningDraft: null,
   activeCaseId: null,

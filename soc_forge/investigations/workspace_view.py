@@ -25,6 +25,10 @@ INVESTIGATION_WORKSPACE_GROUPS = (
         ),
     ),
     (
+        "RESPONSE",
+        (("16", "Response Actions"),),
+    ),
+    (
         "CASE MANAGEMENT",
         (
             ("2", "Assign or Clear Owner"),
