@@ -9,6 +9,11 @@ from soc_forge.investigations.finding_service import (
 from soc_forge.investigations.models import InvestigationFinding
 from soc_forge.investigations.repository import InvestigationRepositoryError
 from soc_forge.investigations.workspace_service import WorkspaceResult
+from soc_forge.investigations.analyst_workspace_view import (
+    render_finding_detail,
+    render_finding_list,
+    render_findings_workspace,
+)
 from soc_forge.ui.screen import begin_screen
 
 
@@ -40,16 +45,8 @@ class InvestigationFindingConsoleController:
                 current.investigation.investigation_id
             )
             self.screen("INVESTIGATION FINDINGS")
-            self.output(f"Investigation ID: {current.investigation.investigation_id}")
-            self.output(f"Current revision: {current.revision}")
-            self.output(f"Finding count: {len(current.investigation.findings)}")
-            self.output("Findings are analyst-authored conclusions.")
-            self.output("Confidence reflects analyst assessment, not machine certainty.")
-            self.output("")
-            self.output("[1] List findings")
-            self.output("[2] Create finding")
-            self.output("[3] Open finding")
-            self.output("[0] Back")
+            for line in render_findings_workspace(current).splitlines():
+                self.output(line)
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return current
@@ -70,22 +67,8 @@ class InvestigationFindingConsoleController:
         if not findings:
             self.output("No analyst-authored findings.")
             return
-        active = tuple(item for item in findings if item.lifecycle_state == "active")
-        historical = tuple(
-            item for item in findings if item.lifecycle_state == "superseded"
-        )
-        for heading, items in (
-            ("ACTIVE FINDINGS", active),
-            ("HISTORICAL / SUPERSEDED FINDINGS", historical),
-        ):
-            self.output(heading)
-            if not items:
-                self.output("  None")
-            for item in items:
-                self.output(
-                    f"{item.finding_id} | {item.title} | {item.status} | "
-                    f"{item.confidence} | {item.author} | {item.updated_at}"
-                )
+        for line in render_finding_list(findings).splitlines():
+            self.output(line)
 
     def create_finding(self, current: WorkspaceResult) -> WorkspaceResult:
         self.screen("CREATE INVESTIGATION FINDING")
@@ -305,33 +288,8 @@ class InvestigationFindingConsoleController:
 
     def render_finding(self, finding: InvestigationFinding) -> None:
         self.screen("ANALYST-AUTHORED FINDING")
-        self.output(
-            "Confidence reflects analyst assessment and does not represent "
-            "machine certainty."
-        )
-        for label, value in (
-            ("Finding ID", finding.finding_id),
-            ("Title", finding.title),
-            ("Conclusion", finding.conclusion),
-            ("Status", finding.status),
-            ("Lifecycle", finding.lifecycle_state.upper()),
-            ("Confidence", finding.confidence),
-            ("Author", finding.author),
-            ("Created", finding.created_at),
-            ("Updated", finding.updated_at),
-            ("Evidence IDs", ", ".join(finding.evidence_ids) or "None"),
-            ("Hypothesis IDs", ", ".join(finding.hypothesis_ids) or "None"),
-            ("Decision IDs", ", ".join(finding.decision_ids) or "None"),
-            ("ATT&CK tactics", ", ".join(finding.attack_tactics) or "None"),
-            ("ATT&CK techniques", ", ".join(finding.attack_techniques) or "None"),
-            ("Limitations", "; ".join(finding.limitations) or "None"),
-            ("Supersedes", finding.supersedes_finding_id or "None"),
-            ("Superseded by", finding.superseded_by_finding_id or "None"),
-            ("Supersession reason", finding.supersession_reason or "None"),
-            ("Supersession author", finding.supersession_author or "None"),
-            ("Superseded at", finding.superseded_at or "None"),
-        ):
-            self.output(f"{label}: {value}")
+        for line in render_finding_detail(finding).splitlines():
+            self.output(line)
 
     def _select_ids(
         self, heading: str, options: tuple[tuple[str, str], ...]

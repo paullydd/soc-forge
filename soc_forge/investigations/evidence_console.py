@@ -17,6 +17,11 @@ from soc_forge.investigations.repository import (
     InvestigationRepositoryError,
 )
 from soc_forge.investigations.workspace_service import WorkspaceResult
+from soc_forge.investigations.analyst_workspace_view import (
+    render_evidence_candidate,
+    render_evidence_workspace,
+    render_selected_evidence,
+)
 from soc_forge.ui.screen import begin_screen
 
 
@@ -56,14 +61,8 @@ class EvidenceConsoleController:
     def run(self, current: WorkspaceResult) -> WorkspaceResult:
         while True:
             self.screen("INVESTIGATION EVIDENCE")
-            self.render_counts(current)
-            self.output("")
-            self.output("[1] Browse evidence candidates")
-            self.output("[2] View selected evidence")
-            self.output("[3] Inspect selected evidence")
-            self.output("[4] Update selected evidence")
-            self.output("[5] Remove selected evidence")
-            self.output("[0] Back")
+            for line in render_evidence_workspace(current).splitlines():
+                self.output(line)
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return current
@@ -254,21 +253,8 @@ class EvidenceConsoleController:
         if not selected:
             self.output("  None")
         for item in selected:
-            warning = (
-                " | SENSITIVE"
-                if item.provenance_fields
-                and any(
-                    token in item.provenance_fields
-                    for token in ("command_line", "message", "raw_message")
-                )
-                else ""
-            )
-            self.output(
-                f"  {item.reference_id} | {item.evidence_type} | "
-                f"{item.classification} | {item.selected_by} | "
-                f"{item.selected_at} | {item.source_id}{warning}"
-            )
-            self.output(f"    Rationale: {self._bounded(item.rationale or '')}")
+            for line in render_selected_evidence(item).splitlines():
+                self.output(line)
 
     def inspect_selected(self, current: WorkspaceResult) -> None:
         reference = self._choose_selected(current, "Selection number to inspect: ")
@@ -389,18 +375,8 @@ class EvidenceConsoleController:
 
     def _render_candidates(self, candidates: Iterable[EvidenceCandidate]) -> None:
         for index, item in enumerate(candidates, start=1):
-            warning = " | SENSITIVE" if item.sensitive_fields else ""
-            limitation = (
-                f" | LIMITATION: {item.limitation_reason}"
-                if item.limitation_reason
-                else ""
-            )
-            self.output(
-                f"[{index}] {item.evidence_id[:24]} | {item.evidence_type} | "
-                f"{item.title} | {item.timestamp or 'Unknown'} | {item.source_id} | "
-                f"Rule {item.rule_id or 'None'} | Cases "
-                f"{','.join(item.case_ids) or 'None'}{warning}{limitation}"
-            )
+            for line in render_evidence_candidate(index, item).splitlines():
+                self.output(line)
 
     def _choose_selected(
         self,
@@ -420,14 +396,8 @@ class EvidenceConsoleController:
         return selected[index] if index is not None else None
 
     def _render_selection_metadata(self, item: EvidenceReference) -> None:
-        self.output(f"Evidence ID: {item.reference_id}")
-        self.output(f"Evidence type: {item.evidence_type}")
-        self.output(f"Classification: {item.classification}")
-        self.output(f"Author: {item.selected_by}")
-        self.output(f"Selected: {item.selected_at}")
-        self.output(f"Updated: {item.selection_updated_at}")
-        self.output(f"Rationale: {self._bounded(item.rationale or '')}")
-        self.output(f"Source identifier: {item.source_id}")
+        for line in render_selected_evidence(item).splitlines():
+            self.output(line)
 
     def _conflict(self, current: WorkspaceResult, attempted_rationale: str) -> WorkspaceResult:
         self.output(

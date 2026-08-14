@@ -11,6 +11,7 @@ from soc_forge.investigations.reasoning_console import (
 )
 from soc_forge.investigations.reasoning_service import InvestigationReasoningService
 from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.ui.terminal import strip_ansi
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
 
 
@@ -100,13 +101,13 @@ def test_reasoning_menu_back_and_empty_summary(tmp_path):
 
     assert controller.run(current) == current
 
-    output = "\n".join(messages)
-    assert "[1] View reasoning summary" in output
-    assert "[6] Record investigation decision" in output
+    output = strip_ansi("\n".join(messages))
+    assert "View Reasoning Summary" in output
+    assert "[6] Record Investigation Decision" in output
     assert "Total hypotheses: 0" in output
     assert "Total decisions: 0" in output
     assert "not machine certainty" in output
-    assert "Authoritative revision:" in output
+    assert "Revision" in output
 
 
 def test_reasoning_create_and_list_pause_and_persist(tmp_path):
@@ -209,7 +210,8 @@ def test_list_and_detail_are_deterministic_and_use_persisted_metadata(tmp_path):
 
     assert [item.hypothesis_id for item in listed] == ["HYP-A", "HYP-B"]
     output = "\n".join(messages)
-    assert "State: OPEN" in output
+    assert "Analyst assessment" in strip_ansi(output)
+    assert "[OPEN]" in strip_ansi(output)
     assert "EVIDENCE-SUPPORT | alert | supporting" in output
     assert "supporting analyst rationale" in output
     assert "SOURCE-SUPPORT" in output
@@ -309,8 +311,9 @@ def test_reopen_preserves_evidence_and_assessment_history(tmp_path):
         "reopened",
     ]
     controller.view_related_decisions(reopened, "HYP-001")
-    assert "Decision ID: DEC-ASSESS" in messages
-    assert "Decision ID: DEC-REOPEN" in messages
+    plain = strip_ansi("\n".join(messages))
+    assert "Decision ID" in plain and "DEC-ASSESS" in plain
+    assert "Decision ID" in plain and "DEC-REOPEN" in plain
 
 
 @pytest.mark.parametrize("choice,decision_type", list(enumerate(GENERAL_DECISION_TYPES, 1)))

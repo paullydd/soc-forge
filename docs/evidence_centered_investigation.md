@@ -302,3 +302,9 @@ policy is added. Analyst and telemetry strings are rendered as text in the
 evidence UI.
 
 > Web evidence routes use the shared catalog and evidence service. They do not derive identities, infer relationships, or copy source payloads.
+
+## Terminal Presentation
+
+The terminal Evidence workspace uses the shared v3.2 breadcrumb, state panel, grouped menu, candidate cards, and selected-evidence cards. Candidate type choices, ordering, filtering, source-analysis checks, selection flow, and all sensitive-data confirmations remain unchanged. Classification is always textual as `SUPPORTING`, `CONTRADICTING`, or `CONTEXT`; color is supplementary.
+
+Rendering is passive. The controller retains input and dispatch ownership, and only `InvestigationEvidenceService` may change selected evidence or investigation revision.

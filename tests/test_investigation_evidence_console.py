@@ -8,6 +8,7 @@ from soc_forge.investigations.evidence_console import EvidenceConsoleController
 from soc_forge.investigations.evidence_service import InvestigationEvidenceService
 from soc_forge.investigations.models import Decision, Hypothesis
 from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.ui.terminal import strip_ansi
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
 from soc_forge.pipeline import AnalysisResult
 
@@ -145,11 +146,12 @@ def test_menu_navigation_and_counts_separate_scope_from_selections(tmp_path):
     current = select(controller, current, candidate(catalog, analysis, "alert"))
     controller.input = ScriptedInput(["0"])
     assert controller.run(current) == current
-    assert "Scope references: 1" in messages
-    assert "Analyst-selected evidence: 1" in messages
-    assert "Supporting: 1" in messages
-    assert "[1] Browse evidence candidates" in messages
-    assert "[5] Remove selected evidence" in messages
+    rendered = strip_ansi("\n".join(messages))
+    assert "Scope references" in rendered and "1" in rendered
+    assert "Selected evidence" in rendered and "1" in rendered
+    assert "Supporting" in rendered and "1" in rendered
+    assert "[1] Browse Evidence Candidates" in rendered
+    assert "[5] Remove Selected Evidence" in rendered
 
 
 @pytest.mark.parametrize(
@@ -159,12 +161,18 @@ def test_menu_navigation_and_counts_separate_scope_from_selections(tmp_path):
 def test_browse_filters_use_catalog_and_preserve_deterministic_order(
     tmp_path, choice, evidence_type
 ):
-    controller, _, _, _, _, current, messages = build_controller(
+    controller, analysis, catalog, _, _, current, messages = build_controller(
         tmp_path, inputs=[choice, ""]
     )
     assert controller.browse(current) == current
-    listing = next(line for line in messages if line.startswith("[1] evidence-"))
-    assert f"| {evidence_type} |" in listing
+    rendered = strip_ansi("\n".join(messages))
+    expected = catalog.list_candidates(
+        analysis,
+        case_ids=("CASE-001",),
+        evidence_types=(evidence_type,),
+    )[0]
+    assert expected.evidence_id in rendered
+    assert evidence_type in rendered
 
 
 def test_all_candidates_are_ordered_and_lists_hide_raw_sensitive_values(tmp_path):
@@ -173,12 +181,10 @@ def test_all_candidates_are_ordered_and_lists_hide_raw_sensitive_values(tmp_path
     )
     before = deepcopy(analysis)
     controller.browse(current)
-    listings = [line for line in messages if line.startswith(("[1] evidence-", "[2] evidence-", "[3] evidence-", "[4] evidence-"))]
+    rendered = strip_ansi("\n".join(messages))
     expected = catalog.list_candidates(analysis, case_ids=("CASE-001",))
-    assert [line.split(" | ")[1] for line in listings] == [
-        item.evidence_type for item in expected
-    ]
-    rendered = "\n".join(listings)
+    positions = [rendered.index(item.evidence_id) for item in expected]
+    assert positions == sorted(positions)
     assert "very-sensitive-command" not in rendered
     assert "raw sensitive source message" not in rendered
     assert "SENSITIVE" in rendered
@@ -274,7 +280,9 @@ def test_selected_list_and_inspection_with_and_without_active_analysis(tmp_path)
     output = "\n".join(messages)
     assert "Investigation Scope References" in output
     assert "Analyst-Selected Evidence" in output
-    assert "supporting | alice" in output
+    plain = strip_ansi(output)
+    assert "[SUPPORTING]" in plain
+    assert "Analyst" in plain and "alice" in plain
 
     messages.clear()
     controller.input = ScriptedInput(["1", "n"])

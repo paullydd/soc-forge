@@ -196,3 +196,9 @@ never placed in a URL. Reasoning may still remain visible in browser history,
 developer tools, or screenshots and should be handled as sensitive content.
 
 > Web reasoning routes use the shared reasoning service. They do not infer conclusions, alter analysis output, or perform response actions.
+
+## Terminal Presentation
+
+The terminal Reasoning workspace uses the shared v3.2 breadcrumb and a compact state panel sourced from the existing reasoning service. Hypothesis cards show analyst assessment, evidence relationships, and the latest related decision. Decision cards preserve type, outcome, analyst, rationale, and evidence or hypothesis references.
+
+All menu numbers, prompts, validation, transitions, and revision behavior remain unchanged. The presentation layer cannot create or assess a hypothesis and cannot record a decision.

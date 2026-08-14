@@ -74,3 +74,29 @@ Timeline chronology and all existing limitations have dedicated bounded sections
 The drill-down menu preserves options 1 through 6 and 0 exactly. Visual grouping does not change dispatch, input, pause, Back, snapshot, persistence, or revision behavior. Text wraps through the centralized width policy, and badges retain their labels when ANSI is disabled.
 
 v3.2 Slice 5 changes Investigation Summary presentation only. InvestigationSummaryService semantics, FULL/OFFLINE behavior, Finding lifecycle, drill-down behavior, persistence, and revision semantics remain unchanged.
+
+## Analyst Workspaces
+
+v3.2 Slice 6 applies the shared terminal presentation to the Evidence, Reasoning, and Findings workspaces. Their breadcrumbs use the current durable investigation ID and end in `EVIDENCE`, `REASONING`, or `FINDINGS`; breadcrumbs remain display context rather than navigation state.
+
+The Evidence workspace presents authoritative scope, selection, and classification counts, then groups its unchanged options into review and management actions. Candidate cards retain source ordering and filtering, identify sensitivity without exposing additional telemetry, and selected-evidence cards keep classification, rationale, provenance, and case context visible. Existing sensitive-evidence acknowledgement prompts remain authoritative and unchanged.
+
+The Reasoning workspace separates analyst hypotheses from analyst decisions. Its state panel uses the existing reasoning-service summary. Hypothesis cards retain assessment state, supporting and contradicting evidence relationships, and latest related decision; decision cards retain type, outcome, analyst, rationale, and relationships. Presentation does not create, assess, reopen, or link reasoning objects.
+
+The Findings workspace separates `ACTIVE FINDINGS` from `HISTORICAL / SUPERSEDED FINDINGS`. Lifecycle remains explicit when color is unavailable, and historical Findings remain readable but read-only under the existing controller rules. Finding details preserve status, confidence, basis references, ATT&CK context, limitations, and supersession history while retaining the analyst-certainty disclaimer.
+
+The visual reasoning flow is:
+
+```text
+source evidence
+  -> analyst-selected Evidence
+  -> analyst Hypothesis
+  -> analyst Decision
+  -> analyst-authored Finding
+```
+
+Menu numbers and dispatch contracts are unchanged. Controllers continue to own input, confirmation, pause, Back behavior, screen boundaries, and service calls. Renderers accept immutable values and return bounded text; they do not access repositories or perform mutations. The shared width and no-color policies apply at 100, 80, 60, and minimum fallback widths.
+
+v3.2 Slice 6 changes analyst workspace presentation only. Evidence, Hypothesis, Decision, and Finding domain semantics, validation, persistence, revision behavior, provenance, lifecycle, and sensitive-data protections remain unchanged.
+
+Long metadata labels may still be compacted by the shared fixed-label renderer at narrow widths. A broad metadata-label policy change is deferred to the final v3.2 terminal consistency and polish slice.

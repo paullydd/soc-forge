@@ -13,6 +13,11 @@ from soc_forge.investigations.repository import (
     InvestigationRepositoryError,
 )
 from soc_forge.investigations.workspace_service import WorkspaceResult
+from soc_forge.investigations.analyst_workspace_view import (
+    render_decision,
+    render_hypothesis,
+    render_reasoning_workspace,
+)
 from soc_forge.ui.screen import begin_screen
 
 
@@ -39,22 +44,9 @@ class ReasoningConsoleController:
     def run(self, current: WorkspaceResult) -> WorkspaceResult:
         while True:
             self.screen("HYPOTHESES AND DECISIONS")
-            self.output(f"Authoritative revision: {current.revision}")
-            self.output(
-                "Hypothesis states reflect analyst assessment of current evidence, "
-                "not machine certainty."
-            )
-            self.output(
-                "Warning: terminal scrollback may retain analyst reasoning and evidence values."
-            )
-            self.output("")
-            self.output("[1] View reasoning summary")
-            self.output("[2] List hypotheses")
-            self.output("[3] Create hypothesis")
-            self.output("[4] Open hypothesis")
-            self.output("[5] View decisions")
-            self.output("[6] Record investigation decision")
-            self.output("[0] Back")
+            summary = self._summary(current)
+            for line in render_reasoning_workspace(current, summary).splitlines():
+                self.output(line)
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return current
@@ -444,35 +436,8 @@ class ReasoningConsoleController:
 
     def _render_hypothesis(self, current: WorkspaceResult, hypothesis: Hypothesis) -> None:
         self.screen("HYPOTHESIS DETAILS")
-        self.output(f"Hypothesis ID: {hypothesis.hypothesis_id}")
-        self.output(f"Statement: {self._bounded(hypothesis.statement)}")
-        self.output(f"State: {hypothesis.state.upper()}")
-        self.output(f"Author: {hypothesis.author or 'Unknown'}")
-        self.output(f"Created: {hypothesis.created_at or 'Unknown'}")
-        self.output(f"Updated: {hypothesis.updated_at or 'Unknown'}")
-        relationships = (
-            ("Supporting evidence", hypothesis.supporting_evidence_reference_ids),
-            ("Contradicting evidence", hypothesis.contradicting_evidence_reference_ids),
-        )
-        for label, evidence_ids in relationships:
-            self.output(label + ":")
-            for evidence_id in evidence_ids:
-                evidence = next(
-                    (
-                        item
-                        for item in current.investigation.evidence_references
-                        if item.reference_id == evidence_id
-                    ),
-                    None,
-                )
-                if evidence is not None:
-                    self._render_evidence(evidence)
-        related = [
-            item
-            for item in current.investigation.decisions
-            if hypothesis.hypothesis_id in item.hypothesis_ids
-        ]
-        self.output(f"Related assessment decisions: {len(related)}")
+        for line in render_hypothesis(current, hypothesis).splitlines():
+            self.output(line)
         self.output(
             "Underlying source details require the matching active analysis in "
             "the evidence workspace."
@@ -488,20 +453,8 @@ class ReasoningConsoleController:
         self.output(f"    Source identifier: {evidence.source_id}")
 
     def _render_decision(self, decision: Decision) -> None:
-        self.output(f"Decision ID: {decision.decision_id}")
-        self.output(f"Type: {decision.decision_type}")
-        self.output(f"Outcome or disposition: {decision.outcome}")
-        self.output(f"Rationale: {self._bounded(decision.rationale)}")
-        self.output(f"Author: {decision.decided_by or 'Unknown'}")
-        self.output(f"Timestamp: {decision.decided_at or 'Unknown'}")
-        self.output(
-            "Related hypothesis IDs: "
-            + (", ".join(decision.hypothesis_ids) or "None")
-        )
-        self.output(
-            "Related evidence IDs: "
-            + (", ".join(decision.evidence_reference_ids) or "None")
-        )
+        for line in render_decision(decision).splitlines():
+            self.output(line)
 
     def _summary(self, current: WorkspaceResult):
         try:

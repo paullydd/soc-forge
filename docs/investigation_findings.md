@@ -62,3 +62,9 @@ Supersession links both Findings in one revision-aware transaction and increment
 Summary narrative is driven only by active Findings and reports active and historical counts. Handoff schema 1.2 preserves and validates lifecycle links and audit metadata. Schema 1.1 bundles without lifecycle metadata remain compatible and load their Findings as active; schema 1.0 compatibility remains unchanged.
 
 The console and web interfaces separate active and historical Findings and require explicit confirmation for supersession. Lifecycle remains available offline and completed-analysis snapshot activation never changes it. There is no deletion, automatic supersession, or machine-generated lifecycle transition.
+
+## Terminal Presentation
+
+The terminal Findings workspace uses the shared v3.2 breadcrumb and authoritative Finding counts. Active Findings and historical or superseded Findings appear in separate sections, with lifecycle state retained as text when ANSI color is unavailable. Historical Findings remain readable and read-only.
+
+Finding cards and details preserve status, confidence, analyst attribution, basis references, ATT&CK context, limitations, and supersession history. Existing create, edit, drill-down, confirmation, and atomic supersession behavior remains owned by `InvestigationFindingService` and its controller.

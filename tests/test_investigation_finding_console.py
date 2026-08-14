@@ -2,6 +2,7 @@ from query_fixtures import build_query_analysis, build_query_investigation
 from soc_forge.investigations.finding_console import InvestigationFindingConsoleController
 from soc_forge.investigations.finding_service import InvestigationFindingService
 from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.ui.terminal import strip_ansi
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
 
 
@@ -121,7 +122,7 @@ def test_console_detail_edit_noop_and_relationship_drilldowns(tmp_path):
     rendered = "\n".join(values[6])
     assert "ANALYST-AUTHORED FINDING" in values[7]
     assert "Confidence reflects analyst assessment" in rendered
-    assert "Evidence IDs:" in rendered
+    assert "Evidence IDs" in strip_ansi(rendered)
     assert "Finding unchanged." in rendered
 
 
@@ -207,7 +208,8 @@ def test_console_supersedes_with_confirmation_and_preserves_history(tmp_path):
     assert service.get_finding("INV-QUERY", "FIND-001").lifecycle_state == "superseded"
     assert service.get_finding("INV-QUERY", "FIND-002").lifecycle_state == "active"
     rendered = "\n".join(values[6])
-    assert "Lifecycle: SUPERSEDED" in rendered
+    assert "Lifecycle" in strip_ansi(rendered)
+    assert "[SUPERSEDED]" in strip_ansi(rendered)
     assert "Historical findings are read-only." in rendered
     assert "ACTIVE FINDINGS" in rendered
     assert "HISTORICAL / SUPERSEDED FINDINGS" in rendered
