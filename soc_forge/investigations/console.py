@@ -38,6 +38,7 @@ from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
     WorkspaceResult,
 )
+from soc_forge.investigations.workspace_view import render_investigation_workspace
 from soc_forge.ui.screen import begin_screen
 
 
@@ -248,23 +249,6 @@ class InvestigationConsoleController:
     def workspace_loop(self, current: WorkspaceResult) -> WorkspaceResult:
         while True:
             self._render_workspace(current)
-            self.output("[1] Investigation Summary")
-            self.output("[2] Assign or clear owner")
-            self.output("[3] Change status")
-            self.output("[4] Reopen investigation")
-            self.output("[5] View annotations")
-            self.output("[6] Add annotation")
-            self.output("[7] Edit annotation")
-            self.output("[8] Remove annotation")
-            self.output("[9] View decisions")
-            self.output("[10] Evidence workspace")
-            self.output("[11] Hypotheses and Decisions")
-            self.output("[12] Investigation Findings")
-            self.output("[13] Timeline and Pivot Workbench (Read Only)")
-            self.output("[14] Investigation Handoff (Read Only)")
-            self.output("[15] Load source analysis snapshot")
-            self.output("[0] Back")
-
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return current
@@ -506,28 +490,9 @@ class InvestigationConsoleController:
         return updated
 
     def _render_workspace(self, current: WorkspaceResult) -> None:
-        investigation = current.investigation
-        metadata = investigation.metadata
-        case_ids = [
-            reference.source_id
-            for reference in investigation.evidence_references
-            if reference.origin == "scope" and reference.source_type == "case"
-        ]
         self.screen("INVESTIGATION WORKSPACE")
-        self.output(f"Investigation ID: {investigation.investigation_id}")
-        self.output(f"Title: {metadata.title}")
-        self.output(f"Status: {metadata.status}")
-        self.output(f"Owner: {metadata.owner or 'Unassigned'}")
-        self.output(f"Created: {metadata.created_at}")
-        self.output(f"Updated: {metadata.updated_at}")
-        self.output(f"Revision: {current.revision}")
-        self.output(f"Source analysis ID: {investigation.analysis_id}")
-        self.output(f"Selected case IDs: {', '.join(case_ids) or 'None'}")
-        self.output(f"Annotations: {len(investigation.annotations)}")
-        self.output(f"Decisions: {len(investigation.decisions)}")
-        self.reasoning_controller.render_workspace_counts(current)
-        self.evidence_controller.render_counts(current)
-        self.output("")
+        for line in render_investigation_workspace(current).splitlines():
+            self.output(line)
 
     @staticmethod
     def _display_errors() -> tuple[type[Exception], ...]:

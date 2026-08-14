@@ -257,16 +257,16 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     controller.input = ScriptedInput(["INV-001", "0"])
     opened = controller.open_flow()
     assert opened == result
-    assert any("Source analysis ID:" in line for line in messages)
-    assert any("Selected case IDs: CASE-B" in line for line in messages)
-    assert any("Annotations: 0" in line for line in messages)
-    assert any("Decisions: 0" in line for line in messages)
-    assert "[1] Investigation Summary" in messages
-    assert "[10] Evidence workspace" in messages
-    assert "[11] Hypotheses and Decisions" in messages
-    assert "[12] Investigation Findings" in messages
-    assert "[13] Timeline and Pivot Workbench (Read Only)" in messages
-    assert "[14] Investigation Handoff (Read Only)" in messages
+    assert any("Source analysis ID" in line for line in messages)
+    assert any("Selected case IDs" in line and "CASE-B" in line for line in messages)
+    assert any("Annotations" in line and "0" in line for line in messages)
+    assert any("Decisions" in line and "0" in line for line in messages)
+    assert any("Investigation Summary" in line for line in messages)
+    assert any("Evidence Workspace" in line for line in messages)
+    assert any("Hypotheses and Decisions" in line for line in messages)
+    assert any("Investigation Findings" in line for line in messages)
+    assert any("Timeline and Pivot Workbench (Read Only)" in line for line in messages)
+    assert any("Investigation Handoff (Read Only)" in line for line in messages)
     assert "[9] Record decision" not in messages
 
 

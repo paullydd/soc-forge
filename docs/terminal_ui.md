@@ -46,3 +46,18 @@ The platform overview continues to use the established alert, case, case-status,
 Top-level menus add a minimal SOC-FORGE > MENU breadcrumb while preserving their existing options, dispatch, input handling, and back navigation. Nested workspace redesign remains deferred to later slices. The same bounded-width and no-color behavior used by the terminal foundation applies to the Command Center.
 
 v3.2 Slice 3 changes presentation and navigation hierarchy only; Command Center behavior and menu semantics remain unchanged.
+
+
+## Investigation Workspace Presentation
+
+The durable Investigation Workspace uses the shared terminal foundation and the same visual language as the Command Center. Its breadcrumb follows SOC-FORGE > INVESTIGATIONS > INVESTIGATION ID and is presentation context only.
+
+The Investigation Overview panel consolidates the existing investigation ID, title, status, owner, revision, source analysis ID, selected case IDs, and created/updated timestamps. The Investigation State panel consolidates the existing annotation, decision, evidence, hypothesis, and Finding counts, including active and historical Finding distinctions. No new investigation metrics or projection architecture are introduced.
+
+Navigation is visually grouped into Analysis, Case Management, Annotations & Decisions, and Output & Recovery. This visual order is independent of controller dispatch: the established numeric contract from 1 through 15, plus 0 for Back, remains authoritative and unchanged.
+
+The workspace uses the centralized width policy. Metadata becomes more compact at narrow widths, bounded values truncate safely, and investigation IDs remain identifiable. Status text remains visible when ANSI is disabled through NO_COLOR, TERM=dumb, redirected output, or test capture.
+
+Only the Investigation Workspace entry screen is migrated in this slice. Investigation Summary, Evidence, Hypotheses and Decisions, Findings, Timeline and Pivots, and Handoff internals remain deferred.
+
+v3.2 Slice 4 changes Investigation Workspace presentation only. Investigation behavior, menu numbers, dispatch semantics, repository state, and revision semantics remain unchanged.

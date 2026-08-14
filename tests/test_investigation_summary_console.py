@@ -233,7 +233,7 @@ def test_workspace_option_one_dispatches_summary_and_back_returns_one_level(tmp_
 
     assert controller.workspace_loop(current) == current
     assert calls == [current]
-    assert "[1] Investigation Summary" in messages
+    assert any("Investigation Summary" in line for line in messages)
 
 
 def test_empty_summary_state_renders_safely(tmp_path):
