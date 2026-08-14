@@ -92,9 +92,7 @@ class InvestigationHandoffConsoleController:
                 self.output("Invalid option.")
 
     def preview_flow(self, current: WorkspaceResult) -> HandoffPreview | None:
-        analysis = self._active_analysis()
-        if analysis is None:
-            return None
+        analysis = self.analysis_provider()
         try:
             preview = self.handoff_service.preview(
                 current.investigation.investigation_id,
@@ -107,9 +105,7 @@ class InvestigationHandoffConsoleController:
         return preview
 
     def export_flow(self, current: WorkspaceResult) -> HandoffResult | None:
-        analysis = self._active_analysis()
-        if analysis is None:
-            return None
+        analysis = self.analysis_provider()
         try:
             preview = self.handoff_service.preview(
                 current.investigation.investigation_id,
@@ -142,7 +138,7 @@ class InvestigationHandoffConsoleController:
     def _export_to_root(
         self,
         current: WorkspaceResult,
-        analysis: object,
+        analysis: object | None,
         output_root: Path,
     ) -> HandoffResult | None:
         investigation_id = current.investigation.investigation_id
@@ -167,7 +163,7 @@ class InvestigationHandoffConsoleController:
     def _existing_target_flow(
         self,
         current: WorkspaceResult,
-        analysis: object,
+        analysis: object | None,
         output_root: Path,
     ) -> HandoffResult | None:
         self.output("A handoff already exists for this investigation.")
@@ -247,14 +243,6 @@ class InvestigationHandoffConsoleController:
         self.screen("HANDOFF MANIFEST")
         for line in render_handoff_manifest(summary).splitlines():
             self.output(line)
-
-    def _active_analysis(self) -> object | None:
-        analysis = self.analysis_provider()
-        if analysis is None:
-            self.output(
-                "No completed analysis is active. Handoff preview and export are unavailable."
-            )
-        return analysis
 
     def _display_error(self, exc: Exception, *, action: str) -> None:
         if isinstance(exc, InvestigationChangedDuringHandoffError):

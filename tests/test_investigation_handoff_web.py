@@ -139,17 +139,21 @@ def test_handoff_preview_is_bounded_no_store_and_read_only(handoff_server):
     assert handoff_server["server"].active_analysis_result == analysis_before
 
 
-def test_preview_requires_active_matching_analysis(handoff_server):
+def test_preview_is_available_offline_without_active_analysis(handoff_server):
     _create(handoff_server)
     handoff_server["server"].active_analysis_result = None
-    status, headers, error = _request(
+    before = _tree_hashes(handoff_server["workspace_root"])
+    status, headers, preview = _request(
         handoff_server,
         "GET",
         "/api/investigations/INV-HANDOFF-WEB/handoff/preview",
     )
-    assert status == 409
+    assert status == 200
     assert headers["Cache-Control"] == "no-store"
-    assert error["error"]["code"] == "no_active_analysis"
+    assert preview["mode"] == "offline"
+    assert preview["source_analysis_available"] is False
+    assert preview["available_artifact_keys"] == []
+    assert _tree_hashes(handoff_server["workspace_root"]) == before
 
     _request(handoff_server, "POST", "/api/scenario", {"scenario": "attack_chain"})
     status, _, error = _request(
@@ -159,6 +163,27 @@ def test_preview_requires_active_matching_analysis(handoff_server):
     )
     assert status == 409
     assert error["error"]["code"] == "analysis_provenance_mismatch"
+
+
+def test_offline_export_contains_durable_state_and_missing_analysis_context(handoff_server):
+    current = _create(handoff_server)
+    handoff_server["server"].active_analysis_result = None
+    before = _tree_hashes(handoff_server["workspace_root"])
+
+    status, headers, result = _export(handoff_server, current)
+
+    assert status == 200
+    assert headers["Cache-Control"] == "no-store"
+    bundle = handoff_server["out_dir"] / result["bundle_location"]
+    manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+    timeline = json.loads((bundle / "timeline.json").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "1.3"
+    assert manifest["mode"] == "offline"
+    assert manifest["source_analysis_available"] is False
+    assert timeline["timed_entries"] == timeline["untimed_entries"] == []
+    assert not (bundle / "source_artifacts").exists()
+    assert validate_handoff_bundle(bundle)
+    assert _tree_hashes(handoff_server["workspace_root"]) == before
 
 
 @pytest.mark.parametrize(
@@ -397,6 +422,7 @@ def test_handoff_ui_contract_uses_safe_browser_primitives():
     assert "Inspect Manifest" in source
     assert "Validate Bundle" in source
     assert "renderHandoffPreview" in source
+    assert "[OFFLINE] Source analysis unavailable" in source
     assert "Findings are analyst-authored conclusions" in source
     assert "replaceChildren" in source
     assert "textContent" in source

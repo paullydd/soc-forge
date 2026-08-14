@@ -286,13 +286,8 @@ class InvestigationWebApplication:
             "warnings": [],
         }
 
-    def _active_handoff_analysis(self) -> object:
-        analysis = self.analysis_provider()
-        if analysis is None:
-            raise NoActiveAnalysisError(
-                "A matching active analysis is required for this handoff operation."
-            )
-        return analysis
+    def _active_handoff_analysis(self) -> object | None:
+        return self.analysis_provider()
 
     def _handoff_bundle(self, investigation_id: str) -> Path:
         if not investigation_id or any(

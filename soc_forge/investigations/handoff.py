@@ -182,6 +182,8 @@ class HandoffPreview:
     required_artifacts_available: bool
     missing_required_artifact_keys: Tuple[str, ...]
     missing_optional_artifact_keys: Tuple[str, ...]
+    mode: str
+    source_analysis_available: bool
     sensitive_data_warning: str = SENSITIVE_DATA_WARNING
 
 
@@ -492,28 +494,38 @@ class InvestigationHandoffService:
     def preview(
         self,
         investigation_id: str,
-        analysis: AnalysisResult,
+        analysis: AnalysisResult | None,
     ) -> HandoffPreview:
         stored = self.repository.load_record(investigation_id)
         investigation = stored.investigation
-        try:
-            context = InvestigationQueryContext(analysis, investigation)
-        except Exception as exc:
-            raise HandoffProvenanceMismatchError(
-                "The completed analysis does not match this investigation"
-            ) from exc
-        available, missing_required, missing_optional = self._artifact_status(
-            analysis,
-            investigation.analysis_artifact_keys,
-        )
-        timeline = self.timeline_service.timeline(context)
+        context = None
+        if analysis is not None:
+            try:
+                context = InvestigationQueryContext(analysis, investigation)
+            except Exception as exc:
+                raise HandoffProvenanceMismatchError(
+                    "The completed analysis does not match this investigation"
+                ) from exc
+            available, missing_required, missing_optional = self._artifact_status(
+                analysis,
+                investigation.analysis_artifact_keys,
+            )
+            timeline = self.timeline_service.timeline(context)
+            timed_entry_count = len(timeline.entries)
+            untimed_entry_count = len(timeline.untimed_entries)
+        else:
+            available, missing_required, missing_optional = self._offline_artifact_status(
+                investigation.analysis_artifact_keys
+            )
+            timed_entry_count = 0
+            untimed_entry_count = 0
         return HandoffPreview(
             investigation_id=investigation.investigation_id,
             title=investigation.metadata.title,
             owner=investigation.metadata.owner,
             status=investigation.metadata.status,
             revision=stored.revision,
-            source_analysis_id=context.source_analysis_id,
+            source_analysis_id=investigation.analysis_id,
             selected_case_count=sum(
                 item.origin == "scope" and item.source_type == "case"
                 for item in investigation.evidence_references
@@ -565,18 +577,20 @@ class InvestigationHandoffService:
             response_action_count=len(investigation.response_actions),
             response_actions=tuple(HandoffResponseActionPreview(action_id=item.action_id, title=_preview_text(item.title), action_type=item.action_type, priority=item.priority, status=item.status, owner=_preview_text(item.owner), finding_ids=tuple(sorted(item.finding_ids)), transition_count=len(item.transition_history)) for item in sorted(investigation.response_actions, key=lambda value: value.action_id)),
             annotation_count=len(investigation.annotations),
-            timed_entry_count=len(timeline.entries),
-            untimed_entry_count=len(timeline.untimed_entries),
+            timed_entry_count=timed_entry_count,
+            untimed_entry_count=untimed_entry_count,
             available_artifact_keys=available,
             required_artifacts_available=not missing_required,
             missing_required_artifact_keys=missing_required,
             missing_optional_artifact_keys=missing_optional,
+            mode="full" if analysis is not None else "offline",
+            source_analysis_available=analysis is not None,
         )
 
     def export(
         self,
         investigation_id: str,
-        analysis: AnalysisResult,
+        analysis: AnalysisResult | None,
         output_root: Path | str,
         *,
         overwrite: bool = False,
@@ -584,12 +598,14 @@ class InvestigationHandoffService:
         safe_id = _safe_segment(investigation_id, "Investigation ID")
         initial = self.repository.load_record(investigation_id)
         investigation = initial.investigation
-        try:
-            context = InvestigationQueryContext(analysis, investigation)
-        except Exception as exc:
-            raise HandoffProvenanceMismatchError(
-                "The completed analysis does not match this investigation"
-            ) from exc
+        context = None
+        if analysis is not None:
+            try:
+                context = InvestigationQueryContext(analysis, investigation)
+            except Exception as exc:
+                raise HandoffProvenanceMismatchError(
+                    "The completed analysis does not match this investigation"
+                ) from exc
 
         root = Path(output_root)
         if root.exists() and root.is_symlink():
@@ -602,18 +618,21 @@ class InvestigationHandoffService:
         if target.exists() and not overwrite:
             raise UnsafeHandoffOutputPathError("Handoff target already exists")
 
-        analysis_before = deepcopy(analysis)
+        analysis_before = deepcopy(analysis) if analysis is not None else None
         warnings: list[str] = []
         staging = Path(tempfile.mkdtemp(prefix=f".{safe_id}.", dir=resolved_root))
         try:
             self._write_bundle(
                 staging,
+                investigation,
                 context,
                 initial.revision,
                 analysis,
                 warnings,
             )
-            source_hashes = self._artifact_hashes(analysis)
+            source_hashes = (
+                self._artifact_hashes(analysis) if analysis is not None else {}
+            )
             if self.before_finalize is not None:
                 self.before_finalize()
             final = self.repository.load_record(investigation_id)
@@ -621,8 +640,13 @@ class InvestigationHandoffService:
                 raise InvestigationChangedDuringHandoffError(
                     "Investigation changed while the handoff was being created"
                 )
-            if analysis != analysis_before or self._artifact_hashes(analysis) != source_hashes:
-                raise HandoffError("Source analysis changed while the handoff was being created")
+            if analysis is not None and (
+                analysis != analysis_before
+                or self._artifact_hashes(analysis) != source_hashes
+            ):
+                raise HandoffError(
+                    "Source analysis changed while the handoff was being created"
+                )
             validate_handoff_bundle(staging)
             self._publish(staging, target, overwrite=overwrite)
             manifest = _read_json(target / "manifest.json")
@@ -661,18 +685,21 @@ class InvestigationHandoffService:
     def _write_bundle(
         self,
         staging: Path,
-        context: InvestigationQueryContext,
+        investigation: Investigation,
+        context: InvestigationQueryContext | None,
         revision: int,
-        analysis: AnalysisResult,
+        analysis: AnalysisResult | None,
         warnings: list[str],
     ) -> None:
-        investigation = context.investigation
         selected_case_ids = sorted(
             item.source_id
             for item in investigation.evidence_references
             if item.origin == "scope" and item.source_type == "case"
         )
-        timeline_payload = _serialize_timeline(context, self.timeline_service)
+        if context is not None:
+            timeline_payload = _serialize_timeline(context, self.timeline_service)
+        else:
+            timeline_payload = self._offline_timeline(investigation)
         limitations = list(timeline_payload["limitations"])
         components = {
             "investigation.json": {
@@ -698,7 +725,19 @@ class InvestigationHandoffService:
         for filename, payload in components.items():
             _write_component(staging, filename, payload)
 
-        artifact_files = self._copy_artifacts(staging, analysis, warnings)
+        if analysis is not None:
+            artifact_files = self._copy_artifacts(staging, analysis, warnings)
+        else:
+            artifact_files = {}
+            expected_keys = tuple(sorted(investigation.analysis_artifact_keys))
+            warnings.append(
+                "Source analysis is unavailable; analysis-derived timeline entries "
+                "and source artifacts were not exported."
+            )
+            warnings.extend(
+                f"Analysis artifact is unavailable offline: {key}"
+                for key in expected_keys
+            )
         limitations.extend(warnings)
         _write_component(
             staging,
@@ -726,7 +765,11 @@ class InvestigationHandoffService:
             annotation_ids=tuple(
                 sorted(item.annotation_id for item in investigation.annotations)
             ),
-            artifact_keys=tuple(sorted(analysis.artifacts)),
+            artifact_keys=tuple(sorted(
+                analysis.artifacts
+                if analysis is not None
+                else investigation.analysis_artifact_keys
+            )),
             created_at=investigation.metadata.updated_at,
         )
         inventory = self._inventory(staging, artifact_files)
@@ -734,7 +777,9 @@ class InvestigationHandoffService:
             "schema_version": HANDOFF_SCHEMA_VERSION,
             "handoff_id": handoff_id,
             "investigation_id": investigation.investigation_id,
-            "source_analysis_id": context.source_analysis_id,
+            "source_analysis_id": investigation.analysis_id,
+            "source_analysis_available": analysis is not None,
+            "mode": "full" if analysis is not None else "offline",
             "provenance": {
                 "algorithm": (
                     investigation.provenance.derivation_algorithm
@@ -748,7 +793,11 @@ class InvestigationHandoffService:
             "owner": investigation.metadata.owner,
             "status": investigation.metadata.status,
             "selected_case_ids": selected_case_ids,
-            "logical_artifact_references": sorted(analysis.artifacts),
+            "logical_artifact_references": sorted(
+                analysis.artifacts
+                if analysis is not None
+                else investigation.analysis_artifact_keys
+            ),
             "identity_manifest": identity_manifest.to_dict(),
             "files": [asdict(item) for item in inventory],
             "sensitive_data_warning": SENSITIVE_DATA_WARNING,
@@ -805,6 +854,48 @@ class InvestigationHandoffService:
                 )
             copied[f"source_artifacts/{filename}"] = f"artifact:{key}"
         return copied
+
+    @staticmethod
+    def _offline_timeline(investigation: Investigation) -> Dict[str, Any]:
+        return {
+            "investigation_id": investigation.investigation_id,
+            "source_analysis_id": investigation.analysis_id,
+            "timed_entries": [],
+            "untimed_entries": [],
+            "timeline_selections": [
+                {
+                    "selection_id": item.selection_id,
+                    "evidence_reference_ids": sorted(item.evidence_reference_ids),
+                    "start_time": item.start_time,
+                    "end_time": item.end_time,
+                }
+                for item in sorted(
+                    investigation.timeline_selections,
+                    key=lambda value: value.selection_id,
+                )
+            ],
+            "limitations": [
+                "Source analysis is unavailable; analysis-derived timeline "
+                "entries are not included."
+            ],
+        }
+
+    @staticmethod
+    def _offline_artifact_status(
+        expected_keys: Tuple[str, ...],
+    ) -> Tuple[Tuple[str, ...], Tuple[str, ...], Tuple[str, ...]]:
+        unknown = sorted(set(expected_keys).difference(ARTIFACT_FILENAMES))
+        if unknown:
+            raise UnsafeHandoffArtifactPathError(
+                f"Unsupported analysis artifact key: {unknown[0]}"
+            )
+        missing_required = tuple(
+            sorted(set(expected_keys).intersection(REQUIRED_ARTIFACT_KEYS))
+        )
+        missing_optional = tuple(
+            sorted(set(expected_keys).difference(REQUIRED_ARTIFACT_KEYS))
+        )
+        return (), missing_required, missing_optional
 
     @staticmethod
     def _artifact_status(
@@ -996,6 +1087,19 @@ def validate_handoff_bundle(path: Path | str) -> bool:
     schema_version = manifest.get("schema_version")
     if schema_version not in SUPPORTED_HANDOFF_SCHEMA_VERSIONS:
         raise UnsupportedHandoffSchemaError("Unsupported handoff schema version")
+    if schema_version == HANDOFF_SCHEMA_VERSION:
+        mode = manifest.get("mode")
+        source_available = manifest.get("source_analysis_available")
+        if mode not in {"full", "offline"} or not isinstance(
+            source_available, bool
+        ):
+            raise HandoffBundleValidationError(
+                "Handoff source-analysis availability metadata is invalid"
+            )
+        if source_available != (mode == "full"):
+            raise HandoffBundleValidationError(
+                "Handoff source-analysis availability metadata is inconsistent"
+            )
     inventory = manifest.get("files")
     if not isinstance(inventory, list):
         raise HandoffBundleValidationError("Handoff file inventory is invalid")

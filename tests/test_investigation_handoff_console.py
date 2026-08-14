@@ -137,8 +137,13 @@ def test_preview_is_bounded_complete_and_writes_nothing(tmp_path):
 
 def test_preview_handles_missing_and_mismatched_active_analysis(tmp_path):
     controller, current, *_rest = build_console(tmp_path / "missing", analysis=False)
-    assert controller.preview_flow(current) is None
-    assert any("No completed analysis is active" in item for item in _rest[3])
+    before = next(_rest[1].investigations_root.glob("*.json")).read_bytes()
+    preview = controller.preview_flow(current)
+    assert preview is not None
+    assert preview.mode == "offline"
+    assert preview.source_analysis_available is False
+    assert any("OFFLINE handoff" in item for item in _rest[3])
+    assert next(_rest[1].investigations_root.glob("*.json")).read_bytes() == before
 
     controller, current, analysis, *_rest = build_console(tmp_path / "mismatch")
     analysis.events[0]["host"] = "OTHER-HOST"

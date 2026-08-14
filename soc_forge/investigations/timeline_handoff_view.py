@@ -495,7 +495,17 @@ def render_handoff_preview(
                     ("Owner", preview.owner or "Unassigned"),
                     ("Status", preview.status),
                     ("Revision", preview.revision),
+                    (
+                        "Mode",
+                        render_badge("availability", preview.mode, ansi=ansi),
+                    ),
                     ("Source analysis", preview.source_analysis_id),
+                    (
+                        "Source context",
+                        "Available"
+                        if preview.source_analysis_available
+                        else "Unavailable",
+                    ),
                     ("Selected cases", preview.selected_case_count),
                     ("Selected evidence", preview.analyst_evidence_count),
                     ("Hypotheses", preview.hypothesis_count),
@@ -513,6 +523,16 @@ def render_handoff_preview(
             ansi=ansi,
         )
     ]
+    if not preview.source_analysis_available:
+        parts.append(
+            render_message_block(
+                "warning",
+                "OFFLINE handoff: durable investigation state is available. "
+                "Analysis-derived timeline entries and source artifacts are unavailable.",
+                width=resolved,
+                ansi=ansi,
+            )
+        )
     active = tuple(item for item in preview.findings if item.lifecycle_state == "active")
     historical = tuple(item for item in preview.findings if item.lifecycle_state == "superseded")
     for heading, findings in (

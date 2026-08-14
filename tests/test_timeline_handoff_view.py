@@ -102,6 +102,8 @@ def _preview():
         required_artifacts_available=True,
         missing_required_artifact_keys=(),
         missing_optional_artifact_keys=("hunts",),
+        mode="full",
+        source_analysis_available=True,
         sensitive_data_warning="Handoff content may contain sensitive telemetry.",
     )
 

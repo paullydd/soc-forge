@@ -520,6 +520,10 @@ function renderHandoffPreview(payload) {
   renderHandoffPayload('Handoff Preview', payload);
   const workspace = $('#handoffWorkspace');
   if (!workspace) return;
+  if (payload.mode === 'offline') {
+    const notice = evidenceElement('p', 'warning', '[OFFLINE] Source analysis unavailable. Durable investigation state remains exportable; analysis-derived timeline entries and source artifacts are unavailable.');
+    workspace.prepend(notice);
+  }
   const section = evidenceElement('section', 'workspace-record');
   section.appendChild(evidenceElement('strong', null, 'Analyst Findings'));
   section.appendChild(evidenceElement(

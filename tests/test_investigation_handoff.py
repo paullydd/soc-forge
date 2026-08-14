@@ -712,3 +712,51 @@ def test_schema_12_bundle_without_response_actions_remains_valid(tmp_path):
     ]
     result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     assert validate_handoff_bundle(result.output_path)
+
+
+def test_offline_preview_and_export_preserve_durable_state_without_analysis(tmp_path):
+    analysis = build_query_analysis(tmp_path / "analysis")
+    investigation = _with_response_action(_finding_investigation(analysis))
+    repository = InvestigationRepository(tmp_path / "workspace")
+    assert repository.save(investigation) == 1
+    service = InvestigationHandoffService(repository)
+    before = repository_bytes(tmp_path / "workspace")
+
+    preview = service.preview("INV-QUERY", None)
+    result = service.export("INV-QUERY", None, tmp_path / "offline")
+
+    assert preview.mode == "offline"
+    assert preview.source_analysis_available is False
+    assert preview.response_action_count == 1
+    assert preview.timed_entry_count == preview.untimed_entry_count == 0
+    assert preview.available_artifact_keys == ()
+    assert "cases" in preview.missing_required_artifact_keys
+    assert validate_handoff_bundle(result.output_path)
+    manifest = read_json(result.manifest_path)
+    actions = read_json(result.output_path / "response_actions.json")
+    timeline = read_json(result.output_path / "timeline.json")
+    assert manifest["schema_version"] == "1.3"
+    assert manifest["source_analysis_available"] is False
+    assert actions["response_actions"][0]["status"] == "in_progress"
+    assert len(actions["response_actions"][0]["transition_history"]) == 2
+    assert timeline["timed_entries"] == timeline["untimed_entries"] == []
+    assert any("unavailable" in item.lower() for item in manifest["limitations"])
+    assert not (result.output_path / "source_artifacts").exists()
+    assert repository.load_record("INV-QUERY").revision == 1
+    assert repository_bytes(tmp_path / "workspace") == before
+
+
+@pytest.mark.parametrize(
+    ("mode", "source_available"),
+    (("offline", True), ("full", False), ("unknown", False), ("offline", "no")),
+)
+def test_schema_13_rejects_invalid_source_availability_metadata(
+    tmp_path, mode, source_available
+):
+    result, *_ = build_export(tmp_path)
+    manifest = read_json(result.manifest_path)
+    manifest["mode"] = mode
+    manifest["source_analysis_available"] = source_available
+    result.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(HandoffBundleValidationError):
+        validate_handoff_bundle(result.output_path)

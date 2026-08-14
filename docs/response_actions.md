@@ -55,3 +55,4 @@ v3.3 Slice 4 integrates Response Actions into the authoritative Investigation Su
 
 ## Current scope
 Slice 2 provides the model, lifecycle rules, durable history, aggregate integrity, and create/get/list/transition service boundary. Console and web interfaces, Summary and Handoff integration, due dates, reminders, comments, permissions, automation, deletion, external integrations, and real response execution remain deferred.
+Response Actions and their complete transition histories remain present in schema 1.3 Handoff exports when an investigation is OFFLINE. This does not trigger source-analysis loading or response execution.

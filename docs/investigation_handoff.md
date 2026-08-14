@@ -313,3 +313,7 @@ The terminal Handoff workspace uses the shared v3.2 breadcrumb, read-only state 
 Sensitive telemetry and analyst-content warnings remain authoritative, and export still requires explicit acknowledgement with the same default. Existing-target handling retains cancel, alternate-root, and confirmed-overwrite paths; replacement occurs only after a new bundle is fully staged and validated. Preview, export, validation, and result rendering do not change investigation revision or repository content.
 
 Validation expects a concrete bundle directory such as `out/handoffs/INV-TEST-001`, not the parent `out/handoffs` root. Schema 1.2, 1.1, and 1.0 compatibility remains unchanged; validation does not rewrite or upgrade older bundles. Width and no-color presentation never replace textual status meaning.
+
+## Offline handoffs
+
+Handoff preview and export remain available when the matching completed source analysis is not active. OFFLINE handoffs export durable investigation metadata, evidence references and analyst state, hypotheses, decisions, annotations, Findings, Response Actions, and complete Action transition histories. They do not reconstruct analysis output. Analysis-derived timeline entries and source artifacts are represented as unavailable through the preview, manifest mode, missing-artifact fields, and limitations. FULL handoffs continue to validate provenance and include available source artifacts and timeline context. Both modes are read-only and preserve investigation revision and repository bytes.
