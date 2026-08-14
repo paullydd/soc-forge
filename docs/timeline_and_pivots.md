@@ -261,3 +261,9 @@ navigation reuses the existing detail APIs and their sensitive-value controls.
 > The web workbench is a read-only presentation of shared timeline and pivot
 > query results. It does not create new relationships, detections, cases,
 > evidence selections, hypotheses, or decisions.
+
+## Terminal Presentation
+
+The terminal Timeline and Pivot Workbench uses the shared v3.2 breadcrumb, Timeline State panel, origin badges, chronological and untimed sections, detail panels, and Pivot result panels. `MACHINE` and `ANALYST` are derived from the existing timeline entry context and are presentation-only. Timeline order, entry identity, filters, Pivot matching, relationship reasons, overlays, normalization, and limitations remain service-owned and unchanged.
+
+`FULL` means the matching completed analysis is available for canonical queries. `OFFLINE` does not fabricate chronology or trigger snapshot loading or source-analysis recovery. Menu numbers, prompts, pauses, dispatch, and one-level Back navigation remain unchanged.

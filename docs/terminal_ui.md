@@ -100,3 +100,19 @@ Menu numbers and dispatch contracts are unchanged. Controllers continue to own i
 v3.2 Slice 6 changes analyst workspace presentation only. Evidence, Hypothesis, Decision, and Finding domain semantics, validation, persistence, revision behavior, provenance, lifecycle, and sensitive-data protections remain unchanged.
 
 Long metadata labels may still be compacted by the shared fixed-label renderer at narrow widths. A broad metadata-label policy change is deferred to the final v3.2 terminal consistency and polish slice.
+
+## Timeline, Pivot, And Handoff Workspaces
+
+v3.2 Slice 7 completes the major Investigation terminal presentation migrations. The Timeline workspace uses the breadcrumb `SOC-FORGE > INVESTIGATIONS > <ID> > TIMELINE`, authoritative timed and untimed counts, and explicit `FULL` or `OFFLINE` source-analysis state. Machine and analyst activity retain textual origin badges. Timed chronology and untimed investigation context remain separate and preserve service ordering.
+
+Timeline details and Pivot results use bounded shared panels while preserving existing filters, relationship reasons, overlays, matching semantics, entity normalization, menu numbers, pauses, and Back behavior. OFFLINE presentation does not fabricate chronology, load a snapshot, or recover source analysis automatically.
+
+The Handoff workspace uses the breadcrumb `SOC-FORGE > INVESTIGATIONS > <ID> > HANDOFF` and presents revision, source availability, Finding lifecycle counts, and the current session's last-export state. Preview separates active Findings from historical or superseded Findings and preserves supersession metadata. Artifact availability, missing required or optional artifacts, and sensitive-content warnings remain explicit.
+
+Handoff preview, export, validation, and last-result viewing remain read-only with respect to investigation state. Export still requires explicit sensitive-data acknowledgement. Existing-target cancellation, alternate roots, overwrite confirmation, fully staged validation before replacement, and failure preservation remain unchanged. Validation accepts a concrete bundle directory, such as `out/handoffs/INV-TEST-001`; the parent output root is not itself a bundle. Existing schema compatibility for 1.2, 1.1, and 1.0 remains unchanged.
+
+Both workspaces use the centralized 100-, 80-, 60-, and minimum-width behavior. Status meaning remains textual under `NO_COLOR`, `TERM=dumb`, redirected output, and captured output.
+
+v3.2 Slice 7 changes Timeline, Pivot, and Handoff terminal presentation only. Timeline construction, pivot semantics, handoff generation, bundle validation, export safety, schema compatibility, repository behavior, and investigation state semantics remain unchanged.
+
+Broad fixed metadata-label behavior remains deferred to the final v3.2 terminal consistency and polish slice.

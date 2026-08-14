@@ -302,3 +302,11 @@ All handoff API responses use `Cache-Control: no-store`. Returned data is render
 Console and web exports of the same investigation revision and analysis have the same handoff ID, manifest semantics, file inventory, hashes, warnings, and validation result. Their selected output roots may differ.
 
 The web handoff has no archive or download endpoint, upload, email or cloud sharing, automatic redaction, digital signature, authentication, or hosted workflow. Review the generated handoff before sharing it outside the intended environment.
+
+## Terminal Presentation
+
+The terminal Handoff workspace uses the shared v3.2 breadcrumb, read-only state panel, structured preview, export result, manifest, and validation panels. Active Findings and historical or superseded Findings remain separate, and supersession metadata remains visible. Artifact availability preserves the service's required and optional classifications.
+
+Sensitive telemetry and analyst-content warnings remain authoritative, and export still requires explicit acknowledgement with the same default. Existing-target handling retains cancel, alternate-root, and confirmed-overwrite paths; replacement occurs only after a new bundle is fully staged and validated. Preview, export, validation, and result rendering do not change investigation revision or repository content.
+
+Validation expects a concrete bundle directory such as `out/handoffs/INV-TEST-001`, not the parent `out/handoffs` root. Schema 1.2, 1.1, and 1.0 compatibility remains unchanged; validation does not rewrite or upgrade older bundles. Width and no-color presentation never replace textual status meaning.

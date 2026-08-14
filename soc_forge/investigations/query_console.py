@@ -24,6 +24,14 @@ from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
     WorkspaceResult,
 )
+from soc_forge.investigations.timeline_handoff_view import (
+    render_pivot_menu,
+    render_pivot_result as render_pivot_result_view,
+    render_related_entities as render_related_entities_view,
+    render_timeline as render_timeline_view,
+    render_timeline_entry_detail,
+    render_timeline_workspace,
+)
 from soc_forge.ui.screen import begin_screen
 
 
@@ -82,6 +90,16 @@ class InvestigationQueryConsoleController:
     def run(self, current: WorkspaceResult) -> WorkspaceResult:
         context = self._open_context(current)
         if context is None:
+            self.screen("TIMELINE/PIVOT WORKBENCH - READ ONLY")
+            for line in render_timeline_workspace(
+                current,
+                None,
+                source_mode="offline",
+            ).splitlines():
+                self.output(line)
+            self.output(
+                "Source timeline and pivots require the matching completed analysis."
+            )
             self.pause()
             return current
         opened_revision = current.revision
@@ -89,25 +107,17 @@ class InvestigationQueryConsoleController:
             latest_revision = self._latest_revision(current)
             stale = latest_revision is not None and latest_revision != opened_revision
             self.screen("TIMELINE/PIVOT WORKBENCH - READ ONLY")
-            self.output("Timeline/Pivot Workbench - Read Only")
-            self.output(f"Investigation: {current.investigation.investigation_id}")
-            self.output(f"Workspace revision: {current.revision}")
-            self.output("Warning: terminal scrollback may retain displayed values.")
-            if stale:
-                self.output(
-                    "The investigation changed. Refresh the workbench before "
-                    "continuing with reasoning overlays."
-                )
-            self.output("")
-            self.output("[1] Investigation timeline")
-            self.output("[2] Filter timeline")
-            self.output("[3] Browse entities")
-            self.output("[4] Pivot from entity")
-            self.output("[5] Inspect evidence relationship")
-            self.output("[6] Inspect hypothesis relationships")
-            self.output("[7] View query limitations")
-            self.output("[8] Refresh workbench")
-            self.output("[0] Back")
+            try:
+                state_timeline = self.timeline_service.timeline(context)
+            except InvestigationQueryError:
+                state_timeline = None
+            for line in render_timeline_workspace(
+                current,
+                state_timeline,
+                source_mode="full",
+                stale=stale,
+            ).splitlines():
+                self.output(line)
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return current
@@ -181,64 +191,15 @@ class InvestigationQueryConsoleController:
                 self.entry_navigation(current, context, selected)
 
     def render_timeline(self, timeline) -> tuple[InvestigationTimelineEntry, ...]:
-        ordered = tuple(timeline.entries) + tuple(timeline.untimed_entries)
-        index = 1
-        self.output("Chronological Activity")
-        if not timeline.entries:
-            self.output("  No timed entries.")
-        for entry in timeline.entries:
-            self.output(self._timeline_row(index, entry))
-            index += 1
-        self.output("Untimed Investigation Context")
-        if not timeline.untimed_entries:
-            self.output("  No untimed entries.")
-        for entry in timeline.untimed_entries:
-            self.output(self._timeline_row(index, entry, untimed=True))
-            if entry.limitations:
-                self.output(f"    Untimed reason: {entry.limitations[0]}")
-            index += 1
+        rendered, ordered = render_timeline_view(timeline)
+        for line in rendered.splitlines():
+            self.output(line)
         return ordered
 
     def render_entry_detail(self, entry: InvestigationTimelineEntry) -> None:
         self.screen("TIMELINE ENTRY DETAILS - READ ONLY")
-        values = (
-            ("Entry ID", entry.entry_id),
-            ("Timestamp", entry.timestamp or "Untimed"),
-            ("Entry type", entry.entry_type),
-            ("Context", entry.context_kind),
-            ("Source ID", entry.source_id),
-            ("Source analysis ID", entry.source_analysis_id),
-            ("Case IDs", ", ".join(entry.case_ids) or "None"),
-            ("Title", entry.title),
-            ("Summary", entry.summary),
-            ("Host", entry.host or "None"),
-            ("User", entry.user or "None"),
-            ("IP", entry.ip or "None"),
-            ("Process", entry.process or "None"),
-            ("Rule ID", entry.rule_id or "None"),
-            ("Severity", entry.severity or "None"),
-            ("ATT&CK tactic", entry.attack_tactic or "None"),
-            ("ATT&CK technique", entry.attack_technique or "None"),
-            ("Evidence reference", entry.evidence_id or "None"),
-            ("Evidence classification", entry.evidence_classification or "None"),
-            ("Related hypothesis IDs", ", ".join(entry.related_hypothesis_ids) or "None"),
-            ("Related decision IDs", ", ".join(entry.related_decision_ids) or "None"),
-            ("Sensitive fields", ", ".join(entry.sensitive_fields) or "None"),
-            ("Provenance fields", ", ".join(entry.provenance_fields) or "None"),
-            ("Limitations", "; ".join(entry.limitations) or "None"),
-        )
-        for label, value in values:
-            self.output(f"{label}: {value}")
-        self.output(f"Why this entry is present: {entry.relationship_reason}")
-        for overlay in entry.hypothesis_overlays:
-            self.output(
-                f"Hypothesis overlay: {overlay.hypothesis_id} | "
-                f"{overlay.relationship} | {overlay.state}"
-            )
-        for overlay in entry.decision_overlays:
-            self.output(
-                f"Decision overlay: {overlay.decision_id} | {overlay.decision_type}"
-            )
+        for line in render_timeline_entry_detail(entry).splitlines():
+            self.output(line)
 
     def filter_screen(self, context: InvestigationQueryContext) -> None:
         while True:
@@ -357,7 +318,6 @@ class InvestigationQueryConsoleController:
         selected = entity or self.entity_browser(context)
         if selected is None:
             return
-        self.output(f"Pivot entity: {selected.entity_type} | {selected.display_value}")
         operations = (
             ("Events", self.pivot_service.events_for_entity),
             ("Alerts", self.pivot_service.alerts_for_entity),
@@ -365,11 +325,11 @@ class InvestigationQueryConsoleController:
             ("Evidence", self.pivot_service.evidence_for_entity),
             ("Hypotheses", self.pivot_service.hypotheses_for_entity),
         )
-        for index, (label, _operation) in enumerate(operations, start=1):
-            self.output(f"[{index}] {label}")
-        self.output("[6] Related entities")
-        self.output("[7] Timeline")
-        self.output("[0] Back")
+        for line in render_pivot_menu(
+            selected.entity_type,
+            selected.display_value,
+        ).splitlines():
+            self.output(line)
         choice = self.input("Pivot option: ").strip()
         if choice == "0":
             return
@@ -404,44 +364,12 @@ class InvestigationQueryConsoleController:
             self.pause()
 
     def render_pivot_result(self, label: str, result: PivotResult) -> None:
-        self.output(label)
-        if not result.matches:
-            self.output("  No explicit relationships found.")
-        for match in result.matches:
-            self.output(
-                f"{match.source_id} | {match.source_type} | "
-                f"{match.first_seen or 'Untimed'} | "
-                f"Cases: {', '.join(match.case_ids) or 'None'}"
-            )
-            self.output(f"  Relationship: {match.relationship_type}")
-            self.output(f"  Why: {match.relationship_reason}")
-            if match.evidence_classification:
-                self.output(
-                    f"  Analyst evidence: {match.evidence_classification.title()}"
-                )
-            for item in match.hypothesis_overlays:
-                self.output(
-                    f"  Hypothesis: {item.hypothesis_id} | "
-                    f"{item.relationship} | {item.state}"
-                )
-            for item in match.decision_overlays:
-                self.output(f"  Decision: {item.decision_id} | {item.decision_type}")
+        for line in render_pivot_result_view(label, result).splitlines():
+            self.output(line)
 
     def render_related_entities(self, result: RelatedEntitiesResult) -> None:
-        self.output("Observed relationships")
-        if not result.relationships:
-            self.output("  None")
-        for item in result.relationships:
-            self.output(
-                f"{item.entity.entity_type} | {item.entity.display_value} | "
-                f"Normalized: {item.entity.normalized_value}"
-            )
-            self.output(
-                f"  Count: {item.count} | First: {item.first_seen or 'Untimed'} | "
-                f"Last: {item.last_seen or 'Untimed'}"
-            )
-            self.output(f"  Why: {item.relationship_reason}")
-            self.output(f"  Sources: {', '.join(item.source_ids)}")
+        for line in render_related_entities_view(result).splitlines():
+            self.output(line)
 
     def inspect_evidence(
         self, current: WorkspaceResult, context: InvestigationQueryContext
@@ -612,33 +540,6 @@ class InvestigationQueryConsoleController:
         except (EvidenceCatalogError, ValueError):
             return False
 
-    @staticmethod
-    def _timeline_row(
-        index: int, entry: InvestigationTimelineEntry, *, untimed: bool = False
-    ) -> str:
-        indicators = []
-        if entry.evidence_classification:
-            indicators.append(f"Analyst evidence: {entry.evidence_classification.title()}")
-        if entry.hypothesis_overlays:
-            indicators.append("Hypothesis overlay")
-        if entry.decision_overlays:
-            indicators.append("Decision overlay")
-        if entry.sensitive_fields:
-            indicators.append("SENSITIVE")
-        details = [
-            entry.host,
-            entry.user,
-            entry.rule_id,
-            ",".join(entry.case_ids) if entry.case_ids else None,
-        ]
-        suffix = " | ".join(item for item in details + indicators if item)
-        timestamp = "Untimed" if untimed else entry.timestamp
-        short_id = entry.entry_id if len(entry.entry_id) <= 28 else entry.entry_id[:25] + "..."
-        return (
-            f"[{index}] {timestamp} | {entry.context_kind.upper()} | "
-            f"{entry.entry_type} | {entry.title} | {short_id}"
-            + (f" | {suffix}" if suffix else "")
-        )
 
     def _choose(self, items: Iterable[object], prompt: str):
         values = tuple(items)

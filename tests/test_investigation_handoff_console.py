@@ -18,6 +18,7 @@ from soc_forge.investigations.handoff_console import (
 )
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.workspace_service import WorkspaceResult
+from soc_forge.ui.terminal import strip_ansi
 
 
 class ScriptedInput:
@@ -179,10 +180,11 @@ def test_export_default_and_custom_roots_display_result_without_mutation(tmp_pat
     assert validate_handoff_bundle(result.output_path)
     assert controller.last_result == result
     assert any(result.handoff_id in item for item in messages)
-    assert any("Revision: 1" == item for item in messages)
-    assert any("Manifest path:" in item for item in messages)
-    assert any("Validation status: valid" in item for item in messages)
-    assert "Investigation state was not modified." in messages
+    output = strip_ansi("\n".join(messages))
+    assert "Revision" in output and "1" in output
+    assert "Manifest path" in output
+    assert "[VALID]" in output
+    assert "Investigation state was not modified." in output
     assert repository_bytes(workspace_root) == repo_before
     assert repository.load_record("INV-QUERY").revision == 1
     assert analysis == analysis_before
@@ -236,10 +238,10 @@ def test_manifest_inspection_is_bounded_safe_and_uses_last_session_result(tmp_pa
     messages = _rest[2]
 
     assert summary.handoff_id == result.handoff_id
-    assert any("File inventory:" == item for item in messages)
-    assert any("SHA-256" in item for item in messages)
-    assert any("Sensitive data notice:" in item for item in messages)
-    output = "\n".join(messages)
+    output = strip_ansi("\n".join(messages))
+    assert "File inventory:" in output
+    assert "SHA-256" in output
+    assert "Sensitive data notice:" in output
     assert str(analysis.output_dir) not in output
     assert "powershell.exe -enc sensitive" not in output
 

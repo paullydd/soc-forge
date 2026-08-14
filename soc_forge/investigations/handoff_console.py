@@ -24,6 +24,12 @@ from soc_forge.investigations.handoff import (
 )
 from soc_forge.investigations.repository import InvestigationRepositoryError
 from soc_forge.investigations.workspace_service import WorkspaceResult
+from soc_forge.investigations.timeline_handoff_view import (
+    render_handoff_manifest,
+    render_handoff_preview,
+    render_handoff_result,
+    render_handoff_workspace,
+)
 from soc_forge.ui.screen import begin_screen
 
 
@@ -61,13 +67,12 @@ class InvestigationHandoffConsoleController:
     def run(self, current: WorkspaceResult) -> WorkspaceResult:
         while True:
             self.screen("INVESTIGATION HANDOFF")
-            self.output("Read-only snapshot/export workflow")
-            self.output("")
-            self.output("[1] Preview handoff")
-            self.output("[2] Export handoff")
-            self.output("[3] Validate handoff bundle")
-            self.output("[4] View last handoff result")
-            self.output("[0] Back")
+            for line in render_handoff_workspace(
+                current,
+                source_available=self.analysis_provider() is not None,
+                last_result=self.last_result,
+            ).splitlines():
+                self.output(line)
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return current
@@ -213,15 +218,8 @@ class InvestigationHandoffConsoleController:
         except self._validation_errors() as exc:
             self._display_error(exc, action="validation")
             return None
-        self.output("Handoff validation: VALID")
-        self.output(f"Handoff ID: {summary.handoff_id}")
-        self.output(f"Investigation ID: {summary.investigation_id}")
-        self.output(f"Schema version: {summary.schema_version}")
-        self.output(f"Files verified: {len(summary.files)}")
-        self.output("Digest status: verified")
-        self.output("Reference integrity: verified")
-        for limitation in summary.limitations:
-            self.output(f"Warning: {self._bounded(limitation)}")
+        for line in render_handoff_manifest(summary, validation=True).splitlines():
+            self.output(line)
         return summary
 
     def view_last_result(self) -> HandoffManifestSummary | None:
@@ -238,100 +236,17 @@ class InvestigationHandoffConsoleController:
 
     def render_preview(self, preview: HandoffPreview) -> None:
         self.screen("HANDOFF PREVIEW")
-        self.output(f"Investigation ID: {preview.investigation_id}")
-        self.output(f"Title: {self._bounded(preview.title)}")
-        self.output(f"Owner: {preview.owner or 'Unassigned'}")
-        self.output(f"Status: {preview.status}")
-        self.output(f"Revision: {preview.revision}")
-        self.output(f"Source analysis ID: {preview.source_analysis_id}")
-        self.output(f"Selected cases: {preview.selected_case_count}")
-        self.output(f"Analyst-selected evidence: {preview.analyst_evidence_count}")
-        self.output(f"Hypotheses: {preview.hypothesis_count}")
-        self.output(f"Decisions: {preview.decision_count}")
-        self.output(f"Findings: {preview.finding_count}")
-        self.output("Findings are analyst-authored conclusions.")
-        if not preview.findings:
-            self.output("No analyst-authored findings.")
-        for finding in preview.findings:
-            self.output(
-                f"  {finding.finding_id} | {self._bounded(finding.title)} | "
-                f"{finding.status.upper()} | {finding.lifecycle_state.upper()} | analyst confidence: "
-                f"{finding.confidence}"
-            )
-            self.output(f"    Conclusion: {self._bounded(finding.conclusion)}")
-            self.output(
-                f"    Basis: {finding.evidence_count} evidence | "
-                f"{finding.hypothesis_count} hypotheses | "
-                f"{finding.decision_count} decisions"
-            )
-            self.output(
-                "    Evidence IDs: "
-                + (", ".join(finding.evidence_ids) or "None")
-            )
-            self.output(
-                "    Hypothesis IDs: "
-                + (", ".join(finding.hypothesis_ids) or "None")
-            )
-            self.output(
-                "    Decision IDs: "
-                + (", ".join(finding.decision_ids) or "None")
-            )
-            for limitation in finding.limitations:
-                self.output(f"    Limitation: {self._bounded(limitation)}")
-        self.output(f"Annotations: {preview.annotation_count}")
-        self.output(f"Timed timeline entries: {preview.timed_entry_count}")
-        self.output(f"Untimed timeline entries: {preview.untimed_entry_count}")
-        self.output(
-            "Available artifacts: "
-            + (", ".join(preview.available_artifact_keys) or "None")
-        )
-        self.output(
-            "Required artifacts: "
-            + ("available" if preview.required_artifacts_available else "missing")
-        )
-        self.output(
-            "Missing optional artifacts: "
-            + (", ".join(preview.missing_optional_artifact_keys) or "None")
-        )
-        self.output(f"Warning: {preview.sensitive_data_warning}")
-        self.output("Terminal scrollback may retain displayed handoff metadata.")
+        for line in render_handoff_preview(preview).splitlines():
+            self.output(line)
 
     def render_result(self, result: HandoffResult) -> None:
-        self.output("Handoff export complete.")
-        self.output(f"Handoff ID: {result.handoff_id}")
-        self.output(f"Investigation ID: {result.investigation_id}")
-        self.output(f"Revision: {result.revision}")
-        self.output(f"Output path: {result.output_path}")
-        self.output(f"Manifest path: {result.manifest_path}")
-        self.output(f"Validation status: {result.validation_status}")
-        self.output(f"Files: {len(result.files)}")
-        for warning in result.warnings:
-            self.output(f"Warning: {self._bounded(warning)}")
-        self.output("Investigation state was not modified.")
+        for line in render_handoff_result(result).splitlines():
+            self.output(line)
 
     def render_manifest(self, summary: HandoffManifestSummary) -> None:
         self.screen("HANDOFF MANIFEST")
-        self.output(f"Schema version: {summary.schema_version}")
-        self.output(f"Handoff ID: {summary.handoff_id}")
-        self.output(f"Investigation ID: {summary.investigation_id}")
-        self.output(f"Source analysis ID: {summary.source_analysis_id}")
-        self.output(f"Revision: {summary.revision}")
-        self.output(f"Owner: {summary.owner or 'Unassigned'}")
-        self.output(f"Status: {summary.status}")
-        self.output(
-            "Selected case IDs: "
-            + (", ".join(summary.selected_case_ids) or "None")
-        )
-        self.output("File inventory:")
-        for item in summary.files:
-            self.output(
-                f"  {item.filename} | {item.logical_type} | {item.size} bytes | "
-                f"SHA-256 {item.sha256}"
-            )
-        for limitation in summary.limitations:
-            self.output(f"Warning: {self._bounded(limitation)}")
-        self.output(f"Sensitive data notice: {summary.sensitive_data_warning}")
-        self.output("Terminal scrollback may retain displayed handoff metadata.")
+        for line in render_handoff_manifest(summary).splitlines():
+            self.output(line)
 
     def _active_analysis(self) -> object | None:
         analysis = self.analysis_provider()
@@ -371,10 +286,6 @@ class InvestigationHandoffConsoleController:
         else:
             self.output(f"Handoff {action} failed safely.")
 
-    @staticmethod
-    def _bounded(value: object, limit: int = 160) -> str:
-        text = " ".join(str(value or "").split())
-        return text if len(text) <= limit else text[: limit - 3] + "..."
 
     @staticmethod
     def _handoff_errors() -> tuple[type[Exception], ...]:

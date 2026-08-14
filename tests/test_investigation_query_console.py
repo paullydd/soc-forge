@@ -15,6 +15,7 @@ from soc_forge.investigations.query_models import InvestigationTimelineFilters
 from soc_forge.investigations.repository import InvestigationRepository
 from soc_forge.investigations.timeline_query import InvestigationTimelineService
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
+from soc_forge.ui.terminal import strip_ansi
 
 
 class ScriptedInput:
@@ -91,10 +92,10 @@ def test_workbench_menu_is_read_only_and_back_returns_unchanged(tmp_path):
 
     assert controller.run(current) == current
 
-    output = "\n".join(messages)
-    assert "Timeline/Pivot Workbench - Read Only" in output
-    assert "[1] Investigation timeline" in output
-    assert "[8] Refresh workbench" in output
+    output = strip_ansi("\n".join(messages))
+    assert "Timeline/Pivot Workbench is read only" in output
+    assert "[1] Investigation Timeline" in output
+    assert "[8] Refresh Workbench" in output
 
 
 def test_no_active_analysis_returns_without_touching_workspace(tmp_path):
@@ -188,14 +189,12 @@ def test_render_timeline_preserves_service_order_and_separates_untimed(tmp_path)
     rendered = controller.render_timeline(timeline)
 
     assert rendered == timeline.entries + timeline.untimed_entries
-    assert messages.index("Chronological Activity") < messages.index(
-        "Untimed Investigation Context"
-    )
-    rows = [item for item in messages if item.startswith("[")]
-    for index, (entry, row) in enumerate(zip(rendered, rows), start=1):
-        short_id = entry.entry_id if len(entry.entry_id) <= 28 else entry.entry_id[:25]
-        assert row.startswith(f"[{index}] ")
-        assert short_id in row
+    output = strip_ansi("\n".join(messages))
+    assert output.index("CHRONOLOGICAL ACTIVITY") < output.index("UNTIMED ACTIVITY")
+    positions = [output.index(entry.entry_id) for entry in rendered]
+    assert positions == sorted(positions)
+    for index in range(1, len(rendered) + 1):
+        assert f"[{index}] " in output
 
 
 def test_timeline_lists_hide_sensitive_payloads_and_rationales(tmp_path):
@@ -217,9 +216,9 @@ def test_timeline_lists_hide_sensitive_payloads_and_rationales(tmp_path):
 def test_timeline_distinguishes_machine_and_analyst_entries(tmp_path):
     controller, _, _, _, context, _, _, messages = build_workbench(tmp_path)
     controller.render_timeline(InvestigationTimelineService().timeline(context))
-    output = "\n".join(messages)
-    assert "| MACHINE |" in output
-    assert "| ANALYST |" in output
+    output = strip_ansi("\n".join(messages))
+    assert "[MACHINE]" in output
+    assert "[ANALYST]" in output
 
 
 def test_entry_detail_renders_query_reason_without_invention(tmp_path):
@@ -232,10 +231,10 @@ def test_entry_detail_renders_query_reason_without_invention(tmp_path):
 
     controller.render_entry_detail(entry)
 
-    output = "\n".join(messages)
+    output = strip_ansi("\n".join(messages))
     assert f"Why this entry is present: {entry.relationship_reason}" in output
-    assert "Source analysis ID:" in output
-    assert "Evidence classification: supporting" in output
+    assert "Source analysis" in output and entry.source_analysis_id in output
+    assert "Classification" in output and "supporting" in output
     assert "Decision overlay: DEC-ASSESS | hypothesis_assessment" in output
     assert "Rationale:" not in output
 
@@ -362,8 +361,8 @@ def test_pivot_rendering_includes_relationship_reason_and_overlays(tmp_path):
 
     controller.render_pivot_result("Evidence", result)
 
-    output = "\n".join(messages)
-    assert "Relationship:" in output
+    output = strip_ansi("\n".join(messages))
+    assert "Relationship" in output
     assert "Why:" in output
     assert "Analyst evidence: Supporting" in output
     assert "Hypothesis: HYP-001" in output
@@ -374,8 +373,8 @@ def test_related_entities_are_observed_not_causal_and_deduplicated(tmp_path):
     controller, _, _, _, context, _, _, messages = build_workbench(tmp_path)
     result = controller.pivot_service.related_entities(context, "host", "WS-LAB-01")
     controller.render_related_entities(result)
-    output = "\n".join(messages)
-    assert "Observed relationships" in output
+    output = strip_ansi("\n".join(messages))
+    assert "RELATED ENTITIES" in output
     assert "Directly observed on the same source record" in output
     assert "caused by" not in output
     keys = [
@@ -393,8 +392,8 @@ def test_related_entities_are_observed_not_causal_and_deduplicated(tmp_path):
         ("3", "Cases"),
         ("4", "Evidence"),
         ("5", "Hypotheses"),
-        ("6", "Observed relationships"),
-        ("7", "Chronological Activity"),
+        ("6", "RELATED ENTITIES"),
+        ("7", "CHRONOLOGICAL ACTIVITY"),
     ],
 )
 def test_pivot_read_results_remain_visible_until_one_pause(tmp_path, choice, expected):
@@ -426,7 +425,7 @@ def test_related_entities_empty_state_remains_visible_until_pause(tmp_path):
     controller.pivot_screen(context, entity)
 
     assert len(pause_views) == 1
-    assert "  None" in pause_views[0]
+    assert any("No observed relationships." in strip_ansi(line) for line in pause_views[0])
 
 
 def test_direct_timeline_entity_pivot_uses_shared_result_pause(tmp_path):
@@ -450,7 +449,7 @@ def test_direct_timeline_entity_pivot_uses_shared_result_pause(tmp_path):
 
     assert scripted_input.calls == 2
     assert len(pause_views) == 1
-    assert any("Observed relationships" in line for line in pause_views[0])
+    assert any("RELATED ENTITIES" in strip_ansi(line) for line in pause_views[0])
 
 
 def test_pivot_pause_does_not_mutate_workspace_or_analysis(tmp_path):
