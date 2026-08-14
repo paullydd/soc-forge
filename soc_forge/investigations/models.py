@@ -552,6 +552,47 @@ class InvestigationFinding(SerializableModel):
         return cls(**values)
 
 @dataclass(frozen=True)
+class ResponseActionTransition(SerializableModel):
+    transition_id: str
+    from_status: str
+    to_status: str
+    author: str
+    rationale: str
+    timestamp: str
+    schema_version: str = INVESTIGATION_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        _validate_schema_version(self.schema_version, type(self).__name__)
+        object.__setattr__(
+            self,
+            "transition_id",
+            _manual_id(self.transition_id, "ResponseActionTransition.transition_id"),
+        )
+        for field_name in ("from_status", "to_status"):
+            if getattr(self, field_name) not in RESPONSE_ACTION_STATUSES:
+                raise ValueError(
+                    f"ResponseActionTransition.{field_name} must be one of: "
+                    + ", ".join(sorted(RESPONSE_ACTION_STATUSES))
+                )
+        for field_name, limit in (
+            ("author", FINDING_TITLE_LIMIT),
+            ("rationale", FINDING_CONCLUSION_LIMIT),
+            ("timestamp", FINDING_TITLE_LIMIT),
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _bounded_text(
+                    getattr(self, field_name),
+                    f"ResponseActionTransition.{field_name}",
+                    limit,
+                ),
+            )
+        if self.from_status == self.to_status:
+            raise ValueError("ResponseActionTransition must change status")
+
+
+@dataclass(frozen=True)
 class ResponseAction(SerializableModel):
     action_id: str
     investigation_id: str
@@ -566,6 +607,7 @@ class ResponseAction(SerializableModel):
     created_by: str
     created_at: str
     updated_at: str
+    transition_history: Tuple[ResponseActionTransition, ...] = ()
     schema_version: str = INVESTIGATION_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -607,6 +649,26 @@ class ResponseAction(SerializableModel):
                     limit,
                 ),
             )
+        history = _tuple_copy(
+            self.transition_history, "ResponseAction.transition_history"
+        )
+        if any(not isinstance(item, ResponseActionTransition) for item in history):
+            raise ValueError(
+                "ResponseAction.transition_history must contain only "
+                "ResponseActionTransition objects"
+            )
+        transition_ids = [item.transition_id for item in history]
+        if len(transition_ids) != len(set(transition_ids)):
+            raise ValueError("ResponseAction.transition_history has duplicate IDs")
+        for previous, current in zip(history, history[1:]):
+            if previous.to_status != current.from_status:
+                raise ValueError("ResponseAction.transition_history is not contiguous")
+        if history and history[-1].to_status != self.status:
+            raise ValueError(
+                "ResponseAction.status must match the final transition state"
+            )
+        object.__setattr__(self, "transition_history", history)
+
         for field_name, allowed in (
             ("action_type", RESPONSE_ACTION_TYPES),
             ("priority", RESPONSE_ACTION_PRIORITIES),
@@ -639,6 +701,10 @@ class ResponseAction(SerializableModel):
         )
         values = dict(data)
         values["finding_ids"] = tuple(values["finding_ids"])
+        values["transition_history"] = tuple(
+            ResponseActionTransition.from_dict(item)
+            for item in values.get("transition_history", ())
+        )
         return cls(**values)
 
 @dataclass(frozen=True)
