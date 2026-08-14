@@ -169,3 +169,42 @@ def test_investigation_workspace_option_16_dispatches_once_and_existing_numbers_
     assert controller.workspace_loop(current) == current
     assert calls == [current]
     assert repository.load_record("INV-A").revision == 1
+
+def test_empty_transition_history_renders_as_one_normal_line(tmp_path):
+    _repository, _workspace, service = _fixture(tmp_path)
+    action = _create(service).investigation.response_actions[0]
+
+    rendered = strip_ansi(render_response_action_detail(action, width=80))
+    lines = rendered.splitlines()
+
+    assert any("No lifecycle transitions recorded." in line for line in lines)
+    assert not all(
+        len(line.strip(" |│")) <= 1
+        for line in lines
+        if line.startswith(("|", "│"))
+    )
+
+
+def test_populated_transition_history_still_renders_chronologically(tmp_path):
+    _repository, _workspace, service = _fixture(tmp_path)
+    created = _create(service)
+    service.clock = lambda: "2026-08-14T13:00:00Z"
+    service.transition_id_factory = lambda: "TRANS-RENDER-001"
+    updated = service.transition_action(
+        "INV-A",
+        "ACT-GENERATED001",
+        target_status="approved",
+        author="alice",
+        rationale="Approved for analyst-coordinated work.",
+        expected_revision=created.revision,
+    )
+
+    rendered = strip_ansi(
+        render_response_action_detail(
+            updated.investigation.response_actions[0], width=80
+        )
+    )
+
+    assert "TRANS-RENDER-001" in rendered
+    assert "proposed -> approved" in rendered
+    assert "Approved for analyst-coordinated work." in rendered

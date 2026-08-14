@@ -186,7 +186,7 @@ def render_response_action_detail(
         )
     else:
         history = render_panel(
-            "No lifecycle transitions recorded.",
+            ("No lifecycle transitions recorded.",),
             title="TRANSITION HISTORY",
             width=resolved,
             ansi=ansi,
