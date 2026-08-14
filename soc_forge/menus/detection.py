@@ -1,5 +1,6 @@
 from soc_forge.ui.panels import header, menu_option, error
 from soc_forge.ui.screen import begin_screen
+from soc_forge.ui.terminal import render_breadcrumb
 
 
 def detection_menu(
@@ -13,6 +14,7 @@ def detection_menu(
 ):
     while True:
         begin_screen("DETECTION")
+        print(render_breadcrumb(("SOC-FORGE", "DETECTION")))
 
         menu_option("1", "Analyze Log File")
         menu_option("2", "Run Attack Simulation")

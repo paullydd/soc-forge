@@ -146,9 +146,15 @@ def test_command_center_header_does_not_change_exit_input_count(monkeypatch, cap
     calls = []
     monkeypatch.setattr(analyst_console, "build_investigation_console_controller", lambda: object())
     monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
-    monkeypatch.setattr(analyst_console, "show_dashboard", lambda *_args: None)
-    monkeypatch.setattr(analyst_console, "menu_group", lambda _title: None)
-    monkeypatch.setattr(analyst_console, "menu_option", lambda _number, _label: None)
+    monkeypatch.setattr(
+        analyst_console,
+        "get_dashboard_stats",
+        lambda: {
+            "alerts": 0, "cases": 0, "high": 0, "medium": 0, "low": 0,
+            "open": 0, "investigating": 0, "closed": 0,
+        },
+    )
+    monkeypatch.setattr(analyst_console, "get_recent_activity", lambda: ())
 
     def select_exit(_prompt):
         calls.append("input")

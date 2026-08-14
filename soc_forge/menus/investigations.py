@@ -2,6 +2,7 @@ from soc_forge.ui.panels import header, menu_option, error
 from soc_forge.investigations.workspace import launch_case_workspace
 from soc_forge.investigations.ioc_explorer import build_ioc_index, list_iocs
 from soc_forge.ui.screen import begin_screen
+from soc_forge.ui.terminal import render_breadcrumb
 
 
 def investigations_menu(
@@ -16,6 +17,7 @@ def investigations_menu(
 ):
     while True:
         begin_screen("INVESTIGATIONS")
+        print(render_breadcrumb(("SOC-FORGE", "INVESTIGATIONS")))
 
         menu_option("1", "View Cases")
         menu_option("2", "Investigation Workspace")

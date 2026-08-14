@@ -36,3 +36,13 @@ v3.2 Slice 1 establishes presentation primitives only. Existing console workflow
 ## Existing Startup Presentation
 
 The Analyst Console continues to use its original large SOC ASCII logo and cyan/yellow SOC-Forge identity. The existing startup renderer reads the authoritative package version and presents readiness lines for Runtime, Detection Rules, Investigation Workspace, Analysis Snapshots, and Analyst Services beneath that branding. It remains the single startup implementation and does not use the compact Command Center application header as a replacement splash.
+
+## Command Center And Navigation
+
+The startup screen and Command Center have distinct roles. Startup retains the large branded SOC logo and readiness sequence; the Command Center uses the compact application header, SOC-FORGE > COMMAND CENTER breadcrumb, and existing dashboard projections for routine navigation.
+
+The platform overview continues to use the established alert, case, case-status, and severity counts without introducing new calculations. Recent activity preserves the existing source order and three-item display limit. Navigation is grouped as Operations (1 Detection, 2 Investigations, 3 Analysis) and Output & Administration (4 Reporting, 5 System), with 0 retaining its existing exit behavior.
+
+Top-level menus add a minimal SOC-FORGE > MENU breadcrumb while preserving their existing options, dispatch, input handling, and back navigation. Nested workspace redesign remains deferred to later slices. The same bounded-width and no-color behavior used by the terminal foundation applies to the Command Center.
+
+v3.2 Slice 3 changes presentation and navigation hierarchy only; Command Center behavior and menu semantics remain unchanged.

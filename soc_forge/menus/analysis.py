@@ -1,5 +1,6 @@
 from soc_forge.ui.panels import header, menu_option, error, warning
 from soc_forge.ui.screen import begin_screen
+from soc_forge.ui.terminal import render_breadcrumb
 
 
 def analysis_menu(
@@ -9,6 +10,7 @@ def analysis_menu(
 ):
     while True:
         begin_screen("ANALYSIS")
+        print(render_breadcrumb(("SOC-FORGE", "ANALYSIS")))
 
         menu_option("1", "Attack Stories")
         menu_option("2", "Attack Graph Viewer")
