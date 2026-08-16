@@ -8,6 +8,8 @@ const state = {
   evidenceDraft: null,
   investigationDraft: null,
   responseActions: null,
+  operationsQueue: null,
+  operationsFilter: "all",
   reasoningSummary: null,
   reasoningDraft: null,
   activeCaseId: null,
@@ -497,6 +499,7 @@ function render() {
   renderScorecard();
   renderAlerts();
   renderHunts();
+  if (state.operationsQueue) renderOperationsQueue();
   setView(state.view);
 }
 
@@ -507,8 +510,16 @@ document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListene
       .then(renderInvestigations)
       .catch((error) => alert(error.message));
   }
+  if (button.dataset.view === 'operations') {
+    loadOperationsQueue().catch((error) => alert(error.message));
+  }
 }));
-$('#refreshButton').addEventListener('click', loadWorkspace);
+$('#refreshButton').addEventListener('click', () => {
+  loadWorkspace().then(() => {
+    if (state.view === 'operations') return loadOperationsQueue();
+    return undefined;
+  }).catch((error) => alert(error.message));
+});
 $('#runScenarioButton').addEventListener('click', () => runScenario().catch((error) => { state.runningScenario = false; renderScenarioButton(); alert(error.message); }));
 if ($('#refreshInvestigationsButton')) $('#refreshInvestigationsButton').addEventListener('click', () => {
   loadInvestigationSummaries().then(renderInvestigations).catch((error) => alert(error.message));
@@ -519,6 +530,8 @@ $('#nextDemoStepButton').addEventListener('click', advanceGuidedDemo);
 $('#closeDemoButton').addEventListener('click', () => { state.demo.active = false; render(); });
 $('#searchInput').addEventListener('input', (event) => { state.search = event.target.value; render(); });
 $('#caseSort').addEventListener('change', renderCases);
+bindOperationsQueue();
+
 if ($('#graphCaseSelect')) $('#graphCaseSelect').addEventListener('change', (event) => { state.activeCaseId = event.target.value; renderCases(); renderGraph(); });
 
 loadWorkspace().catch((error) => {

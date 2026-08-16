@@ -1,0 +1,356 @@
+import json
+import threading
+from http.client import HTTPConnection
+from pathlib import Path
+
+import pytest
+
+from soc_forge.investigations.finding_service import InvestigationFindingService
+from dataclasses import asdict
+
+from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.investigations.operations_queue import OperationsQueueService
+from soc_forge.investigations.response_action_service import (
+    InvestigationResponseActionService,
+)
+from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
+from soc_forge.web.app import make_server
+from test_operations_queue import _action, _finding, _save
+
+
+def _request(address, path):
+    connection = HTTPConnection(*address, timeout=10)
+    try:
+        connection.request("GET", path)
+        response = connection.getresponse()
+        payload = json.loads(response.read())
+        return response.status, dict(response.getheaders()), payload
+    finally:
+        connection.close()
+
+
+def _start(tmp_path, repository):
+    out_dir = tmp_path / "out"
+    server = make_server(
+        "127.0.0.1",
+        0,
+        out_dir,
+        workspace_root=repository.storage_root,
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, thread, server.server_address
+
+
+def _stop(server, thread):
+    server.shutdown()
+    thread.join(timeout=5)
+    server.server_close()
+
+
+def test_get_empty_queue_is_no_store_and_offline(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        server.active_analysis_result = None
+        status, headers, payload = _request(address, "/api/operations-queue")
+    finally:
+        _stop(server, thread)
+    assert status == 200
+    assert headers["Cache-Control"] == "no-store"
+    assert payload["summary"] == {
+        "total_items": 0,
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "response_actions": 0,
+        "uncovered_findings": 0,
+        "proposed": 0,
+        "approved": 0,
+        "in_progress": 0,
+    }
+    assert payload["items"] == []
+
+
+@pytest.mark.parametrize("status", ["proposed", "approved", "in_progress"])
+def test_get_queue_includes_each_open_action_state(tmp_path, status):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(repository, actions=(_action(status=status),))
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        response_status, headers, payload = _request(
+            address, "/api/operations-queue"
+        )
+    finally:
+        _stop(server, thread)
+    assert response_status == 200
+    assert headers["Cache-Control"] == "no-store"
+    assert [item["source_status"] for item in payload["items"]] == [status]
+    assert payload["summary"][status] == 1
+
+
+@pytest.mark.parametrize("status", ["completed", "dismissed"])
+def test_terminal_action_is_excluded_and_finding_is_uncovered(tmp_path, status):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(repository, actions=(_action(status=status),))
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        _, _, payload = _request(address, "/api/operations-queue")
+    finally:
+        _stop(server, thread)
+    assert [(item["item_type"], item["source_id"]) for item in payload["items"]] == [
+        ("uncovered_finding", "FIND-001")
+    ]
+
+
+def test_mixed_queue_summary_order_ids_detail_and_read_immutability(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(
+        repository,
+        "INV-B",
+        actions=(_action("INV-B", status="approved", priority="critical"),),
+    )
+    _save(repository, "INV-A", findings=(_finding("INV-A", "FIND-001"),))
+    before = {
+        path.name: path.read_bytes()
+        for path in repository.investigations_root.glob("*.json")
+    }
+    revisions = {
+        item.investigation_id: item.revision
+        for item in repository.list_investigations()
+    }
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        status, headers, payload = _request(address, "/api/operations-queue")
+        queue_id = payload["items"][0]["queue_item_id"]
+        detail_status, detail_headers, detail = _request(
+            address, "/api/operations-queue/" + queue_id
+        )
+    finally:
+        _stop(server, thread)
+    assert status == detail_status == 200
+    assert headers["Cache-Control"] == detail_headers["Cache-Control"] == "no-store"
+    assert [item["investigation_id"] for item in payload["items"]] == [
+        "INV-B",
+        "INV-A",
+    ]
+    assert payload["summary"]["total_items"] == 2
+    assert payload["summary"]["critical"] == 1
+    assert payload["summary"]["medium"] == 1
+    assert payload["summary"]["response_actions"] == 1
+    assert payload["summary"]["uncovered_findings"] == 1
+    assert detail == payload["items"][0]
+    assert detail["queue_item_id"] == "OPQ:INV-B:response_action:ACT-001"
+    assert {
+        path.name: path.read_bytes()
+        for path in repository.investigations_root.glob("*.json")
+    } == before
+    assert {
+        item.investigation_id: item.revision
+        for item in repository.list_investigations()
+    } == revisions
+
+
+
+def test_web_and_terminal_service_projection_are_identical(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(repository, "INV-A", actions=(_action("INV-A", status="in_progress"),))
+    _save(repository, "INV-B", findings=(_finding("INV-B", "FIND-001"),))
+    service = OperationsQueueService(repository)
+    expected_items = service.list_queue()
+    expected_summary = service.summarize(expected_items)
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        _, _, payload = _request(address, "/api/operations-queue")
+    finally:
+        _stop(server, thread)
+    assert payload["items"] == [asdict(item) for item in expected_items]
+    assert payload["summary"] == asdict(expected_summary)
+
+def test_multi_finding_action_is_one_item_and_superseded_is_excluded(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    findings = (
+        _finding(finding_id="FIND-001", supersedes_finding_id="FIND-OLD"),
+        _finding(finding_id="FIND-002"),
+        _finding(
+            finding_id="FIND-OLD",
+            lifecycle_state="superseded",
+            superseded_by_finding_id="FIND-001",
+            supersession_reason="Replaced.",
+            supersession_author="alice",
+            superseded_at="2026-08-14T13:00:00Z",
+        ),
+    )
+    _save(
+        repository,
+        findings=findings,
+        actions=(_action(finding_ids=("FIND-001", "FIND-002")),),
+    )
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        _, _, payload = _request(address, "/api/operations-queue")
+    finally:
+        _stop(server, thread)
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["source_id"] == "ACT-001"
+
+
+def test_cross_investigation_same_source_id_is_scoped_and_distinct(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(repository, "INV-A", actions=(_action("INV-A"),))
+    _save(repository, "INV-B", actions=(_action("INV-B"),))
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        _, _, payload = _request(address, "/api/operations-queue")
+        details = [
+            _request(address, "/api/operations-queue/" + item["queue_item_id"])[2]
+            for item in payload["items"]
+        ]
+    finally:
+        _stop(server, thread)
+    assert {item["investigation_id"] for item in details} == {"INV-A", "INV-B"}
+    assert len({item["queue_item_id"] for item in details}) == 2
+
+
+def test_missing_and_corrupt_queue_errors_are_bounded(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(repository)
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        status, headers, payload = _request(
+            address, "/api/operations-queue/OPQ:missing"
+        )
+        record = next(repository.investigations_root.glob("*.json"))
+        record.write_text("{broken")
+        broken_status, _, broken = _request(address, "/api/operations-queue")
+    finally:
+        _stop(server, thread)
+    assert status == 404
+    assert headers["Cache-Control"] == "no-store"
+    assert payload == {"error": "Operations queue item not found"}
+    assert broken_status == 500
+    assert broken == {"error": "Unable to load analyst operations queue"}
+    assert "broken" not in json.dumps(broken)
+
+
+def test_authoritative_mutations_refresh_action_finding_membership(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(repository, actions=(_action(),))
+    workspace = InvestigationWorkspaceService(repository)
+    actions = InvestigationResponseActionService(workspace)
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        _, _, initial = _request(address, "/api/operations-queue")
+        revision = 1
+        for target in ("approved", "in_progress", "completed"):
+            result = actions.transition_action(
+                "INV-A",
+                "ACT-001",
+                target_status=target,
+                author="alice",
+                rationale="Authoritative transition.",
+                expected_revision=revision,
+            )
+            revision = result.revision
+        _, _, refreshed = _request(address, "/api/operations-queue")
+    finally:
+        _stop(server, thread)
+    assert initial["items"][0]["source_id"] == "ACT-001"
+    assert [(item["item_type"], item["source_id"]) for item in refreshed["items"]] == [
+        ("uncovered_finding", "FIND-001")
+    ]
+
+
+def test_new_action_removes_uncovered_and_supersession_removes_original(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(
+        repository,
+        findings=(
+            _finding(finding_id="FIND-001"),
+            _finding(finding_id="FIND-002"),
+        ),
+    )
+    workspace = InvestigationWorkspaceService(repository)
+    actions = InvestigationResponseActionService(workspace)
+    findings = InvestigationFindingService(workspace)
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        _, _, initial = _request(address, "/api/operations-queue")
+        created = actions.create_action(
+            "INV-A",
+            action_id="ACT-NEW",
+            finding_ids=("FIND-001",),
+            title="Review",
+            description="Review durable state.",
+            action_type="validation",
+            priority="high",
+            rationale="Finding requires work.",
+            owner="soc",
+            created_by="alice",
+            expected_revision=1,
+        )
+        _, _, covered = _request(address, "/api/operations-queue")
+        findings.supersede_finding(
+            "INV-A",
+            "FIND-002",
+            "FIND-001",
+            reason="Consolidated.",
+            author="alice",
+            expected_revision=created.revision,
+        )
+        _, _, superseded = _request(address, "/api/operations-queue")
+    finally:
+        _stop(server, thread)
+    assert {item["source_id"] for item in initial["items"]} == {
+        "FIND-001",
+        "FIND-002",
+    }
+    assert {item["source_id"] for item in covered["items"]} == {
+        "ACT-NEW",
+        "FIND-002",
+    }
+    assert [item["source_id"] for item in superseded["items"]] == ["ACT-NEW"]
+
+
+def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
+    root = Path(__file__).parents[1]
+    source = (root / "soc_forge/web/static/operations_queue.js").read_text()
+    app = (root / "soc_forge/web/static/app.js").read_text()
+    index = (root / "soc_forge/web/static/index.html").read_text()
+    assert "Operations Queue" in index
+    assert "Analyst Operations Queue" in index
+    assert "Current analyst attention items derived from durable Findings and Response Actions." in index
+    for label in (
+        "All",
+        "Response Actions",
+        "Uncovered Findings",
+        "High/Critical",
+        "Open Response Action",
+        "Open Finding",
+        "No analyst attention items.",
+    ):
+        assert label in source or label in index
+    for label in (
+        "Total",
+        "Critical",
+        "High",
+        "Medium",
+        "Low",
+        "Proposed",
+        "Approved",
+        "In Progress",
+    ):
+        assert label in source
+    assert "createElement" in source
+    assert "textContent" in source
+    assert "replaceChildren" in source
+    assert "innerHTML" not in source
+    assert "localStorage" not in source
+    for forbidden in ("Acknowledge", "Dismiss Queue Item", "Snooze", "Escalate"):
+        assert forbidden not in source
+    assert "openInvestigation(item.investigation_id)" in source
+    assert "openResponseAction(item.source_id)" in source
+    assert "openFinding(item.source_id)" in source
+    assert "loadOperationsQueue()" in app
+    assert "/static/operations_queue.js" in index

@@ -1137,6 +1137,56 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             self.send_file(STATIC_DIR / requested)
             return
 
+        if path == "/api/operations-queue":
+            try:
+                payload = self.investigation_app.get_operations_queue()
+            except InvestigationRepositoryError as exc:
+                print(
+                    f"[soc-forge-web] Unable to project operations queue: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                self.send_json(
+                    {"error": "Unable to load analyst operations queue"},
+                    status=500,
+                    no_store=True,
+                )
+                return
+            self.send_json(payload, no_store=True)
+            return
+        if path.startswith("/api/operations-queue/"):
+            queue_item_id = path.removeprefix("/api/operations-queue/")
+            if not queue_item_id or "/" in queue_item_id:
+                self.send_json(
+                    {"error": "Operations queue item not found"},
+                    status=404,
+                    no_store=True,
+                )
+                return
+            try:
+                payload = self.investigation_app.get_operations_queue_item(
+                    queue_item_id
+                )
+            except KeyError:
+                self.send_json(
+                    {"error": "Operations queue item not found"},
+                    status=404,
+                    no_store=True,
+                )
+                return
+            except InvestigationRepositoryError as exc:
+                print(
+                    f"[soc-forge-web] Unable to load operations queue item: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                self.send_json(
+                    {"error": "Unable to load analyst operations queue"},
+                    status=500,
+                    no_store=True,
+                )
+                return
+            self.send_json(payload, no_store=True)
+            return
+
         workspace = load_workspace(self.out_dir)
         if path == "/api/summary":
             self.send_json(workspace["summary"])

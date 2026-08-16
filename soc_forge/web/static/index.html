@@ -20,6 +20,7 @@
         <button class="nav-tab active" data-view="overview">Overview</button>
         <button class="nav-tab" data-view="cases">Cases</button>
         <button class="nav-tab" data-view="investigations">Investigations</button>
+        <button class="nav-tab" data-view="operations">Operations Queue</button>
         <button class="nav-tab" data-view="graph">Graph</button>
         <button class="nav-tab" data-view="scorecard">Scorecard</button>
         <button class="nav-tab" data-view="alerts">Alerts</button>
@@ -125,6 +126,28 @@
         </div>
       </section>
 
+      <section id="operationsView" class="view">
+        <div class="operations-header">
+          <div>
+            <h2>Analyst Operations Queue</h2>
+            <p>Current analyst attention items derived from durable Findings and Response Actions.</p>
+          </div>
+          <button id="refreshOperationsButton" type="button">Refresh</button>
+        </div>
+        <div class="evidence-warning">
+          Queue items are projections of authoritative investigation state. They cannot be acknowledged or edited directly.
+        </div>
+        <div id="operationsSummary" class="metrics operations-metrics"></div>
+        <div class="workspace-actions operations-filters" aria-label="Operations Queue filters">
+          <button type="button" data-operations-filter="all">All</button>
+          <button type="button" data-operations-filter="response_action">Response Actions</button>
+          <button type="button" data-operations-filter="uncovered_finding">Uncovered Findings</button>
+          <button type="button" data-operations-filter="high_critical">High/Critical</button>
+        </div>
+        <div id="operationsStatus" class="muted evidence-status"></div>
+        <div id="operationsItems" class="workspace-records"></div>
+      </section>
+
       <section id="graphView" class="view">
         <section class="panel">
           <div class="panel-head">
@@ -168,6 +191,7 @@
   <script src="/static/investigation_response_actions.js"></script>
   <script src="/static/investigation_summary.js"></script>
   <script src="/static/query_workbench.js"></script>
+  <script src="/static/operations_queue.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

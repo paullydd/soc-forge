@@ -19,6 +19,7 @@ from soc_forge.investigations.handoff import (
     read_handoff_manifest,
     validate_handoff_bundle,
 )
+from soc_forge.investigations.operations_queue import OperationsQueueService
 from soc_forge.investigations.pivots import InvestigationPivotService
 from soc_forge.investigations.query_context import (
     InvestigationQueryContext,
@@ -134,6 +135,9 @@ class InvestigationWebApplication:
             response_action_service
             or InvestigationResponseActionService(workspace_service)
         )
+        self.operations_queue_service = OperationsQueueService(
+            workspace_service.repository
+        )
         self.timeline_service = InvestigationTimelineService()
         self.summary_service = InvestigationSummaryService(
             workspace_service,
@@ -147,6 +151,16 @@ class InvestigationWebApplication:
         self.handoff_root = Path(handoff_root or "out/handoffs")
         self.snapshot_store = snapshot_store
         self.analysis_activator = analysis_activator
+
+    def get_operations_queue(self) -> Dict[str, Any]:
+        items = self.operations_queue_service.list_queue()
+        return {
+            "summary": asdict(self.operations_queue_service.summarize(items)),
+            "items": [asdict(item) for item in items],
+        }
+
+    def get_operations_queue_item(self, queue_item_id: str) -> Dict[str, Any]:
+        return asdict(self.operations_queue_service.get_queue_item(queue_item_id))
 
     def _workspace_response(self, result: WorkspaceResult) -> Dict[str, Any]:
         response = workspace_response(result)

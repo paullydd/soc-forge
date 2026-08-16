@@ -234,3 +234,12 @@ th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; fon
 .response-priority-low { border-color: #67c38a; color: #8ee0aa; }
 .response-actions-section fieldset { display: grid; gap: 0.4rem; }
 .response-actions-section fieldset label { display: block; }
+
+.operations-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 12px; }
+.operations-header h2 { margin: 0 0 6px; }
+.operations-header p { margin: 0; color: var(--muted); }
+.operations-metrics { grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); margin: 14px 0; }
+.operations-filters { margin-bottom: 12px; }
+#operationsItems { display: grid; gap: 10px; }
+#operationsItems .workspace-record { margin: 0; }
+#operationsItems .empty-state { min-height: 220px; }

@@ -81,3 +81,19 @@ The terminal workspace provides deterministic views for all attention items, Res
 Opening an item delegates to the existing authoritative Response Action or Finding controller. Returning from that controller reprojects the queue so completed, dismissed, superseded, or newly uncovered work is reflected without storing queue state. The queue itself remains read-only, offline-capable, and independent of source analysis.
 
 This terminal surface introduces no due dates, timers, aging, SLAs, notifications, assignments, acknowledgement state, AI scoring, automation, or remediation execution. SOC-Forge records analyst-controlled response work and does not execute remediation.
+
+
+## Web Operations Queue
+
+The web sidebar exposes Operations Queue as a first-class analyst workspace. GET /api/operations-queue returns the authoritative summary and deterministically ordered items; GET /api/operations-queue/{queue_item_id} returns one projected item. Both endpoints use Cache-Control: no-store and OperationsQueueService remains the sole projection authority.
+
+The page displays Total, Critical, High, Medium, Low, Response Actions, Uncovered Findings, Proposed, Approved, and In Progress summary cards. Read-only filters match the terminal views: All, Response Actions, Uncovered Findings, and High/Critical.
+
+Open Response Action and Open Finding first resolve the owning Investigation, then delegate to the existing source-detail workflow using investigation_id and source_id. Source IDs are never treated as globally unique. Returning through the Operations navigation reloads the projection, so authoritative Action transitions, new Actions, and Finding supersession determine membership without browser-side assumptions or background polling.
+
+The web queue works without active source analysis, snapshots, artifacts, or timeline data. Cards are built with DOM creation and textContent, not unsafe analyst-content interpolation. No queue state is stored in localStorage.
+
+The Operations Queue is a projection, not a task store.
+Queue membership changes only when authoritative Investigation state changes.
+
+Console and web use the same OperationsQueueService output, including item IDs, ordering, priorities, source types, reasons, and summary counts. Neither interface persists, acknowledges, assigns, dismisses, ages, scores, or executes queue work.

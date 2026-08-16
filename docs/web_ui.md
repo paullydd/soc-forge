@@ -264,3 +264,14 @@ Evidence, hypothesis, decision, and timeline actions open the existing investiga
 
 The local Investigation Workspace exposes durable Response Actions with authoritative counts, ACTIVE-Finding selection, safe list/detail/history rendering, and controlled lifecycle forms. Routes are investigation-scoped under `/api/investigations/{investigation_id}/response-actions`, remain usable when source analysis is unavailable, require optimistic revisions for mutations, and use `Cache-Control: no-store` for reads. The interface records analyst workflow and does not execute containment or remediation. The same durable Actions appear in FULL and OFFLINE Investigation Summary views and in Handoff preview/export. Handoff reads remain non-mutating and never execute remediation.
 Handoff preview and export remain available in OFFLINE investigations. The preview explicitly labels source analysis as unavailable, exports only durable investigation state, and records analysis-derived timeline entries and source artifacts as unavailable rather than reconstructing them.
+
+
+## Analyst Operations Queue
+
+Operations Queue is a top-level web workspace backed by the same deterministic OperationsQueueService used by the Analyst Console. It presents authoritative summary cards and read-only filters for all items, Response Actions, uncovered Findings, and high/critical work.
+
+Each card retains stable Investigation and source identifiers, source state, operational priority, deterministic reason, and update time. Open Response Action and Open Finding reuse the durable Investigation detail workflows and scope lookup by both Investigation ID and source ID.
+
+The queue is requested with no-store caching whenever the page opens or refreshes. Returning to Operations after a source mutation requests a new projection; the browser does not manually add or remove cards and does not use localStorage or background polling. Offline durable Investigation state is sufficient.
+
+Queue controls never acknowledge, assign, dismiss, complete, snooze, or escalate queue items. Any permitted mutation occurs only in the authoritative Finding or Response Action workspace. SOC-Forge records analyst-controlled response work and does not execute remediation.
