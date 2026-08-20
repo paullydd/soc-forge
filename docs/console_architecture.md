@@ -25,7 +25,10 @@ The existing capabilities remain available:
 - Analyze Log File, Run Attack Simulation, and Rules Only Mode are under Detection Lab.
 - View Alerts and Search Alerts are under Alert Explorer.
 
-Slice 1 does not add rule-catalog, coverage, explainability, gap, or overview domain services. Those destinations display bounded informational screens and create no state.
+Slice 2 implements Detection Overview and Rule Catalog as read-only projections
+of the production rule loader and stored alert state. They create no independent
+registry or state and never run detections. Detection Coverage, Rule
+Explainability, and Detection Gaps remain bounded informational destinations.
 
 ## Investigations
 
@@ -74,4 +77,6 @@ A placeholder screen is not an implemented feature.
 
 Navigation changes do not create domain state or duplicate persistence. Detection, Investigation, Analysis, Operations Queue, Reporting, and System continue to use their existing authorities.
 
-Later v3.5 slices may implement Detection Overview, Rule Catalog, detection coverage, rule explainability, detection gaps, and the listed Security Analysis and System services. Slice 1 defines their ownership and navigation only.
+Later v3.5 slices may implement detection coverage, rule explainability,
+detection gaps, and the listed Security Analysis and System services. Detection
+Overview and Rule Catalog are implemented without changing persistence.

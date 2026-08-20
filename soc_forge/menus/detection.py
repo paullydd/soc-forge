@@ -12,6 +12,8 @@ def detection_menu(
     view_alerts,
     run_rules_only,
     search_alerts,
+    show_detection_overview=None,
+    show_rule_catalog=None,
 ):
     while True:
         begin_screen("DETECTION")
@@ -31,22 +33,27 @@ def detection_menu(
         choice = input("\nSelect option: ").strip()
 
         if choice == "1":
-            show_architecture_notice(
-                "DETECTION",
-                "Detection Overview",
-                "Detection Overview will summarize rule readiness and detection activity. "
-                "Use Detection Lab and Alert Explorer for current workflows.",
-                pause,
-            )
+            if show_detection_overview is not None:
+                show_detection_overview()
+            else:
+                show_architecture_notice(
+                    "DETECTION",
+                    "Detection Overview",
+                    "Detection Overview is unavailable in this console session. "
+                    "Use Detection Lab and Alert Explorer for current workflows.",
+                    pause,
+                )
         elif choice == "2":
-            show_architecture_notice(
-                "DETECTION",
-                "Rule Catalog",
-                "Rule Catalog is not implemented in this slice. Rules Only Mode remains "
-                "available through Detection Lab.",
-                pause,
-                ("rule inventory", "rule metadata", "rule readiness"),
-            )
+            if show_rule_catalog is not None:
+                show_rule_catalog()
+            else:
+                show_architecture_notice(
+                    "DETECTION",
+                    "Rule Catalog",
+                    "Rule Catalog is unavailable in this console session. Rules Only "
+                    "Mode remains available through Detection Lab.",
+                    pause,
+                )
         elif choice == "3":
             detection_lab(
                 analyze_log_file, run_attack_simulation, run_rules_only, pause

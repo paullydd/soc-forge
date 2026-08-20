@@ -6,6 +6,10 @@ import json
 from colorama import Fore, Style, init
 import time
 import sys
+from soc_forge.detection_engineering import DetectionEngineeringService
+from soc_forge.menus.detection_engineering import (
+    DetectionEngineeringConsoleController,
+)
 from soc_forge.investigations.workspace import launch_case_workspace
 from soc_forge.investigations.ioc_explorer import build_ioc_index, list_iocs
 from soc_forge.ui.loading import startup_screen as ui_startup_screen
@@ -1218,6 +1222,13 @@ def main_menu():
     operational_summary_service = OperationalSummaryService(
         operations_prioritization_service
     )
+    detection_engineering_controller = DetectionEngineeringConsoleController(
+        DetectionEngineeringService(alert_loader=load_all_alerts),
+        input_func=input,
+        output_func=print,
+        screen_func=clear_screen,
+        pause_func=pause,
+    )
     while True:
         clear_screen()
         show_dashboard(
@@ -1242,6 +1253,8 @@ def main_menu():
                 view_alerts,
                 run_rules_only,
                 search_alerts,
+                detection_engineering_controller.show_overview,
+                detection_engineering_controller.run_rule_catalog,
             )
 
         elif choice == "2":

@@ -103,3 +103,27 @@ Detection content now covers:
 These process rules support native Windows Security Event ID 4688. Event ID 1 is accepted only when the event provider is `Microsoft-Windows-Sysmon`.
 
 The rules identify specific command-line patterns and do not establish malware certainty. Legitimate endpoint administration, backup maintenance, and disaster-recovery testing can produce similar activity. Alternate syntax or tools can bypass string matching. Generated evidence may retain sensitive command-line arguments and should be reviewed or redacted before sharing.
+
+## Detection Overview and Rule Catalog
+
+The analyst console's Detection menu provides two read-only inspection views:
+
+- Detection Overview summarizes the bundled rule set, including total, enabled,
+  and disabled rules; unique explicitly declared ATT&CK tactics and techniques;
+  and recently stored alerts.
+- Rule Catalog lists the same bundled rules in rule-ID order and exposes their
+  validated metadata, match definition, emitted alert fields, score modifiers,
+  aggregation definition, tags, and ATT&CK mappings.
+
+Both views load rules through the production rule loader from
+`BUILTIN_RULES_PATH`. Recent detection information comes from the existing
+stored alert files used by Alert Explorer. Viewing either screen does not execute
+rules, generate alerts, enable or disable rules, or write repository state.
+
+The overview handles an empty alert store explicitly. Invalid bundled rule data
+uses the same validation failure path as other rule-loading workflows and is
+reported as a bounded console error. Rendering follows shared terminal width,
+`NO_COLOR`, `TERM=dumb`, and ASCII-fallback behavior.
+
+Detection Overview and Rule Catalog inspect existing detection capability.
+They do not run detections or modify rule state.
