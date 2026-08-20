@@ -5,11 +5,6 @@ from soc_forge.ui.terminal import render_breadcrumb
 
 
 ANALYSIS_DESTINATIONS = {
-    "1": (
-        "Threat Activity Overview",
-        "Cross-source threat activity analysis is not implemented in this slice.",
-        ("detection activity", "investigation activity", "ATT&CK activity"),
-    ),
     "2": (
         "Entity Explorer",
         "Cross-investigation entity analysis is not implemented in this slice.",
@@ -38,17 +33,24 @@ ANALYSIS_DESTINATIONS = {
 }
 
 
-def analysis_menu(pause, attack_stories, attack_graph_viewer):
+def analysis_menu(pause, attack_stories, attack_graph_viewer, threat_activity_controller=None):
     while True:
         begin_screen("ANALYSIS")
         print(render_breadcrumb(("SOC-FORGE", "ANALYSIS")))
         menu_group("SECURITY ANALYSIS")
+        menu_option("1", "Threat Activity Overview")
         for number, (title, _summary, _scope) in ANALYSIS_DESTINATIONS.items():
             menu_option(number, title)
         menu_option("0", "Back")
 
         choice = input("\nSelect option: ").strip()
-        if choice in ANALYSIS_DESTINATIONS:
+        if choice == "1":
+            if threat_activity_controller is None:
+                error("Threat Activity Overview is unavailable.")
+                pause()
+            else:
+                threat_activity_controller.run()
+        elif choice in ANALYSIS_DESTINATIONS:
             title, summary, scope = ANALYSIS_DESTINATIONS[choice]
             show_architecture_notice("ANALYSIS", title, summary, pause, scope)
         elif choice == "0":

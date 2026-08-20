@@ -707,10 +707,14 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
         "build_investigation_console_controller",
         lambda: object(),
     )
+    overview = object()
+    monkeypatch.setattr(
+        analyst_console, "build_threat_activity_controller", lambda _workspace: overview
+    )
     monkeypatch.setattr(
         analyst_console,
         "analysis_menu",
-        lambda pause, stories, graph: calls.append((pause, stories, graph)),
+        lambda pause, stories, graph, overview: calls.append((pause, stories, graph, overview)),
     )
 
     with pytest.raises(SystemExit):
@@ -721,7 +725,8 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
             analyst_console.pause,
             analyst_console.attack_stories,
             analyst_console.attack_graph_viewer,
-        )
+            overview,
+        ),
     ]
 
 

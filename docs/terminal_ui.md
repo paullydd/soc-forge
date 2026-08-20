@@ -223,3 +223,10 @@ Back navigation returns one level at a time. Both workspaces retain width-safe,
 Security Analysis destinations describe future cross-investigation analysis without fake data or state. Attack Narrative and Attack Graph remain available through the Investigation Workspace reconstruction workflow. Reporting retains Analysis Report and ATT&CK Coverage while Investigation Handoff remains owned by Investigations. System removes Demo Case from primary analyst navigation and retains About SOC-Forge.
 
 Unimplemented destinations use bounded informational panels after selection. Menu labels do not say Coming Soon. These screens preserve breadcrumbs, exact Back behavior, width limits, NO_COLOR, TERM=dumb, and ASCII fallback and do not modify analysis, investigation, queue, repository, or environment state. Platform Status is deferred until a shared authoritative readiness source exists.
+
+
+## Threat Activity Overview
+
+Analysis option 1 is a real read-only projection over durable Investigation state and optional current machine analysis. FULL exposes current alert, case, hunt, and reconstruction counts; OFFLINE preserves Investigation, Finding, and Response Action counts while machine fields say Unavailable.
+
+Explicit alert and Finding ATT&CK mappings are counted as separately attributed observations. Recent activity uses alert, Finding, and Response Action transition timestamps with deterministic ordering and [MACHINE]/[ANALYST] labels. The feature does not persist, prioritize, score, correlate Investigations, or measure detection coverage. Remaining Analysis destinations stay deferred.

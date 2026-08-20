@@ -85,3 +85,10 @@ Navigation changes do not create domain state or duplicate persistence. Detectio
 Later v3.5 slices may implement detection coverage, rule explainability,
 detection gaps, and the listed Security Analysis and System services. Detection
 Overview and Rule Catalog are implemented without changing persistence.
+
+
+## Threat Activity Overview
+
+Analysis option 1 is a real read-only projection over durable Investigation state and optional current machine analysis. FULL exposes current alert, case, hunt, and reconstruction counts; OFFLINE preserves Investigation, Finding, and Response Action counts while machine fields say Unavailable.
+
+Explicit alert and Finding ATT&CK mappings are counted as separately attributed observations. Recent activity uses alert, Finding, and Response Action transition timestamps with deterministic ordering and [MACHINE]/[ANALYST] labels. The feature does not persist, prioritize, score, correlate Investigations, or measure detection coverage. Remaining Analysis destinations stay deferred.

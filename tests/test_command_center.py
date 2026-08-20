@@ -203,6 +203,11 @@ def test_main_menu_returns_from_each_target_without_extra_input_or_pause(
     monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
     monkeypatch.setattr(analyst_console, "show_dashboard", lambda *_args: renders.append("render"))
     monkeypatch.setattr(analyst_console, "build_investigation_console_controller", lambda: object())
+    monkeypatch.setattr(
+        analyst_console,
+        "build_threat_activity_controller",
+        lambda _workspace: object(),
+    )
     queue_controller = type("QueueController", (), {"run": lambda self: None})()
     queue_controller.queue_service = type(
         "QueueService", (), {"summarize": lambda self: None}

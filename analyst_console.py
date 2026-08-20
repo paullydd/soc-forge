@@ -26,6 +26,8 @@ from soc_forge.ui.panels import menu_group, menu_option
 from soc_forge.menus.investigations import investigations_menu
 from soc_forge.menus.detection import detection_menu
 from soc_forge.menus.analysis import analysis_menu
+from soc_forge.menus.threat_activity import ThreatActivityConsoleController
+from soc_forge.threat_activity import ThreatActivityOverviewService
 from soc_forge.menus.reporting import reporting_menu
 from soc_forge.menus.system import system_menu
 from soc_forge.dashboard.dashboard import show_dashboard
@@ -107,6 +109,15 @@ def build_operations_queue_controller(workspace_controller):
         input_func=input,
         output_func=print,
         screen_func=begin_screen,
+    )
+
+
+def build_threat_activity_controller(workspace_controller):
+    return ThreatActivityConsoleController(
+        ThreatActivityOverviewService(
+            workspace_controller.workspace_service.repository,
+            get_current_analysis_result,
+        )
     )
 
 
@@ -1312,6 +1323,7 @@ def main_menu():
                 pause,
                 attack_stories,
                 attack_graph_viewer,
+                build_threat_activity_controller(workspace_controller),
             )
 
         elif choice == "4":
