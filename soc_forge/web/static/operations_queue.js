@@ -73,7 +73,7 @@ async function openOperationsSource(item) {
   if (item.item_type === 'response_action') {
     await openResponseAction(item.source_id);
   } else {
-    await openFinding(item.source_id);
+    await openFinding(item.source_id, item.investigation_id);
   }
 }
 

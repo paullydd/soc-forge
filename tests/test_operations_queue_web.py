@@ -2,6 +2,7 @@ import json
 import threading
 from http.client import HTTPConnection
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 
@@ -333,9 +334,55 @@ def test_new_action_removes_uncovered_and_supersession_removes_original(tmp_path
     assert [item["source_id"] for item in superseded["items"]] == ["ACT-NEW"]
 
 
+def test_queue_uncovered_finding_navigation_preserves_ids_offline_without_mutation(
+    tmp_path,
+):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    _save(
+        repository,
+        "INV-MANUAL-001",
+        findings=(_finding("INV-MANUAL-001", "FIND-MANUAL-001"),),
+    )
+    before = {
+        path.name: path.read_bytes()
+        for path in repository.investigations_root.glob("*.json")
+    }
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        server.active_analysis_result = None
+        queue_status, _, queue = _request(address, "/api/operations-queue")
+        item = queue["items"][0]
+        investigation_id = item["investigation_id"]
+        finding_id = item["source_id"]
+        detail_status, _, detail = _request(
+            address,
+            (
+                f"/api/investigations/{quote(investigation_id, safe='')}"
+                f"/findings/{quote(finding_id, safe='')}"
+            ),
+        )
+    finally:
+        _stop(server, thread)
+
+    assert queue_status == detail_status == 200
+    assert item["queue_item_id"] == (
+        "OPQ:INV-MANUAL-001:uncovered_finding:FIND-MANUAL-001"
+    )
+    assert investigation_id == detail["investigation_id"] == "INV-MANUAL-001"
+    assert finding_id == detail["finding"]["finding_id"] == "FIND-MANUAL-001"
+    assert detail["finding"]["lifecycle_state"] == "active"
+    assert {
+        path.name: path.read_bytes()
+        for path in repository.investigations_root.glob("*.json")
+    } == before
+
+
 def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
     root = Path(__file__).parents[1]
     source = (root / "soc_forge/web/static/operations_queue.js").read_text()
+    findings_source = (
+        root / "soc_forge/web/static/investigation_findings.js"
+    ).read_text()
     app = (root / "soc_forge/web/static/app.js").read_text()
     index = (root / "soc_forge/web/static/index.html").read_text()
     assert "Operations Queue" in index
@@ -379,7 +426,10 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
         assert forbidden not in source
     assert "openInvestigation(item.investigation_id)" in source
     assert "openResponseAction(item.source_id)" in source
-    assert "openFinding(item.source_id)" in source
+    assert "openFinding(item.source_id, item.investigation_id)" in source
+    assert "async function openFinding(findingId, investigationId = null)" in findings_source
+    assert "findingBase(investigationId)" in findings_source
+    assert "innerHTML" not in findings_source
     assert "loadOperationsQueue()" in app
     assert "/static/operations_queue.js" in index
 

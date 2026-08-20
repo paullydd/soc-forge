@@ -5,8 +5,11 @@ function findingNode(tag, text, className) {
   return node;
 }
 
-function findingBase() {
-  return `/api/investigations/${encodeURIComponent(state.activeInvestigation.investigation.investigation_id)}/findings`;
+function findingBase(investigationId = null) {
+  const id = investigationId
+    || state.activeInvestigation?.investigation?.investigation_id;
+  if (!id) throw new Error('Open an investigation first');
+  return `/api/investigations/${encodeURIComponent(id)}/findings`;
 }
 
 function findingMessage(message, isError) {
@@ -237,8 +240,10 @@ function renderSupersedeFindingForm(finding) {
   target.appendChild(form);
 }
 
-async function openFinding(findingId) {
-  const payload = await investigationRequest('GET', `${findingBase()}/${encodeURIComponent(findingId)}`);
+async function openFinding(findingId, investigationId = null) {
+  const payload = await investigationRequest(
+    'GET', `${findingBase(investigationId)}/${encodeURIComponent(findingId)}`,
+  );
   const finding = payload.finding;
   const target = document.querySelector('#findingWorkspace');
   target.replaceChildren();
