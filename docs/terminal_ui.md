@@ -161,3 +161,9 @@ Command Center option 6 adds a compact ANALYST QUEUE summary after recent activi
 Queue views are read-only filters over the deterministic Operations Queue projection. Selecting an item first shows its complete projection card, then offers direct navigation to the existing Response Action or Finding detail workflow. Returning refreshes the projection from durable Investigation state. Empty views state "No analyst attention items."
 
 The terminal queue works offline because membership uses durable Investigation state only. It does not recover or infer source-analysis context, create a queue store, or execute remediation.
+
+## Operations Prioritization Presentation
+
+Operations Queue item cards include a concise Why Prioritized section containing the shared deterministic basis strings. Command Center shows only the highest-ranked item as Top Attention and does not duplicate the full queue or ranking rules. If the queue is empty, Top Attention is None.
+
+The terminal consumes the same priority tier, operational state order, timestamp/identity tie-breaks, and top item projection as the web interface. Basis text wraps through shared width-safe metadata rendering and remains available with NO_COLOR. Rendering is passive and does not mutate queue or Investigation state.

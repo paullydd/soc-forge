@@ -99,6 +99,14 @@ function renderOperationsCard(item) {
     ),
   );
   card.append(operationsNode('p', item.investigation_title));
+  const basis = operationsNode("div", undefined, "operations-priority-basis");
+  basis.append(operationsNode("strong", "Why this is prioritized:"));
+  const basisList = operationsNode("ul");
+  (Array.isArray(item.priority_basis) ? item.priority_basis : []).forEach(
+    (entry) => basisList.append(operationsNode("li", entry)),
+  );
+  basis.append(basisList);
+  card.append(basis);
   card.append(operationsNode('p', item.reason));
   card.append(operationsNode('p', 'Updated: ' + item.updated_at, 'muted'));
   card.dataset.queueItemId = item.queue_item_id;

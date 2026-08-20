@@ -275,3 +275,7 @@ Each card retains stable Investigation and source identifiers, source state, ope
 The queue is requested with no-store caching whenever the page opens or refreshes. Returning to Operations after a source mutation requests a new projection; the browser does not manually add or remove cards and does not use localStorage or background polling. Offline durable Investigation state is sufficient.
 
 Queue controls never acknowledge, assign, dismiss, complete, snooze, or escalate queue items. Any permitted mutation occurs only in the authoritative Finding or Response Action workspace. SOC-Forge records analyst-controlled response work and does not execute remediation.
+
+Operations Queue API items also expose priority_tier, priority_basis, and operational_state, plus the identical top item used by terminal prioritization. Cards render each basis entry with DOM creation and textContent; filters retain the server-provided order and never re-rank locally.
+
+The web interface uses no score, gauge, AI language, aging, or SLA interpretation. A fresh no-store request rebuilds membership and prioritization from durable Investigation state in FULL or OFFLINE mode without persisting browser queue state.

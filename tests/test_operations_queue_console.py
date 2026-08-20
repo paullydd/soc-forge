@@ -56,6 +56,10 @@ def test_item_cards_keep_projection_fields_and_empty_state():
         item.reason,
     ):
         assert value in output
+    assert "Why Prioritized" in output
+    assert "Response Action priority is HIGH" in output
+    assert "Action is approved and ready to" in output
+    assert "begin" in output
     assert "No analyst attention items." in render_queue_items((), ansi=False)
 
 

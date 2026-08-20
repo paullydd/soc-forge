@@ -19,6 +19,10 @@ from soc_forge.investigations.handoff import (
     read_handoff_manifest,
     validate_handoff_bundle,
 )
+from soc_forge.investigations.operations_prioritization import (
+    OperationsPrioritizationService,
+    PrioritizedOperationsItem,
+)
 from soc_forge.investigations.operations_queue import OperationsQueueService
 from soc_forge.investigations.pivots import InvestigationPivotService
 from soc_forge.investigations.query_context import (
@@ -138,6 +142,9 @@ class InvestigationWebApplication:
         self.operations_queue_service = OperationsQueueService(
             workspace_service.repository
         )
+        self.operations_prioritization_service = OperationsPrioritizationService(
+            self.operations_queue_service
+        )
         self.timeline_service = InvestigationTimelineService()
         self.summary_service = InvestigationSummaryService(
             workspace_service,
@@ -153,14 +160,31 @@ class InvestigationWebApplication:
         self.analysis_activator = analysis_activator
 
     def get_operations_queue(self) -> Dict[str, Any]:
-        items = self.operations_queue_service.list_queue()
+        items = self.operations_prioritization_service.prioritize()
+        queue_items = tuple(item.queue_item for item in items)
         return {
-            "summary": asdict(self.operations_queue_service.summarize(items)),
-            "items": [asdict(item) for item in items],
+            "summary": asdict(self.operations_queue_service.summarize(queue_items)),
+            "items": [self._prioritized_item_response(item) for item in items],
+            "top_item": (
+                None if not items else self._prioritized_item_response(items[0])
+            ),
         }
 
     def get_operations_queue_item(self, queue_item_id: str) -> Dict[str, Any]:
-        return asdict(self.operations_queue_service.get_queue_item(queue_item_id))
+        item = self.operations_prioritization_service.get_prioritized_item(
+            queue_item_id
+        )
+        return self._prioritized_item_response(item)
+
+    @staticmethod
+    def _prioritized_item_response(item: PrioritizedOperationsItem) -> Dict[str, Any]:
+        payload = asdict(item.queue_item)
+        payload.update(
+            priority_tier=item.priority_tier,
+            priority_basis=list(item.priority_basis),
+            operational_state=item.operational_state,
+        )
+        return payload
 
     def _workspace_response(self, result: WorkspaceResult) -> Dict[str, Any]:
         response = workspace_response(result)

@@ -97,3 +97,25 @@ The Operations Queue is a projection, not a task store.
 Queue membership changes only when authoritative Investigation state changes.
 
 Console and web use the same OperationsQueueService output, including item IDs, ordering, priorities, source types, reasons, and summary counts. Neither interface persists, acknowledges, assigns, dismisses, ages, scores, or executes queue work.
+
+## Deterministic operations prioritization
+
+Operations prioritization is a separate, immutable projection over current Operations Queue items. OperationsQueueService remains responsible for membership; OperationsPrioritizationService adds an explainable tier, operational state, and fixed basis strings, then orders the items. Nothing is persisted.
+
+Response Actions retain their explicit critical, high, medium, or low priority. Uncovered active Findings retain neutral medium operational priority; Finding confidence is not converted into priority.
+
+Within a priority tier, operational states are ordered:
+
+1. in_progress
+2. approved
+3. proposed
+4. uncovered_finding
+
+Complete ordering is priority tier (critical, high, medium, low), operational state, updated_at, investigation_id, then source_id. The timestamp is an ascending deterministic tie-break only. It does not mean older or newer work is more urgent and does not introduce aging, staleness, due dates, overdue state, or SLAs. Filters preserve the relative order of included items.
+
+Each Response Action basis states its explicit priority and lifecycle meaning. Each uncovered Finding basis states that the Finding is active, no open Response Action addresses it, and uncovered Findings use neutral medium operational priority. The basis is fixed code-defined language, not generated prose.
+
+FULL and OFFLINE modes produce identical prioritization from identical durable queue state. The prioritizer reads no AnalysisResult, timeline, snapshots, source artifacts, or analysis payloads. It does not modify repository bytes, revisions, Findings, Actions, histories, evidence, reasoning, or any other authoritative state.
+
+Operations prioritization is deterministic and explainable.
+SOC-Forge does not use an opaque numeric score or AI model to rank queue items.

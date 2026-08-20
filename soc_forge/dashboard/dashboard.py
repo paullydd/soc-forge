@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Mapping
 
+from soc_forge.investigations.operations_prioritization import (
+    PrioritizedOperationsItem,
+)
 from soc_forge.investigations.operations_queue import OperationsQueueSummary
 from soc_forge.ui.terminal import (
     ansi_safe_truncate,
@@ -100,11 +103,20 @@ def render_recent_activity(
 def render_operations_queue_summary(
     summary: OperationsQueueSummary,
     *,
+    top_attention: PrioritizedOperationsItem | None = None,
     width: int | None = None,
     ansi: bool | None = None,
 ) -> str:
     resolved = resolve_terminal_width(width)
+    top_label = "None"
+    if top_attention is not None:
+        source = top_attention.queue_item
+        top_label = (
+            f"[{top_attention.priority_tier.upper()}] {source.source_id} — "
+            f"{top_attention.priority_basis[-1]}"
+        )
     rows = (
+        ("Top Attention", top_label),
         ("Attention Items", summary.total_items),
         ("Critical / High", f"{summary.critical} / {summary.high}"),
         ("Medium / Low", f"{summary.medium} / {summary.low}"),
@@ -112,7 +124,7 @@ def render_operations_queue_summary(
         ("Uncovered Findings", summary.uncovered_findings),
     )
     return render_panel(
-        render_metadata(rows, width=resolved - 4, ansi=ansi),
+        render_metadata(rows, width=resolved - 4, ansi=ansi, wrap_values=True),
         title="ANALYST QUEUE",
         width=resolved,
         ansi=ansi,
@@ -124,6 +136,7 @@ def render_command_center(
     recent: Iterable[Mapping[str, Any]],
     *,
     queue_summary: OperationsQueueSummary = EMPTY_QUEUE_SUMMARY,
+    top_attention: PrioritizedOperationsItem | None = None,
     width: int | None = None,
     ansi: bool | None = None,
 ) -> str:
@@ -137,7 +150,12 @@ def render_command_center(
         ),
         render_platform_overview(stats, width=resolved, ansi=ansi),
         render_recent_activity(recent, width=resolved, ansi=ansi),
-        render_operations_queue_summary(queue_summary, width=resolved, ansi=ansi),
+        render_operations_queue_summary(
+            queue_summary,
+            top_attention=top_attention,
+            width=resolved,
+            ansi=ansi,
+        ),
         render_grouped_menu(
             COMMAND_CENTER_GROUPS,
             back_option=("0", "Exit"),
@@ -155,6 +173,7 @@ def show_dashboard(
     color_status: object = None,
     color_severity: object = None,
     get_queue_summary: Callable[[], OperationsQueueSummary] | None = None,
+    get_top_attention: Callable[[], PrioritizedOperationsItem | None] | None = None,
 ) -> None:
     queue_summary = (
         EMPTY_QUEUE_SUMMARY if get_queue_summary is None else get_queue_summary()
@@ -164,5 +183,6 @@ def show_dashboard(
             get_dashboard_stats(),
             get_recent_activity(),
             queue_summary=queue_summary,
+            top_attention=None if get_top_attention is None else get_top_attention(),
         )
     )

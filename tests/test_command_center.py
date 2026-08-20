@@ -9,6 +9,10 @@ from soc_forge.dashboard.dashboard import (
     render_recent_activity,
     show_dashboard,
 )
+from soc_forge.investigations.operations_prioritization import (
+    OperationsPrioritizationService,
+)
+from soc_forge.investigations.operations_queue import OperationsQueueItem
 from soc_forge.ui.terminal import strip_ansi, visible_length
 
 
@@ -96,6 +100,36 @@ def test_grouped_navigation_keeps_exact_numbers_and_labels():
         ("4", "Reporting"), ("5", "System"), ("0", "Exit"),
     ):
         assert f"[{number}] {label}" in rendered
+
+
+def test_command_center_shows_shared_top_attention_and_empty_state():
+    source = OperationsQueueItem(
+        queue_item_id="OPQ:INV-001:response_action:ACT-001",
+        investigation_id="INV-001",
+        investigation_title="Credential review",
+        item_type="response_action",
+        priority="high",
+        reason="Response Action ACT-001 is currently in progress.",
+        source_id="ACT-001",
+        source_type="response_action",
+        source_status="in_progress",
+        created_at="2026-08-20T10:00:00Z",
+        updated_at="2026-08-20T11:00:00Z",
+    )
+    top = OperationsPrioritizationService.prioritize_item(source)
+
+    rendered = render_command_center(
+        dashboard_stats(), (), top_attention=top, width=60, ansi=False
+    )
+    empty = render_command_center(dashboard_stats(), (), width=60, ansi=False)
+
+    assert "Top Attention" in rendered
+    assert "[HIGH] ACT-001" in rendered
+    assert "Action is currently" in rendered
+    assert "in progress" in rendered
+    assert "Top Attention" in empty
+    assert "None" in empty
+    assert all(visible_length(line) <= 60 for line in rendered.splitlines())
 
 
 def test_dashboard_reads_each_existing_projection_once_without_mutation(capsys):

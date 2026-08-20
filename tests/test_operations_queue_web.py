@@ -9,7 +9,9 @@ from soc_forge.investigations.finding_service import InvestigationFindingService
 from dataclasses import asdict
 
 from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.investigations.operations_prioritization import OperationsPrioritizationService
 from soc_forge.investigations.operations_queue import OperationsQueueService
+from soc_forge.investigations.operations_queue_console import render_queue_items
 from soc_forge.investigations.response_action_service import (
     InvestigationResponseActionService,
 )
@@ -157,15 +159,26 @@ def test_web_and_terminal_service_projection_are_identical(tmp_path):
     repository = InvestigationRepository(tmp_path / "workspace")
     _save(repository, "INV-A", actions=(_action("INV-A", status="in_progress"),))
     _save(repository, "INV-B", findings=(_finding("INV-B", "FIND-001"),))
-    service = OperationsQueueService(repository)
-    expected_items = service.list_queue()
-    expected_summary = service.summarize(expected_items)
+    queue_service = OperationsQueueService(repository)
+    service = OperationsPrioritizationService(queue_service)
+    expected_items = service.prioritize()
+    expected_summary = queue_service.summarize(item.queue_item for item in expected_items)
     server, thread, address = _start(tmp_path, repository)
     try:
         _, _, payload = _request(address, "/api/operations-queue")
     finally:
         _stop(server, thread)
-    assert payload["items"] == [asdict(item) for item in expected_items]
+    expected_payload = []
+    for item in expected_items:
+        projected = asdict(item.queue_item)
+        projected.update(
+            priority_tier=item.priority_tier,
+            priority_basis=list(item.priority_basis),
+            operational_state=item.operational_state,
+        )
+        expected_payload.append(projected)
+    assert payload["items"] == expected_payload
+    assert payload["top_item"] == expected_payload[0]
     assert payload["summary"] == asdict(expected_summary)
 
 def test_multi_finding_action_is_one_item_and_superseded_is_excluded(tmp_path):
@@ -345,7 +358,11 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
     assert "createElement" in source
     assert "textContent" in source
     assert "replaceChildren" in source
+    assert "Why this is prioritized:" in source
+    assert "priority_basis" in source
     assert "innerHTML" not in source
+    assert "score" not in source.lower()
+    assert "gauge" not in source.lower()
     assert "localStorage" not in source
     for forbidden in ("Acknowledge", "Dismiss Queue Item", "Snooze", "Escalate"):
         assert forbidden not in source
@@ -354,3 +371,60 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
     assert "openFinding(item.source_id)" in source
     assert "loadOperationsQueue()" in app
     assert "/static/operations_queue.js" in index
+
+
+def test_mixed_state_service_terminal_web_prioritization_parity(tmp_path):
+    repository = InvestigationRepository(tmp_path / "workspace")
+    for investigation_id, status, priority in (
+        ("INV-CRIT", "proposed", "critical"),
+        ("INV-PROG", "in_progress", "high"),
+        ("INV-APP", "approved", "high"),
+        ("INV-PROP", "proposed", "high"),
+    ):
+        _save(
+            repository,
+            investigation_id,
+            actions=(_action(investigation_id, status=status, priority=priority),),
+        )
+    _save(
+        repository,
+        "INV-MED",
+        findings=(
+            _finding("INV-MED", "FIND-MED", supersedes_finding_id="FIND-OLD"),
+            _finding(
+                "INV-MED", "FIND-OLD", lifecycle_state="superseded",
+                superseded_by_finding_id="FIND-MED",
+                supersession_reason="Replaced.", supersession_author="alice",
+                superseded_at="2026-08-14T13:00:00Z",
+            ),
+        ),
+        actions=(
+            _action(
+                "INV-MED", action_id="ACT-DONE", finding_ids=("FIND-OLD",), status="completed"
+            ),
+        ),
+    )
+    service = OperationsPrioritizationService(OperationsQueueService(repository))
+    expected = service.prioritize()
+
+    server, thread, address = _start(tmp_path, repository)
+    try:
+        _, _, payload = _request(address, "/api/operations-queue")
+    finally:
+        _stop(server, thread)
+    rendered = render_queue_items(expected, width=100, ansi=False)
+
+    assert [item["investigation_id"] for item in payload["items"]] == [
+        "INV-CRIT", "INV-PROG", "INV-APP", "INV-PROP", "INV-MED",
+    ]
+    assert [item["priority_basis"] for item in payload["items"]] == [
+        list(item.priority_basis) for item in expected
+    ]
+    assert payload["top_item"]["investigation_id"] == "INV-CRIT"
+    assert "ACT-DONE" not in json.dumps(payload)
+    assert "FIND-OLD" not in json.dumps(payload)
+    for earlier, later in zip(
+        ("INV-CRIT", "INV-PROG", "INV-APP", "INV-PROP"),
+        ("INV-PROG", "INV-APP", "INV-PROP", "INV-MED"),
+    ):
+        assert rendered.index(earlier) < rendered.index(later)

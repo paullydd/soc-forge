@@ -94,6 +94,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
         "soc_forge/investigations/timeline_query.py",
         "soc_forge/investigations/pivots.py",
         "soc_forge/investigations/handoff.py",
+        "soc_forge/investigations/operations_prioritization.py",
     ):
         assert module in names
     metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
