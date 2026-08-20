@@ -1,35 +1,56 @@
-from soc_forge.ui.panels import header, menu_option, error, warning
+from soc_forge.menus.architecture import show_architecture_notice
+from soc_forge.ui.panels import error, menu_group, menu_option
 from soc_forge.ui.screen import begin_screen
 from soc_forge.ui.terminal import render_breadcrumb
 
 
-def analysis_menu(
-    pause,
-    attack_stories,
-    attack_graph_viewer,
-):
+ANALYSIS_DESTINATIONS = {
+    "1": (
+        "Threat Activity Overview",
+        "Cross-source threat activity analysis is not implemented in this slice.",
+        ("detection activity", "investigation activity", "ATT&CK activity"),
+    ),
+    "2": (
+        "Entity Explorer",
+        "Cross-investigation entity analysis is not implemented in this slice.",
+        ("host", "user", "IP", "process", "cross-investigation relationships"),
+    ),
+    "3": (
+        "ATT&CK Activity",
+        "Cross-investigation ATT&CK activity analysis is not implemented in this slice.",
+        ("tactics", "techniques", "observed activity"),
+    ),
+    "4": (
+        "Cross-Investigation Analysis",
+        "Cross-investigation comparison is not implemented in this slice.",
+        ("shared entities", "shared behaviors", "investigation relationships"),
+    ),
+    "5": (
+        "Temporal Analysis",
+        "Cross-investigation temporal analysis is not implemented in this slice.",
+        ("event sequences", "time windows", "activity patterns"),
+    ),
+    "6": (
+        "Hunt Workspace",
+        "The v3.5 Hunt Workspace is not implemented in this slice.",
+        ("hunt questions", "search scope", "analyst findings"),
+    ),
+}
+
+
+def analysis_menu(pause, attack_stories, attack_graph_viewer):
     while True:
         begin_screen("ANALYSIS")
         print(render_breadcrumb(("SOC-FORGE", "ANALYSIS")))
-
-        menu_option("1", "Attack Stories")
-        menu_option("2", "Attack Graph Viewer")
-        menu_option("3", "Timeline Viewer Coming Soon")
-        menu_option("4", "SOC Statistics Coming Soon")
+        menu_group("SECURITY ANALYSIS")
+        for number, (title, _summary, _scope) in ANALYSIS_DESTINATIONS.items():
+            menu_option(number, title)
         menu_option("0", "Back")
 
         choice = input("\nSelect option: ").strip()
-
-        if choice == "1":
-            attack_stories()
-        elif choice == "2":
-            attack_graph_viewer()
-        elif choice == "3":
-            warning("Timeline Viewer will be added next.")
-            pause()
-        elif choice == "4":
-            warning("SOC Statistics will be added later.")
-            pause()
+        if choice in ANALYSIS_DESTINATIONS:
+            title, summary, scope = ANALYSIS_DESTINATIONS[choice]
+            show_architecture_notice("ANALYSIS", title, summary, pause, scope)
         elif choice == "0":
             return
         else:

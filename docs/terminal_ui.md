@@ -173,3 +173,14 @@ The terminal consumes the same priority tier, operational state order, timestamp
 Command Center now presents OPERATIONS OVERVIEW with deterministic counts, distinct Investigations represented, and Top Attention. The Operations Queue workspace adds OPERATIONS SUMMARY and bounded TOP PRIORITY WORK panels for the first three prioritized items. Empty queues explicitly show no current operational attention items.
 
 These panels consume the same Operational Summary projection and priority basis as the queue; they do not scan, rank, or mutate work independently. Rendering remains offline-capable, width-safe, and passive, with no SLA, aging, activity tracking, automation, or AI ranking.
+
+
+## v3.5 Console Architecture
+
+Top-level numbers remain stable: Detection 1, Investigations 2, Analysis 3, Reporting 4, System 5, Operations Queue 6, and Exit 0.
+
+Detection now groups future Detection Engineering destinations separately from Detection Results. Existing log analysis, simulation, and rules-only workflows remain under Detection Lab; alert viewing and search remain under Alert Explorer.
+
+Security Analysis destinations describe future cross-investigation analysis without fake data or state. Attack Narrative and Attack Graph remain available through the Investigation Workspace reconstruction workflow. Reporting retains Analysis Report and ATT&CK Coverage while Investigation Handoff remains owned by Investigations. System removes Demo Case from primary analyst navigation and retains About SOC-Forge.
+
+Unimplemented destinations use bounded informational panels after selection. Menu labels do not say Coming Soon. These screens preserve breadcrumbs, exact Back behavior, width limits, NO_COLOR, TERM=dumb, and ASCII fallback and do not modify analysis, investigation, queue, repository, or environment state. Platform Status is deferred until a shared authoritative readiness source exists.

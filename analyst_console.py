@@ -1275,7 +1275,6 @@ def main_menu():
             system_menu(
                 clear_screen,
                 pause,
-                create_demo_case,
             )
 
         elif choice == "6":
