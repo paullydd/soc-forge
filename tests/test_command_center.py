@@ -208,6 +208,11 @@ def test_main_menu_returns_from_each_target_without_extra_input_or_pause(
         "build_threat_activity_controller",
         lambda _workspace: object(),
     )
+    monkeypatch.setattr(
+        analyst_console,
+        "build_entity_explorer_controller",
+        lambda _workspace: object(),
+    )
     queue_controller = type("QueueController", (), {"run": lambda self: None})()
     queue_controller.queue_service = type(
         "QueueService", (), {"summarize": lambda self: None}

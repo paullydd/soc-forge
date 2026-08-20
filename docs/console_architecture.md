@@ -92,3 +92,7 @@ Overview and Rule Catalog are implemented without changing persistence.
 Analysis option 1 is a real read-only projection over durable Investigation state and optional current machine analysis. FULL exposes current alert, case, hunt, and reconstruction counts; OFFLINE preserves Investigation, Finding, and Response Action counts while machine fields say Unavailable.
 
 Explicit alert and Finding ATT&CK mappings are counted as separately attributed observations. Recent activity uses alert, Finding, and Response Action transition timestamps with deterministic ordering and [MACHINE]/[ANALYST] labels. The feature does not persist, prioritize, score, correlate Investigations, or measure detection coverage. Remaining Analysis destinations stay deferred.
+
+## Entity Explorer
+
+Analysis option 2 is a real read-only Entity Explorer. EntityObservationService projects explicit structured observations from the current AnalysisResult evidence catalog and explicit durable Investigation links; EntityExplorerService performs deterministic exact matching, counts, ATT&CK aggregation, co-observation projection, ordering, and bounding. No entity database or index is persisted. FULL and OFFLINE are explicit, and co-observation never claims shared attacker, campaign, or incident identity.

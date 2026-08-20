@@ -6,6 +6,8 @@ import json
 from colorama import Fore, Style, init
 import time
 import sys
+from soc_forge.entity_explorer import EntityExplorerService, EntityObservationService
+from soc_forge.menus.entity_explorer import EntityExplorerConsoleController
 from soc_forge.detection_engineering import DetectionEngineeringService
 from soc_forge.detection_coverage import (
     DetectionCoverageService,
@@ -118,6 +120,15 @@ def build_threat_activity_controller(workspace_controller):
             workspace_controller.workspace_service.repository,
             get_current_analysis_result,
         )
+    )
+
+
+def build_entity_explorer_controller(workspace_controller):
+    return EntityExplorerConsoleController(
+        EntityExplorerService(EntityObservationService(
+            workspace_controller.workspace_service.repository,
+            get_current_analysis_result,
+        ))
     )
 
 
@@ -1324,6 +1335,7 @@ def main_menu():
                 attack_stories,
                 attack_graph_viewer,
                 build_threat_activity_controller(workspace_controller),
+                build_entity_explorer_controller(workspace_controller),
             )
 
         elif choice == "4":

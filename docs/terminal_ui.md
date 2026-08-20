@@ -230,3 +230,9 @@ Unimplemented destinations use bounded informational panels after selection. Men
 Analysis option 1 is a real read-only projection over durable Investigation state and optional current machine analysis. FULL exposes current alert, case, hunt, and reconstruction counts; OFFLINE preserves Investigation, Finding, and Response Action counts while machine fields say Unavailable.
 
 Explicit alert and Finding ATT&CK mappings are counted as separately attributed observations. Recent activity uses alert, Finding, and Response Action transition timestamps with deterministic ordering and [MACHINE]/[ANALYST] labels. The feature does not persist, prioritize, score, correlate Investigations, or measure detection coverage. Remaining Analysis destinations stay deferred.
+
+## Entity Explorer Presentation
+
+Analysis option 2 opens SOC-FORGE > ANALYSIS > ENTITY EXPLORER. The type menu supports Host, User, IP Address, and Process, followed by exact-value input. Results show mode, authoritative counts, ATT&CK observations, distinct Investigation membership, related structured entities, recent attributed observations, and explicit interpretation warnings. Empty exact searches say No observations found for this entity.
+
+The screen uses shared headers, breadcrumbs, panels, badges, attribution labels, bounded rows, width limits, NO_COLOR, TERM=dumb, and Unicode/ASCII behavior. Enter returns from a result to the type menu; option 0 returns to Analysis. Rendering and navigation are passive and do not mutate repository or analysis state.
