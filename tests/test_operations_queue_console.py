@@ -1,5 +1,9 @@
 from dataclasses import replace
 
+from soc_forge.investigations.operational_summary import OperationalSummaryService
+from soc_forge.investigations.operations_prioritization import (
+    OperationsPrioritizationService,
+)
 from soc_forge.investigations.operations_queue import (
     OperationsQueueItem,
     OperationsQueueSummary,
@@ -29,11 +33,19 @@ def _item(**changes):
 
 
 def test_workspace_renders_v32_structure_and_filters():
+    top = OperationsPrioritizationService.prioritize_item(_item())
+    operational = OperationalSummaryService(None).summarize((top,))
     summary = OperationsQueueSummary(2, 0, 1, 1, 0, 1, 1, 0, 1, 0)
-    output = render_operations_queue(summary, width=72, ansi=False)
+    output = render_operations_queue(
+        summary, operational_summary=operational, width=72, ansi=False
+    )
     assert "SOC-FORGE" in output
     assert "OPERATIONS QUEUE" in output
     assert "QUEUE STATE" in output
+    assert "OPERATIONS SUMMARY" in output
+    assert "TOP PRIORITY WORK" in output
+    assert "Investigations Represented" in output
+    assert "ACT-001" in output
     assert "[1] All Attention Items" in output
     assert "[2] Response Actions" in output
     assert "[3] Uncovered Findings" in output

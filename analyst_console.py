@@ -23,6 +23,7 @@ from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.console import InvestigationConsoleController
 from soc_forge.investigations.paths import resolve_workspace_root
 from soc_forge.investigations.repository import InvestigationRepository
+from soc_forge.investigations.operational_summary import OperationalSummaryService
 from soc_forge.investigations.operations_prioritization import OperationsPrioritizationService
 from soc_forge.investigations.operations_queue import OperationsQueueService
 from soc_forge.investigations.operations_queue_console import (
@@ -1214,6 +1215,9 @@ def main_menu():
     operations_prioritization_service = OperationsPrioritizationService(
         operations_queue_service
     )
+    operational_summary_service = OperationalSummaryService(
+        operations_prioritization_service
+    )
     while True:
         clear_screen()
         show_dashboard(
@@ -1224,6 +1228,7 @@ def main_menu():
             color_severity,
             operations_queue_service.summarize,
             lambda: operations_prioritization_service.summarize().top_item,
+            operational_summary_service.summarize,
         )
 
         choice = input("\nSelect option: ").strip()

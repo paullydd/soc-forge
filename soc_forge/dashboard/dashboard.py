@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Mapping
 
+from soc_forge.investigations.operational_summary import OperationalSummary
 from soc_forge.investigations.operations_prioritization import (
     PrioritizedOperationsItem,
 )
@@ -131,10 +132,47 @@ def render_operations_queue_summary(
     )
 
 
+def render_operations_overview(
+    summary: OperationalSummary,
+    *,
+    width: int | None = None,
+    ansi: bool | None = None,
+) -> str:
+    resolved = resolve_terminal_width(width)
+    top_label = "None"
+    if summary.top_item is not None:
+        top_label = (
+            f"[{summary.top_priority.upper()}] {summary.top_source_id}"
+        )
+    rows = (
+        ("Top Attention", top_label),
+        ("Attention Items", summary.total_attention_items),
+        ("Investigations Represented", summary.investigations_represented),
+        ("Critical", summary.critical_count),
+        ("High", summary.high_count),
+        ("Medium", summary.medium_count),
+        ("Low", summary.low_count),
+        ("Response Actions", summary.response_action_count),
+        ("Uncovered Findings", summary.uncovered_finding_count),
+        ("In Progress", summary.in_progress_count),
+        ("Approved", summary.approved_count),
+        ("Proposed", summary.proposed_count),
+        *(
+            (("Top Reason", summary.top_reason), ("Priority Basis", "; ".join(summary.top_item.priority_basis)))
+            if summary.top_item is not None else ()
+        ),
+    )
+    return render_panel(
+        render_metadata(rows, width=resolved - 4, ansi=ansi, wrap_values=True),
+        title="OPERATIONS OVERVIEW", width=resolved, ansi=ansi,
+    )
+
+
 def render_command_center(
     stats: Mapping[str, Any],
     recent: Iterable[Mapping[str, Any]],
     *,
+    operational_summary: OperationalSummary | None = None,
     queue_summary: OperationsQueueSummary = EMPTY_QUEUE_SUMMARY,
     top_attention: PrioritizedOperationsItem | None = None,
     width: int | None = None,
@@ -150,11 +188,15 @@ def render_command_center(
         ),
         render_platform_overview(stats, width=resolved, ansi=ansi),
         render_recent_activity(recent, width=resolved, ansi=ansi),
-        render_operations_queue_summary(
-            queue_summary,
-            top_attention=top_attention,
-            width=resolved,
-            ansi=ansi,
+        (
+            render_operations_overview(
+                operational_summary, width=resolved, ansi=ansi
+            )
+            if operational_summary is not None
+            else render_operations_queue_summary(
+                queue_summary, top_attention=top_attention,
+                width=resolved, ansi=ansi,
+            )
         ),
         render_grouped_menu(
             COMMAND_CENTER_GROUPS,
@@ -174,6 +216,7 @@ def show_dashboard(
     color_severity: object = None,
     get_queue_summary: Callable[[], OperationsQueueSummary] | None = None,
     get_top_attention: Callable[[], PrioritizedOperationsItem | None] | None = None,
+    get_operational_summary: Callable[[], OperationalSummary] | None = None,
 ) -> None:
     queue_summary = (
         EMPTY_QUEUE_SUMMARY if get_queue_summary is None else get_queue_summary()
@@ -183,6 +226,9 @@ def show_dashboard(
             get_dashboard_stats(),
             get_recent_activity(),
             queue_summary=queue_summary,
+            operational_summary=(
+                None if get_operational_summary is None else get_operational_summary()
+            ),
             top_attention=None if get_top_attention is None else get_top_attention(),
         )
     )

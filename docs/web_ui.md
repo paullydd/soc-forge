@@ -279,3 +279,12 @@ Queue controls never acknowledge, assign, dismiss, complete, snooze, or escalate
 Operations Queue API items also expose priority_tier, priority_basis, and operational_state, plus the identical top item used by terminal prioritization. Cards render each basis entry with DOM creation and textContent; filters retain the server-provided order and never re-rank locally.
 
 The web interface uses no score, gauge, AI language, aging, or SLA interpretation. A fresh no-store request rebuilds membership and prioritization from durable Investigation state in FULL or OFFLINE mode without persisting browser queue state.
+
+## Operational Summary
+
+The Operations Queue API returns operational_summary alongside the existing queue payload. It contains deterministic counts, distinct Investigations represented, Top Attention, and the first three items in authoritative priority order. The browser renders these server-provided fields and never recalculates counts or ranking.
+
+Summary cards and Top Priority Work use safe DOM creation and textContent. The view remains read-only and offline-capable, with no local queue state, mutation controls, SLA, aging, activity feed, automation, or AI ranking.
+
+The Operational Summary does not create or track work independently.
+It summarizes the current deterministic Operations Queue.

@@ -38,16 +38,17 @@ function renderOperationsSummary(summary) {
   if (!target) return;
   target.replaceChildren();
   [
-    ['Total', summary.total_items],
-    ['Critical', summary.critical],
-    ['High', summary.high],
-    ['Medium', summary.medium],
-    ['Low', summary.low],
-    ['Response Actions', summary.response_actions],
-    ['Uncovered Findings', summary.uncovered_findings],
-    ['Proposed', summary.proposed],
-    ['Approved', summary.approved],
-    ['In Progress', summary.in_progress],
+    ["Attention Items", summary.total_attention_items],
+    ["Investigations Represented", summary.investigations_represented],
+    ['Critical', summary.critical_count],
+    ['High', summary.high_count],
+    ['Medium', summary.medium_count],
+    ['Low', summary.low_count],
+    ['Response Actions', summary.response_action_count],
+    ['Uncovered Findings', summary.uncovered_finding_count],
+    ['Proposed', summary.proposed_count],
+    ['Approved', summary.approved_count],
+    ['In Progress', summary.in_progress_count],
   ].forEach(([label, value]) => {
     const card = operationsNode('div', undefined, 'metric');
     card.append(
@@ -127,9 +128,29 @@ function renderOperationsCard(item) {
   return card;
 }
 
+function renderOperationsTopItems(summary) {
+  const target = document.querySelector("#operationsTopItems");
+  if (!target) return;
+  target.replaceChildren();
+  const items = Array.isArray(summary.top_items) ? summary.top_items : [];
+  if (!items.length) {
+    const empty = operationsNode("div", undefined, "empty-state");
+    empty.append(
+      operationsNode("strong", "Top Attention: None"),
+      operationsNode(
+        "p", "There are no current operational attention items.",
+      ),
+    );
+    target.append(empty);
+    return;
+  }
+  items.forEach((item) => target.append(renderOperationsCard(item)));
+}
+
 function renderOperationsQueue() {
-  const summary = state.operationsQueue?.summary || {};
+  const summary = state.operationsQueue?.operational_summary || {};
   renderOperationsSummary(summary);
+  renderOperationsTopItems(summary);
   document.querySelectorAll('[data-operations-filter]').forEach((button) => {
     button.classList.toggle(
       'primary-button',

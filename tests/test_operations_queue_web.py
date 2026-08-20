@@ -74,6 +74,13 @@ def test_get_empty_queue_is_no_store_and_offline(tmp_path):
     }
     assert payload["items"] == []
 
+    operational = payload["operational_summary"]
+    assert operational["total_attention_items"] == 0
+    assert operational["investigations_represented"] == 0
+    assert operational["response_action_count"] == 0
+    assert operational["uncovered_finding_count"] == 0
+    assert operational["top_item"] is None
+    assert operational["top_items"] == []
 
 @pytest.mark.parametrize("status", ["proposed", "approved", "in_progress"])
 def test_get_queue_includes_each_open_action_state(tmp_path, status):
@@ -333,6 +340,9 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
     index = (root / "soc_forge/web/static/index.html").read_text()
     assert "Operations Queue" in index
     assert "Analyst Operations Queue" in index
+    assert index.index("id=\"operationsTopItems\"") < index.index(
+        "class=\"workspace-actions operations-filters\""
+    )
     assert "Current analyst attention items derived from durable Findings and Response Actions." in index
     for label in (
         "All",
@@ -345,7 +355,8 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
     ):
         assert label in source or label in index
     for label in (
-        "Total",
+        "Attention Items",
+        "Investigations Represented",
         "Critical",
         "High",
         "Medium",
@@ -421,6 +432,19 @@ def test_mixed_state_service_terminal_web_prioritization_parity(tmp_path):
         list(item.priority_basis) for item in expected
     ]
     assert payload["top_item"]["investigation_id"] == "INV-CRIT"
+    operational = payload["operational_summary"]
+    assert operational["total_attention_items"] == 5
+    assert operational["investigations_represented"] == 5
+    assert (
+        operational["critical_count"], operational["high_count"],
+        operational["medium_count"], operational["low_count"],
+    ) == (1, 3, 1, 0)
+    assert operational["response_action_count"] == 4
+    assert operational["uncovered_finding_count"] == 1
+    assert operational["top_item"] == payload["top_item"]
+    assert [item["investigation_id"] for item in operational["top_items"]] == [
+        "INV-CRIT", "INV-PROG", "INV-APP",
+    ]
     assert "ACT-DONE" not in json.dumps(payload)
     assert "FIND-OLD" not in json.dumps(payload)
     for earlier, later in zip(

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Callable, Iterable
 
+from soc_forge.investigations.operational_summary import (
+    OperationalSummary,
+    OperationalSummaryService,
+)
 from soc_forge.investigations.operations_prioritization import (
     OperationsPrioritizationService,
     PrioritizedOperationsItem,
@@ -63,6 +67,48 @@ def render_queue_state(
     )
 
 
+def render_operational_summary(
+    summary: OperationalSummary,
+    *, width: int | None = None, ansi: bool | None = None,
+) -> str:
+    resolved = resolve_terminal_width(width)
+    rows = (
+        ("Attention Items", summary.total_attention_items),
+        ("Investigations Represented", summary.investigations_represented),
+        ("Critical / High", f"{summary.critical_count} / {summary.high_count}"),
+        ("Medium / Low", f"{summary.medium_count} / {summary.low_count}"),
+        ("Response Actions", summary.response_action_count),
+        ("Uncovered Findings", summary.uncovered_finding_count),
+        ("In Progress", summary.in_progress_count),
+        ("Approved", summary.approved_count),
+        ("Proposed", summary.proposed_count),
+    )
+    return render_panel(
+        render_metadata(rows, width=resolved - 4, ansi=ansi),
+        title="OPERATIONS SUMMARY", width=resolved, ansi=ansi,
+    )
+
+
+def render_top_priority_work(
+    summary: OperationalSummary,
+    *, width: int | None = None, ansi: bool | None = None,
+) -> str:
+    resolved = resolve_terminal_width(width)
+    if not summary.top_items:
+        content = render_empty_state(
+            "No current operational attention items.",
+            width=resolved - 4, ansi=ansi,
+        )
+    else:
+        rows = tuple(
+            (f"#{index} [{item.priority_tier.upper()}] {item.queue_item.source_id}",
+             f"{item.queue_item.investigation_id} — {item.queue_item.reason}")
+            for index, item in enumerate(summary.top_items, start=1)
+        )
+        content = render_metadata(rows, width=resolved - 4, ansi=ansi, wrap_values=True)
+    return render_panel(content, title="TOP PRIORITY WORK", width=resolved, ansi=ansi)
+
+
 def render_queue_item(
     item: PrioritizedOperationsItem | OperationsQueueItem,
     *,
@@ -115,6 +161,7 @@ def render_queue_items(
 def render_operations_queue(
     summary: OperationsQueueSummary,
     *,
+    operational_summary: OperationalSummary | None = None,
     width: int | None = None,
     ansi: bool | None = None,
 ) -> str:
@@ -128,6 +175,16 @@ def render_operations_queue(
                 ansi=ansi,
             ),
             render_queue_state(summary, width=resolved, ansi=ansi),
+            *(
+                (
+                    render_operational_summary(
+                        operational_summary, width=resolved, ansi=ansi
+                    ),
+                    render_top_priority_work(
+                        operational_summary, width=resolved, ansi=ansi
+                    ),
+                ) if operational_summary is not None else ()
+            ),
             render_grouped_menu(
                 QUEUE_MENU,
                 back_option=("0", "Back"),
@@ -144,6 +201,7 @@ class OperationsQueueConsoleController:
         *,
         queue_service: OperationsQueueService,
         prioritization_service: OperationsPrioritizationService | None = None,
+        summary_service: OperationalSummaryService | None = None,
         workspace_service: object,
         response_action_controller: object,
         finding_controller: object,
@@ -154,6 +212,9 @@ class OperationsQueueConsoleController:
         self.queue_service = queue_service
         self.prioritization_service = (
             prioritization_service or OperationsPrioritizationService(queue_service)
+        )
+        self.summary_service = (
+            summary_service or OperationalSummaryService(self.prioritization_service)
         )
         self.workspace_service = workspace_service
         self.response_action_controller = response_action_controller
@@ -167,7 +228,12 @@ class OperationsQueueConsoleController:
             items = self.prioritization_service.prioritize()
             self.screen("OPERATIONS QUEUE")
             queue_items = tuple(item.queue_item for item in items)
-            self.output(render_operations_queue(self.queue_service.summarize(queue_items)))
+            self.output(
+                render_operations_queue(
+                    self.queue_service.summarize(queue_items),
+                    operational_summary=self.summary_service.summarize(items),
+                )
+            )
             choice = self.input("\nSelect option: ").strip()
             if choice == "0":
                 return

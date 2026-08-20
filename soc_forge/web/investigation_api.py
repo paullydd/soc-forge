@@ -19,6 +19,7 @@ from soc_forge.investigations.handoff import (
     read_handoff_manifest,
     validate_handoff_bundle,
 )
+from soc_forge.investigations.operational_summary import OperationalSummaryService
 from soc_forge.investigations.operations_prioritization import (
     OperationsPrioritizationService,
     PrioritizedOperationsItem,
@@ -145,6 +146,9 @@ class InvestigationWebApplication:
         self.operations_prioritization_service = OperationsPrioritizationService(
             self.operations_queue_service
         )
+        self.operational_summary_service = OperationalSummaryService(
+            self.operations_prioritization_service
+        )
         self.timeline_service = InvestigationTimelineService()
         self.summary_service = InvestigationSummaryService(
             workspace_service,
@@ -162,8 +166,12 @@ class InvestigationWebApplication:
     def get_operations_queue(self) -> Dict[str, Any]:
         items = self.operations_prioritization_service.prioritize()
         queue_items = tuple(item.queue_item for item in items)
+        operational_summary = self.operational_summary_service.summarize(items)
         return {
             "summary": asdict(self.operations_queue_service.summarize(queue_items)),
+            "operational_summary": self._operational_summary_response(
+                operational_summary
+            ),
             "items": [self._prioritized_item_response(item) for item in items],
             "top_item": (
                 None if not items else self._prioritized_item_response(items[0])
@@ -184,6 +192,15 @@ class InvestigationWebApplication:
             priority_basis=list(item.priority_basis),
             operational_state=item.operational_state,
         )
+        return payload
+
+    def _operational_summary_response(self, summary) -> Dict[str, Any]:
+        payload = asdict(summary)
+        payload["top_item"] = (
+            None if summary.top_item is None
+            else self._prioritized_item_response(summary.top_item)
+        )
+        payload["top_items"] = [self._prioritized_item_response(item) for item in summary.top_items]
         return payload
 
     def _workspace_response(self, result: WorkspaceResult) -> Dict[str, Any]:

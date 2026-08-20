@@ -119,3 +119,14 @@ FULL and OFFLINE modes produce identical prioritization from identical durable q
 
 Operations prioritization is deterministic and explainable.
 SOC-Forge does not use an opaque numeric score or AI model to rank queue items.
+
+## Operational Summary
+
+The Operational Summary is an immutable, read-only view of the current prioritized Operations Queue. It reports total attention items; critical, high, medium, and low counts; Response Action and uncovered Finding counts; proposed, approved, and in-progress Action counts; and the number of distinct Investigations represented.
+
+Top Attention is the first item in deterministic Operations Queue order. Top Priority Work is bounded to the first three items in that same order. Each item retains the shared priority tier, reason, and priority basis; the summary neither reranks nor scans Investigation state independently.
+
+The Operational Summary does not create or track work independently.
+It summarizes the current deterministic Operations Queue.
+
+The projection works from durable queue state in FULL and OFFLINE modes. Reading it does not persist state or mutate Investigations, Findings, Actions, revisions, histories, artifacts, or snapshots. It introduces no SLA, aging, deadline, assignment, acknowledgement, automation, activity feed, AI ranking, or remediation behavior.

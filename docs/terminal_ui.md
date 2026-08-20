@@ -167,3 +167,9 @@ The terminal queue works offline because membership uses durable Investigation s
 Operations Queue item cards include a concise Why Prioritized section containing the shared deterministic basis strings. Command Center shows only the highest-ranked item as Top Attention and does not duplicate the full queue or ranking rules. If the queue is empty, Top Attention is None.
 
 The terminal consumes the same priority tier, operational state order, timestamp/identity tie-breaks, and top item projection as the web interface. Basis text wraps through shared width-safe metadata rendering and remains available with NO_COLOR. Rendering is passive and does not mutate queue or Investigation state.
+
+## Operational Summary Presentation
+
+Command Center now presents OPERATIONS OVERVIEW with deterministic counts, distinct Investigations represented, and Top Attention. The Operations Queue workspace adds OPERATIONS SUMMARY and bounded TOP PRIORITY WORK panels for the first three prioritized items. Empty queues explicitly show no current operational attention items.
+
+These panels consume the same Operational Summary projection and priority basis as the queue; they do not scan, rank, or mutate work independently. Rendering remains offline-capable, width-safe, and passive, with no SLA, aging, activity tracking, automation, or AI ranking.

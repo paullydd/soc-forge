@@ -9,6 +9,7 @@ from soc_forge.dashboard.dashboard import (
     render_recent_activity,
     show_dashboard,
 )
+from soc_forge.investigations.operational_summary import OperationalSummaryService
 from soc_forge.investigations.operations_prioritization import (
     OperationsPrioritizationService,
 )
@@ -117,11 +118,15 @@ def test_command_center_shows_shared_top_attention_and_empty_state():
         updated_at="2026-08-20T11:00:00Z",
     )
     top = OperationsPrioritizationService.prioritize_item(source)
+    summary = OperationalSummaryService(None).summarize((top,))
+    empty_summary = OperationalSummaryService(None).summarize(())
 
     rendered = render_command_center(
-        dashboard_stats(), (), top_attention=top, width=60, ansi=False
+        dashboard_stats(), (), operational_summary=summary, width=60, ansi=False
     )
-    empty = render_command_center(dashboard_stats(), (), width=60, ansi=False)
+    empty = render_command_center(
+        dashboard_stats(), (), operational_summary=empty_summary, width=60, ansi=False
+    )
 
     assert "Top Attention" in rendered
     assert "[HIGH] ACT-001" in rendered
