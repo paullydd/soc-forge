@@ -14,6 +14,7 @@ def detection_menu(
     search_alerts,
     show_detection_overview=None,
     show_rule_catalog=None,
+    show_rule_explainability=None,
 ):
     while True:
         begin_screen("DETECTION")
@@ -67,13 +68,15 @@ def detection_menu(
                 ("ATT&CK coverage", "data-source coverage", "rule coverage"),
             )
         elif choice == "5":
-            show_architecture_notice(
-                "DETECTION",
-                "Rule Explainability",
-                "Rule explainability is not implemented in this slice.",
-                pause,
-                ("rule conditions", "required fields", "trigger rationale"),
-            )
+            if show_rule_explainability is not None:
+                show_rule_explainability()
+            else:
+                show_architecture_notice(
+                    "DETECTION",
+                    "Rule Explainability",
+                    "Rule Explainability is unavailable in this console session.",
+                    pause,
+                )
         elif choice == "6":
             show_architecture_notice(
                 "DETECTION",

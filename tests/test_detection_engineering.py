@@ -189,7 +189,7 @@ def test_detection_rendering_supports_no_color_term_dumb_and_ascii(monkeypatch):
 
 def test_rule_catalog_controller_detail_and_blank_back_exact_input():
     service = DetectionEngineeringService(rule_loader=lambda _paths: [_rule()])
-    choices = iter(("1", ""))
+    choices = iter(("1", "", ""))
     inputs, outputs, pauses = [], [], []
     controller = DetectionEngineeringConsoleController(
         service,
@@ -200,8 +200,8 @@ def test_rule_catalog_controller_detail_and_blank_back_exact_input():
 
     controller.run_rule_catalog()
 
-    assert len(inputs) == 2
-    assert pauses == ["pause"]
+    assert len(inputs) == 3
+    assert pauses == []
     assert "RULE CATALOG" in strip_ansi(outputs[0])
     assert "RULE DETAIL" in strip_ansi(outputs[1])
 

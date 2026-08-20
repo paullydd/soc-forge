@@ -186,6 +186,15 @@ use the production bundled-rule loader and existing stored alerts, deterministic
 rule-ID ordering, shared panels and metadata, width-safe truncation, `NO_COLOR`,
 `TERM=dumb`, and ASCII fallback. Blank catalog input returns exactly one level.
 
+Rule Explainability is a real read-only Detection workspace. Its rule selector
+is deterministic by rule ID, and its detail screen uses shared overview, logic,
+referenced-fields, aggregation, score-modifier, ATT&CK, output, metadata, and
+limitations panels. Long configured values wrap without changing their meaning.
+The Rule Catalog detail action reuses the same explanation screen. `[0] Back`
+returns exactly one level and blank rule selection returns to Detection.
+
+Detection Coverage and Detection Gaps remain bounded informational destinations.
+
 Security Analysis destinations describe future cross-investigation analysis without fake data or state. Attack Narrative and Attack Graph remain available through the Investigation Workspace reconstruction workflow. Reporting retains Analysis Report and ATT&CK Coverage while Investigation Handoff remains owned by Investigations. System removes Demo Case from primary analyst navigation and retains About SOC-Forge.
 
 Unimplemented destinations use bounded informational panels after selection. Menu labels do not say Coming Soon. These screens preserve breadcrumbs, exact Back behavior, width limits, NO_COLOR, TERM=dumb, and ASCII fallback and do not modify analysis, investigation, queue, repository, or environment state. Platform Status is deferred until a shared authoritative readiness source exists.

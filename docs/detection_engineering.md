@@ -127,3 +127,34 @@ reported as a bounded console error. Rendering follows shared terminal width,
 
 Detection Overview and Rule Catalog inspect existing detection capability.
 They do not run detections or modify rule state.
+
+## Rule Explainability
+
+Rule Catalog answers what a configured rule is. Rule Explainability answers how
+that rule's configured logic works. Detection Lab remains the place where rules
+are executed or tested against events.
+
+Rule Explainability is an immutable projection over the same validated
+`Rule` objects loaded from `BUILTIN_RULES_PATH`. It uses fixed templates to
+show:
+
+- nested all/any match logic and the exact `eq`, `contains`, `regex`, and
+  `exists` operators;
+- fields referenced by matching, aggregation, emit templates, and score
+  modifier conditions;
+- explicit grouping, distinct-count field, threshold, and time window;
+- conditional score additions, severity bumps, detail updates, and reasons;
+- explicit emitted detail fields and their source-field templates;
+- explicit ATT&CK mappings and existing rule metadata.
+
+Missing optional metadata remains absent. The screen does not infer
+rule-specific limitations, telemetry availability, coverage, gaps, or
+historical effectiveness. It displays only the bounded platform guidance that
+configured logic does not establish detection completeness.
+
+Rule Explainability is deterministic and based on configured rule metadata.
+It does not use AI-generated reasoning and does not execute detections.
+
+Rule Catalog detail offers an Explain Rule action that reuses this same service
+and renderer. Explainability does not edit, enable, disable, persist, simulate,
+or otherwise mutate a rule or repository state.

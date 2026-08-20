@@ -7,6 +7,14 @@ from soc_forge.detection_engineering import (
     DetectionOverview,
     RuleCatalogEntry,
 )
+from soc_forge.menus.rule_explainability import (
+    render_rule_explanation,
+    render_rule_explanation_catalog,
+)
+from soc_forge.rule_explainability import (
+    RuleExplanation,
+    RuleExplanationService,
+)
 from soc_forge.ui.terminal import (
     render_application_header,
     render_badge,
@@ -181,12 +189,17 @@ class DetectionEngineeringConsoleController:
         output_func: Callable[[str], None] = print,
         screen_func: Callable[[], None] = lambda: None,
         pause_func: Callable[[], None] = lambda: None,
+        explanation_service: RuleExplanationService | None = None,
     ):
         self.service = service
         self.input = input_func
         self.output = output_func
         self.screen = screen_func
         self.pause = pause_func
+        self.explanation_service = explanation_service or RuleExplanationService(
+            rules_path=service.rules_path,
+            rule_loader=service.rule_loader,
+        )
 
     def show_overview(self) -> None:
         self.screen()
@@ -214,6 +227,62 @@ class DetectionEngineeringConsoleController:
                 self.output(render_error("Invalid rule selection."))
                 self.pause()
                 continue
+            entry = entries[int(choice) - 1]
+            while True:
+                self.screen()
+                self.output(render_rule_detail(entry))
+                action = self.input(
+                    "Select option ([1] Explain Rule, blank to return): "
+                ).strip()
+                if action == "":
+                    break
+                if action != "1":
+                    self.output(render_error("Invalid rule detail selection."))
+                    self.pause()
+                    continue
+                try:
+                    explanation = self.explanation_service.explanation_for(
+                        entry.rule_id
+                    )
+                except (OSError, ValueError) as exc:
+                    self.output(
+                        render_error(f"Rule Explainability unavailable: {exc}")
+                    )
+                    self.pause()
+                    continue
+                self._show_explanation(explanation)
+
+    def run_rule_explainability(self) -> None:
+        try:
+            explanations = self.explanation_service.explanations()
+        except (OSError, ValueError) as exc:
             self.screen()
-            self.output(render_rule_detail(entries[int(choice) - 1]))
+            self.output(
+                render_error(f"Rule Explainability unavailable: {exc}")
+            )
+            self.pause()
+            return
+        while True:
+            self.screen()
+            self.output(render_rule_explanation_catalog(explanations))
+            choice = self.input("Select rule (blank to return): ").strip()
+            if choice == "":
+                return
+            if (
+                not choice.isdigit()
+                or not 1 <= int(choice) <= len(explanations)
+            ):
+                self.output(render_error("Invalid rule selection."))
+                self.pause()
+                continue
+            self._show_explanation(explanations[int(choice) - 1])
+
+    def _show_explanation(self, explanation: RuleExplanation) -> None:
+        while True:
+            self.screen()
+            self.output(render_rule_explanation(explanation))
+            choice = self.input("[0] Back: ").strip()
+            if choice == "0":
+                return
+            self.output(render_error("Invalid option."))
             self.pause()

@@ -1255,6 +1255,7 @@ def main_menu():
                 search_alerts,
                 detection_engineering_controller.show_overview,
                 detection_engineering_controller.run_rule_catalog,
+                detection_engineering_controller.run_rule_explainability,
             )
 
         elif choice == "2":
