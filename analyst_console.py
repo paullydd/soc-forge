@@ -7,6 +7,13 @@ from colorama import Fore, Style, init
 import time
 import sys
 from soc_forge.detection_engineering import DetectionEngineeringService
+from soc_forge.detection_coverage import (
+    DetectionCoverageService,
+    DetectionGapService,
+)
+from soc_forge.menus.detection_coverage import (
+    DetectionCoverageConsoleController,
+)
 from soc_forge.detection_lab import DetectionLabService
 from soc_forge.menus.detection_lab import DetectionLabConsoleController
 from soc_forge.menus.detection_engineering import (
@@ -1224,8 +1231,11 @@ def main_menu():
     operational_summary_service = OperationalSummaryService(
         operations_prioritization_service
     )
+    detection_engineering_service = DetectionEngineeringService(
+        alert_loader=load_all_alerts
+    )
     detection_engineering_controller = DetectionEngineeringConsoleController(
-        DetectionEngineeringService(alert_loader=load_all_alerts),
+        detection_engineering_service,
         input_func=input,
         output_func=print,
         screen_func=clear_screen,
@@ -1233,6 +1243,20 @@ def main_menu():
     )
     detection_lab_controller = DetectionLabConsoleController(
         DetectionLabService(analysis_runner=run_analysis),
+        detection_engineering_controller.explanation_service,
+        input_func=input,
+        output_func=print,
+        screen_func=clear_screen,
+        pause_func=pause,
+    )
+    detection_coverage_service = DetectionCoverageService(
+        rules_path=detection_engineering_service.rules_path,
+        rule_loader=detection_engineering_service.rule_loader,
+    )
+    detection_coverage_controller = DetectionCoverageConsoleController(
+        detection_coverage_service,
+        DetectionGapService(detection_coverage_service),
+        detection_engineering_service,
         detection_engineering_controller.explanation_service,
         input_func=input,
         output_func=print,
@@ -1267,6 +1291,8 @@ def main_menu():
                 detection_engineering_controller.run_rule_catalog,
                 detection_engineering_controller.run_rule_explainability,
                 detection_lab_controller,
+                detection_coverage_controller.run_coverage,
+                detection_coverage_controller.run_gaps,
             )
 
         elif choice == "2":

@@ -206,6 +206,20 @@ shared Rule Explainability screen; `[0] Back` returns to the Lab result, and a
 second `[0] Back` returns to the Lab menu. Rendering remains width-safe with
 `NO_COLOR`, `TERM=dumb`, and ASCII fallback.
 
+Detection Coverage provides Summary, ATT&CK Tactic, ATT&CK Technique, and
+Unmapped Rules views. Detection Gaps provides All Gaps, Unmapped Rules, and
+Disabled Coverage views. Both use deterministic ordering, shared panels,
+metadata wrapping, explicit empty states, and rule drill-down through the
+existing Rule Catalog detail and Rule Explainability screens.
+
+Coverage copy says exactly what is counted and does not display a percentage.
+Gap screens always state that no expected ATT&CK baseline is configured and
+that analysis is limited to explicit metadata quality and enabled-rule
+availability. They do not claim telemetry or sensor health.
+
+Back navigation returns one level at a time. Both workspaces retain width-safe,
+`NO_COLOR`, `TERM=dumb`, and ASCII-fallback behavior.
+
 Security Analysis destinations describe future cross-investigation analysis without fake data or state. Attack Narrative and Attack Graph remain available through the Investigation Workspace reconstruction workflow. Reporting retains Analysis Report and ATT&CK Coverage while Investigation Handoff remains owned by Investigations. System removes Demo Case from primary analyst navigation and retains About SOC-Forge.
 
 Unimplemented destinations use bounded informational panels after selection. Menu labels do not say Coming Soon. These screens preserve breadcrumbs, exact Back behavior, width limits, NO_COLOR, TERM=dumb, and ASCII fallback and do not modify analysis, investigation, queue, repository, or environment state. Platform Status is deferred until a shared authoritative readiness source exists.

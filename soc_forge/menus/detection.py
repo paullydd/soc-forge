@@ -16,6 +16,8 @@ def detection_menu(
     show_rule_catalog=None,
     show_rule_explainability=None,
     detection_lab_controller=None,
+    show_detection_coverage=None,
+    show_detection_gaps=None,
 ):
     while True:
         begin_screen("DETECTION")
@@ -64,13 +66,15 @@ def detection_menu(
                     analyze_log_file, run_attack_simulation, run_rules_only, pause
                 )
         elif choice == "4":
-            show_architecture_notice(
-                "DETECTION",
-                "Detection Coverage",
-                "Detection coverage analysis is not implemented in this slice.",
-                pause,
-                ("ATT&CK coverage", "data-source coverage", "rule coverage"),
-            )
+            if show_detection_coverage is not None:
+                show_detection_coverage()
+            else:
+                show_architecture_notice(
+                    "DETECTION",
+                    "Detection Coverage",
+                    "Detection Coverage is unavailable in this console session.",
+                    pause,
+                )
         elif choice == "5":
             if show_rule_explainability is not None:
                 show_rule_explainability()
@@ -82,13 +86,15 @@ def detection_menu(
                     pause,
                 )
         elif choice == "6":
-            show_architecture_notice(
-                "DETECTION",
-                "Detection Gaps",
-                "Detection gap analysis is not implemented in this slice.",
-                pause,
-                ("uncovered behaviors", "missing telemetry", "coverage limitations"),
-            )
+            if show_detection_gaps is not None:
+                show_detection_gaps()
+            else:
+                show_architecture_notice(
+                    "DETECTION",
+                    "Detection Gaps",
+                    "Detection Gaps is unavailable in this console session.",
+                    pause,
+                )
         elif choice == "7":
             alert_explorer(view_alerts, search_alerts, pause)
         elif choice == "0":

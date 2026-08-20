@@ -30,8 +30,10 @@ The existing capabilities remain available:
 
 Slice 2 implements Detection Overview and Rule Catalog as read-only projections
 of the production rule loader and stored alert state. They create no independent
-registry or state and never run detections. Detection Coverage, Rule
-Explainability, and Detection Gaps remain bounded informational destinations.
+registry or state and never run detections. Rule Explainability projects
+configured logic, while Detection Coverage and Detection Gaps now project
+explicit ATT&CK metadata, unmapped rules, and disabled-only technique
+availability without a global baseline or completeness score.
 
 ## Investigations
 

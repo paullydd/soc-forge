@@ -81,10 +81,18 @@ class DetectionEngineeringService:
         self.rule_loader = rule_loader
         self.alert_loader = alert_loader
 
-    def rule_catalog(self) -> tuple[RuleCatalogEntry, ...]:
-        rules = self.rule_loader([str(self.rules_path)])
+    def rule_catalog(
+        self, rules: Iterable[Rule] | None = None
+    ) -> tuple[RuleCatalogEntry, ...]:
+        loaded = (
+            self.rule_loader([str(self.rules_path)])
+            if rules is None else rules
+        )
         return tuple(
-            sorted((self._catalog_entry(rule) for rule in rules), key=lambda item: item.rule_id)
+            sorted(
+                (self._catalog_entry(rule) for rule in loaded),
+                key=lambda item: item.rule_id,
+            )
         )
 
     def overview(

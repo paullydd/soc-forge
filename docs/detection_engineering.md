@@ -192,3 +192,38 @@ the Lab result does not execute the rule again.
 
 Simulations generate telemetry test data only. They do not execute attacks,
 start Investigations, add monitoring, or change rule state.
+
+## Detection Coverage and Gaps
+
+Detection Coverage describes what the current ruleset explicitly represents.
+It does not measure environmental visibility or overall security effectiveness.
+
+Coverage loads the same validated `Rule` objects as Rule Catalog and Rule
+Explainability. It groups only explicit rule ATT&CK metadata into deterministic
+tactic and technique projections and reports:
+
+- total, enabled, and disabled loaded rules;
+- rules with and without explicit ATT&CK mappings;
+- represented tactics and techniques;
+- enabled and disabled rule IDs for each technique.
+
+No tactic or technique is inferred from titles, descriptions, tags, events, or
+alert prose. SOC-Forge has no configured expected ATT&CK baseline, so Coverage
+does not calculate a global percentage or make an ATT&CK completeness claim.
+
+Detection Gaps uses a deliberately bounded policy:
+
+- an `UNMAPPED_RULE` gap identifies a loaded rule without explicit ATT&CK
+  metadata;
+- a `DISABLED_COVERAGE` gap identifies a technique represented only by
+  disabled loaded rules.
+
+Gap identifiers and ordering are deterministic. Multiple rules on one
+technique are not treated as redundant or defective. An unmapped rule is not
+declared broken.
+
+Because no expected baseline exists, no missing-technique requirements are
+fabricated. Coverage and Gaps make no sensor-health, telemetry-health,
+historical-effectiveness, prevention, or data-availability claims. Opening
+either workspace is read-only: it does not run detections, mutate rules or
+configuration, write artifacts, or create operational state.
