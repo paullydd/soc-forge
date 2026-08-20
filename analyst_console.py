@@ -7,6 +7,8 @@ from colorama import Fore, Style, init
 import time
 import sys
 from soc_forge.detection_engineering import DetectionEngineeringService
+from soc_forge.detection_lab import DetectionLabService
+from soc_forge.menus.detection_lab import DetectionLabConsoleController
 from soc_forge.menus.detection_engineering import (
     DetectionEngineeringConsoleController,
 )
@@ -1229,6 +1231,14 @@ def main_menu():
         screen_func=clear_screen,
         pause_func=pause,
     )
+    detection_lab_controller = DetectionLabConsoleController(
+        DetectionLabService(analysis_runner=run_analysis),
+        detection_engineering_controller.explanation_service,
+        input_func=input,
+        output_func=print,
+        screen_func=clear_screen,
+        pause_func=pause,
+    )
     while True:
         clear_screen()
         show_dashboard(
@@ -1256,6 +1266,7 @@ def main_menu():
                 detection_engineering_controller.show_overview,
                 detection_engineering_controller.run_rule_catalog,
                 detection_engineering_controller.run_rule_explainability,
+                detection_lab_controller,
             )
 
         elif choice == "2":

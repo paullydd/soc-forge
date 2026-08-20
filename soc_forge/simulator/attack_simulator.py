@@ -472,19 +472,20 @@ def generate_detection_lab_scenario() -> List[Dict[str, Any]]:
         },
     ]
 
+SCENARIO_GENERATORS = {
+    "brute_force": generate_brute_force_scenario,
+    "password_spray": generate_password_spray_scenario,
+    "privilege_escalation": generate_privilege_escalation_scenario,
+    "mixed": generate_mixed_scenario,
+    "attack_chain": generate_attack_chain_scenario,
+    "detection_lab": generate_detection_lab_scenario,
+}
+
 def generate_scenario(name: str) -> List[Dict[str, Any]]:
     """
     Dispatch scenario generation by name.
     """
-    scenarios = {
-        "brute_force": generate_brute_force_scenario,
-        "password_spray": generate_password_spray_scenario,
-        "privilege_escalation": generate_privilege_escalation_scenario,
-        "mixed": generate_mixed_scenario,
-        "attack_chain": generate_attack_chain_scenario,
-        "detection_lab": generate_detection_lab_scenario,
-    }
-
+    scenarios = SCENARIO_GENERATORS
     if name not in scenarios:
         valid = ", ".join(sorted(scenarios))
         raise ValueError(f"Unknown scenario '{name}'. Valid scenarios: {valid}")

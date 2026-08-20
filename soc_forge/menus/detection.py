@@ -15,6 +15,7 @@ def detection_menu(
     show_detection_overview=None,
     show_rule_catalog=None,
     show_rule_explainability=None,
+    detection_lab_controller=None,
 ):
     while True:
         begin_screen("DETECTION")
@@ -56,9 +57,12 @@ def detection_menu(
                     pause,
                 )
         elif choice == "3":
-            detection_lab(
-                analyze_log_file, run_attack_simulation, run_rules_only, pause
-            )
+            if detection_lab_controller is not None:
+                detection_lab_controller.run()
+            else:
+                detection_lab(
+                    analyze_log_file, run_attack_simulation, run_rules_only, pause
+                )
         elif choice == "4":
             show_architecture_notice(
                 "DETECTION",

@@ -74,6 +74,7 @@ class AnalysisResult:
     mitre_coverage: List[Any]
     artifacts: Dict[str, Path] = field(default_factory=dict)
     ingest_diagnostics: List[Dict[str, Any]] = field(default_factory=list)
+    rule_count: int = 0
 
 
 def _correlation_summary(alerts: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -295,6 +296,7 @@ def run_analysis_for_events(options: AnalysisOptions) -> AnalysisResult:
         mitre_coverage=coverage_rows,
         artifacts={},
         ingest_diagnostics=list(options.ingest_diagnostics),
+        rule_count=len(rules),
     )
 
     if events_path and not (options.write_outputs and result.input_path is not None):

@@ -22,7 +22,10 @@ Detection Engineering owns Detection Overview, Rule Catalog, Detection Lab, Dete
 
 The existing capabilities remain available:
 
-- Analyze Log File, Run Attack Simulation, and Rules Only Mode are under Detection Lab.
+- Analyze Telemetry File, Run Attack Simulation, Evaluate Rules Only, and an
+  ephemeral Last Lab Result are under Detection Lab. They reuse the production
+  pipeline and its existing artifact ownership. A triggered rule can open the
+  shared Rule Explainability view without rerunning detection.
 - View Alerts and Search Alerts are under Alert Explorer.
 
 Slice 2 implements Detection Overview and Rule Catalog as read-only projections

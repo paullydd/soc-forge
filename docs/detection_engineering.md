@@ -158,3 +158,37 @@ It does not use AI-generated reasoning and does not execute detections.
 Rule Catalog detail offers an Explain Rule action that reuses this same service
 and renderer. Explainability does not edit, enable, disable, persist, simulate,
 or otherwise mutate a rule or repository state.
+
+## Detection Lab Workflow
+
+Detection Lab is the controlled terminal execution surface for:
+
+- Analyze Telemetry File, using the production file-ingest and analysis path;
+- Run Attack Simulation, listing all scenarios from the simulator's
+  authoritative registry;
+- Evaluate Rules Only, preserving the existing `AnalysisOptions.rules_only`
+  semantics;
+- View Last Lab Result, retaining only the latest successful result in the
+  current controller session.
+
+Detection Lab reuses the production detection pipeline.
+It does not implement a separate detection engine.
+
+The immutable Lab result projects actual `AnalysisResult` values: event and
+loaded-rule counts, distinct YAML rules that triggered, total alerts, cases,
+correlations, hunts, reconstructions, existing artifact paths, ingest warnings,
+and explicit ATT&CK mappings from triggered-rule alert metadata. Counts are not
+inferred from presentation text.
+
+Rules Only continues to suppress the legacy detector exactly as the production
+pipeline currently defines. The existing pipeline still performs its downstream
+correlation, hunt, case, and reconstruction stages, so the Lab reports their
+actual counts and does not incorrectly claim they were skipped.
+
+Viewing Last Lab Result is passive and does not scan prior artifacts, rerun
+detection, or create a `lab_results.json` store. Selecting a triggered rule
+opens the existing deterministic Rule Explainability projection; returning to
+the Lab result does not execute the rule again.
+
+Simulations generate telemetry test data only. They do not execute attacks,
+start Investigations, add monitoring, or change rule state.

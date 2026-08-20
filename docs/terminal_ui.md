@@ -195,6 +195,17 @@ returns exactly one level and blank rule selection returns to Detection.
 
 Detection Coverage and Detection Gaps remain bounded informational destinations.
 
+Detection Lab uses a shared application header, Detection breadcrumb, bounded
+menu, result metadata, triggered-rule list, ATT&CK panel, existing-artifact
+panel, warnings, and explicit empty states. Its menu provides Analyze Telemetry
+File, Run Attack Simulation, Evaluate Rules Only, View Last Lab Result, and
+Back. Scenario ordering follows the simulator registry.
+
+The latest successful result is session-only. Result rule numbers open the
+shared Rule Explainability screen; `[0] Back` returns to the Lab result, and a
+second `[0] Back` returns to the Lab menu. Rendering remains width-safe with
+`NO_COLOR`, `TERM=dumb`, and ASCII fallback.
+
 Security Analysis destinations describe future cross-investigation analysis without fake data or state. Attack Narrative and Attack Graph remain available through the Investigation Workspace reconstruction workflow. Reporting retains Analysis Report and ATT&CK Coverage while Investigation Handoff remains owned by Investigations. System removes Demo Case from primary analyst navigation and retains About SOC-Forge.
 
 Unimplemented destinations use bounded informational panels after selection. Menu labels do not say Coming Soon. These screens preserve breadcrumbs, exact Back behavior, width limits, NO_COLOR, TERM=dumb, and ASCII fallback and do not modify analysis, investigation, queue, repository, or environment state. Platform Status is deferred until a shared authoritative readiness source exists.
