@@ -12,6 +12,21 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _run_child(command, *, cwd):
+    completed = subprocess.run(
+        command,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode:
+        raise AssertionError(
+            f"Child process failed with exit code {completed.returncode}: "
+            f"{command!r}\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+        )
+    return completed
+
+
 def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
     source_dir = tmp_path / "source"
     shutil.copytree(
@@ -32,7 +47,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
 
     wheel_dir = tmp_path / "wheel"
     wheel_dir.mkdir()
-    subprocess.run(
+    _run_child(
         [
             sys.executable,
             "-m",
@@ -43,10 +58,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
             str(wheel_dir),
             str(source_dir),
         ],
-        check=True,
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
     )
 
     wheels = list(wheel_dir.glob("soc_forge-*.whl"))
@@ -99,14 +111,11 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
     )
 
     environment = tmp_path / "venv"
-    venv.EnvBuilder(with_pip=True, system_site_packages=True).create(environment)
+    venv.EnvBuilder(with_pip=True, system_site_packages=False).create(environment)
     python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
-    subprocess.run(
-        [str(python), "-m", "pip", "install", "--no-deps", str(wheel)],
-        check=True,
+    _run_child(
+        [str(python), "-m", "pip", "install", str(wheel)],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
     )
 
     run_dir = tmp_path / "outside-checkout"
@@ -130,12 +139,9 @@ event = {
 alerts = run_rules([event], rules)
 print(json.dumps({"version": __version__, "rule_count": len(rules), "rule_ids": [a["rule_id"] for a in alerts]}))
 """
-    completed = subprocess.run(
+    completed = _run_child(
         [str(python), "-I", "-c", command],
-        check=True,
         cwd=run_dir,
-        capture_output=True,
-        text=True,
     )
     result = json.loads(completed.stdout)
     assert result["version"] == "3.0.0"
