@@ -236,3 +236,8 @@ Explicit alert and Finding ATT&CK mappings are counted as separately attributed 
 Analysis option 2 opens SOC-FORGE > ANALYSIS > ENTITY EXPLORER. The type menu supports Host, User, IP Address, and Process, followed by exact-value input. Results show mode, authoritative counts, ATT&CK observations, distinct Investigation membership, related structured entities, recent attributed observations, and explicit interpretation warnings. Empty exact searches say No observations found for this entity.
 
 The screen uses shared headers, breadcrumbs, panels, badges, attribution labels, bounded rows, width limits, NO_COLOR, TERM=dumb, and Unicode/ASCII behavior. Enter returns from a result to the type menu; option 0 returns to Analysis. Rendering and navigation are passive and do not mutate repository or analysis state.
+## ATT&CK Activity Presentation
+
+Analysis option 3 opens SOC-FORGE > ANALYSIS > ATT&CK ACTIVITY. Its real menu provides Activity Summary, View by Tactic, View by Technique, Recent ATT&CK Observations, and Back. Summary shows FULL/OFFLINE mode, observation/tactic/technique totals, machine/analyst counts, and represented Investigations. Technique detail includes explicit names, tactics when paired, source counts, distinct Investigations, recent attributed observations, and the shared-technique caution.
+
+All views use shared headers, breadcrumbs, panels, badges, [MACHINE]/[ANALYST] labels, bounded lists, width handling, NO_COLOR, TERM=dumb, and Unicode/ASCII behavior. Empty states are explicit. Navigation and rendering are passive and do not mutate Investigations, analysis, rules, artifacts, or snapshots.

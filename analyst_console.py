@@ -6,6 +6,8 @@ import json
 from colorama import Fore, Style, init
 import time
 import sys
+from soc_forge.attack_activity import AttackActivityService
+from soc_forge.menus.attack_activity import AttackActivityConsoleController
 from soc_forge.entity_explorer import EntityExplorerService, EntityObservationService
 from soc_forge.menus.entity_explorer import EntityExplorerConsoleController
 from soc_forge.detection_engineering import DetectionEngineeringService
@@ -130,6 +132,13 @@ def build_entity_explorer_controller(workspace_controller):
             get_current_analysis_result,
         ))
     )
+
+
+def build_attack_activity_controller(workspace_controller):
+    return AttackActivityConsoleController(AttackActivityService(
+        workspace_controller.workspace_service.repository,
+        get_current_analysis_result,
+    ))
 
 
 def startup_screen():
@@ -1336,6 +1345,7 @@ def main_menu():
                 attack_graph_viewer,
                 build_threat_activity_controller(workspace_controller),
                 build_entity_explorer_controller(workspace_controller),
+                build_attack_activity_controller(workspace_controller),
             )
 
         elif choice == "4":

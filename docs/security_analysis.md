@@ -49,3 +49,12 @@ FULL mode combines the active AnalysisResult evidence catalog with durable Inves
 Related entities were explicitly co-observed in the same structured record. Counts mean Observed together N times; they are not relationship strength or causation. ATT&CK counts aggregate only mappings carried by matching observations and do not use Detection Coverage.
 
 Protected evidence detail fields are not resolved for display. Current machine entity references use the evidence catalog's published structured references, and non-sensitive process details follow the existing machine-display policy. The explorer performs no reveal action, persistence, background indexing, enrichment, scoring, correlation, or mutation. Direct drill-down remains deferred until destination controllers expose a clean navigation contract.
+## ATT&CK Activity Analysis
+
+ATT&CK Activity describes explicit ATT&CK behavior observed or recorded in current SOC-Forge state. It does not measure detection completeness or establish campaign relationships.
+
+One observation is one unique explicit ATT&CK mapping attached to one authoritative source object. Repeated identical mappings within the same source are deduplicated by source type, stable source ID, tactic, technique ID, and technique name. Distinct source objects remain distinct observations. Alert, explicitly mapped Case, and Reconstruction step observations are [MACHINE]; durable Finding observations are [ANALYST]. A Finding stores tactics and techniques as independent collections, so each explicit tactic and technique is counted independently rather than inventing a pairing.
+
+FULL mode combines durable Findings with the active AnalysisResult. OFFLINE uses durable Findings only and never loads snapshots or scans output directories. Tactic and technique groups expose machine/analyst counts, source counts, distinct Investigation membership, and bounded recent observations. Technique names are shown only when explicit.
+
+Detection Coverage describes potential ruleset representation. ATT&CK Activity describes current observed or recorded mappings and never consults coverage to manufacture observations, calculate percentages, or claim effectiveness. Shared techniques across Investigations do not imply a shared attacker, campaign, cause, or attack. The workspace is a read-only projection with no persistence, external ATT&CK lookup, scoring, enrichment, or mutation. Cross-navigation remains deferred because destination controllers do not expose a clean navigation contract.

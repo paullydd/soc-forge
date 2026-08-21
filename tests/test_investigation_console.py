@@ -709,6 +709,7 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
     )
     overview = object()
     entity = object()
+    attack = object()
     monkeypatch.setattr(
         analyst_console, "build_threat_activity_controller", lambda _workspace: overview
     )
@@ -716,9 +717,12 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
         analyst_console, "build_entity_explorer_controller", lambda _workspace: entity
     )
     monkeypatch.setattr(
+        analyst_console, "build_attack_activity_controller", lambda _workspace: attack
+    )
+    monkeypatch.setattr(
         analyst_console,
         "analysis_menu",
-        lambda pause, stories, graph, overview, entity: calls.append((pause, stories, graph, overview, entity)),
+        lambda pause, stories, graph, overview, entity, attack: calls.append((pause, stories, graph, overview, entity, attack)),
     )
 
     with pytest.raises(SystemExit):
@@ -731,6 +735,7 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
             analyst_console.attack_graph_viewer,
             overview,
             entity,
+            attack,
         ),
     ]
 

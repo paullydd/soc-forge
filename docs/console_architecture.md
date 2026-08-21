@@ -96,3 +96,6 @@ Explicit alert and Finding ATT&CK mappings are counted as separately attributed 
 ## Entity Explorer
 
 Analysis option 2 is a real read-only Entity Explorer. EntityObservationService projects explicit structured observations from the current AnalysisResult evidence catalog and explicit durable Investigation links; EntityExplorerService performs deterministic exact matching, counts, ATT&CK aggregation, co-observation projection, ordering, and bounding. No entity database or index is persisted. FULL and OFFLINE are explicit, and co-observation never claims shared attacker, campaign, or incident identity.
+## ATT&CK Activity Analysis
+
+Analysis option 3 is a real ATT&CK Activity workspace backed by AttackActivityService. The immutable projection reads durable Finding ATT&CK fields and optional current AnalysisResult Alerts, explicitly mapped Cases, and Reconstruction steps. It groups and orders observed tactics and techniques without using Detection Coverage, persisting an activity index, or changing source state. FULL/OFFLINE attribution and cross-Investigation cautions remain explicit.
