@@ -112,3 +112,10 @@ The workspace does not persist or link Investigations, calculate relationship sc
 Analysis option 5 is a real read-only TemporalAnalysisService projection over the durable Investigation repository and optional active AnalysisResult. It produces immutable timed and untimed entries with deterministic identities, explicit [MACHINE]/[ANALYST] attribution, stable chronological ordering, and bounded recent reversal.
 
 The service supports exact Investigation, controlled source-type, explicit ATT&CK tactic, and technique-ID views. Temporal Analysis remains distinct from Investigation Timeline and Reconstruction. It performs no causal inference, correlation scoring, persistence, snapshot activation, output scanning, or mutation. Hunt Workspace remains deferred.
+
+
+## Hunt Workspace
+
+Analysis option 6 is a real Hunt Workspace composed from the active AnalysisResult Hunt findings, EntityExplorerService, AttackActivityService, and TemporalAnalysisService. Existing pipeline Hunts remain detector outputs owned by the analysis pipeline; entity, ATT&CK, and Investigation searches are ephemeral projections and never become persisted Hunt records.
+
+The workspace has no custom query language, scoring, external integration, detection execution, snapshot activation, or mutable navigation state. FULL/OFFLINE availability is explicit, results use reused deterministic ordering and a 25-item bound, and overlap never claims a shared campaign.

@@ -81,3 +81,14 @@ FULL combines current normalized events, alerts, cases, and reconstruction steps
 The primary view is ascending by timestamp, then attribution/category, Investigation ID, source ID, and deterministic entry ID. Recent activity is a bounded exact reversal. Untimed authoritative objects remain in a separate section. Filters support one exact Investigation, source type, ATT&CK tactic, or technique ID while preserving chronology. Entity filtering and custom time windows are deferred because current timestamped sources do not expose one consistent safe structured-entity contract.
 
 The projection uses safe titles, summaries, and explicit ATT&CK metadata only. It does not resolve protected evidence, infer from prose or Detection Coverage, persist an index, score proximity, construct attack chains, mutate source state, or change Investigation Timeline semantics.
+
+
+## Hunt Workspace
+
+Hunt Workspace searches and reviews current structured SOC-Forge state. Projection-based hunts do not create durable Hunt records or rerun detection unless an existing authoritative Hunt workflow explicitly does so.
+
+Existing Hunts are pipeline-generated HuntFinding detector outputs stored in the active AnalysisResult and optional hunts.json artifact. The workspace preserves their authoritative ID, title, severity, category, summary, confidence, structured entities, evidence count, timestamps, and technique IDs without rewriting the artifact or relabeling guidance.
+
+Entity hunts are ephemeral exact searches delegated to Entity Explorer normalization and observations. ATT&CK technique hunts delegate to ATT&CK Activity and include explicit observed mappings only. Investigation hunts delegate to Temporal Analysis using its ordering and attribution. Results are deterministic, bounded to 25, and review-oriented; counts are not scores.
+
+FULL exposes current pipeline Hunt findings and machine observations. OFFLINE reports machine Hunt context unavailable while retaining durable analyst projections supported by the delegated services. No snapshots or output directories are loaded. There is no query language, saved hunt, persistence, detection rerun, external enrichment, campaign inference, or mutation. Cross-navigation remains deferred until destination controllers expose stateless contracts.

@@ -7,6 +7,8 @@ from colorama import Fore, Style, init
 import time
 import sys
 from soc_forge.attack_activity import AttackActivityService
+from soc_forge.hunt_workspace import HuntWorkspaceService
+from soc_forge.menus.hunt_workspace import HuntWorkspaceConsoleController
 from soc_forge.temporal_analysis import TemporalAnalysisService
 from soc_forge.menus.temporal_analysis import TemporalAnalysisConsoleController
 from soc_forge.cross_investigation import CrossInvestigationAnalysisService
@@ -156,6 +158,17 @@ def build_temporal_analysis_controller(workspace_controller):
     return TemporalAnalysisConsoleController(TemporalAnalysisService(
         workspace_controller.workspace_service.repository,
         get_current_analysis_result,
+    ))
+
+def build_hunt_workspace_controller(workspace_controller):
+    repository = workspace_controller.workspace_service.repository
+    entity = EntityExplorerService(EntityObservationService(
+        repository, get_current_analysis_result,
+    ))
+    attack = AttackActivityService(repository, get_current_analysis_result)
+    temporal = TemporalAnalysisService(repository, get_current_analysis_result)
+    return HuntWorkspaceConsoleController(HuntWorkspaceService(
+        entity, attack, temporal, get_current_analysis_result,
     ))
 
 def startup_screen():
@@ -1365,6 +1378,7 @@ def main_menu():
                 build_attack_activity_controller(workspace_controller),
                 build_cross_investigation_controller(workspace_controller),
                 build_temporal_analysis_controller(workspace_controller),
+                build_hunt_workspace_controller(workspace_controller),
             )
 
         elif choice == "4":

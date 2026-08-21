@@ -7,11 +7,6 @@ from soc_forge.ui.terminal import render_breadcrumb
 ANALYSIS_DESTINATIONS = {
 
 
-    "6": (
-        "Hunt Workspace",
-        "The v3.5 Hunt Workspace is not implemented in this slice.",
-        ("hunt questions", "search scope", "analyst findings"),
-    ),
 }
 
 
@@ -19,7 +14,8 @@ def analysis_menu(pause, attack_stories, attack_graph_viewer,
                   threat_activity_controller=None, entity_explorer_controller=None,
                   attack_activity_controller=None,
                   cross_investigation_controller=None,
-                  temporal_analysis_controller=None):
+                  temporal_analysis_controller=None,
+                  hunt_workspace_controller=None):
     while True:
         begin_screen("ANALYSIS")
         print(render_breadcrumb(("SOC-FORGE", "ANALYSIS")))
@@ -29,6 +25,7 @@ def analysis_menu(pause, attack_stories, attack_graph_viewer,
         menu_option("3", "ATT&CK Activity")
         menu_option("4", "Cross-Investigation Analysis")
         menu_option("5", "Temporal Analysis")
+        menu_option("6", "Hunt Workspace")
         for number, (title, _summary, _scope) in ANALYSIS_DESTINATIONS.items():
             menu_option(number, title)
         menu_option("0", "Back")
@@ -64,6 +61,12 @@ def analysis_menu(pause, attack_stories, attack_graph_viewer,
                 pause()
             else:
                 temporal_analysis_controller.run()
+        elif choice == "6":
+            if hunt_workspace_controller is None:
+                error("Hunt Workspace is unavailable.")
+                pause()
+            else:
+                hunt_workspace_controller.run()
         elif choice in ANALYSIS_DESTINATIONS:
             title, summary, scope = ANALYSIS_DESTINATIONS[choice]
             show_architecture_notice("ANALYSIS", title, summary, pause, scope)

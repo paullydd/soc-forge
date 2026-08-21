@@ -254,3 +254,10 @@ Shared panels preserve width limits at 100, 80, 60, and minimum widths, includin
 Analysis option 5 opens SOC-FORGE > ANALYSIS > TEMPORAL ANALYSIS. Chronological and Recent views show the same immutable entries in ascending and bounded reverse order. Investigation, source-type, and explicit ATT&CK filters apply one view filter at a time. TEMPORAL STATE displays FULL/OFFLINE mode, timed/untimed and attribution counts, represented Investigations, and actual first/last timestamps.
 
 Untimed entries have a separate panel. Every cross-state view includes the fixed caution that temporal proximity does not establish a shared attack, attacker, campaign, or causal relationship. Shared panels preserve safe wrapping, NO_COLOR, TERM=dumb, Unicode/ASCII fallback, and 100/80/60/minimum widths. Rendering and navigation do not change repository, analysis, artifacts, or snapshots.
+
+
+## Hunt Workspace Presentation
+
+Analysis option 6 opens SOC-FORGE > ANALYSIS > HUNT WORKSPACE. HUNT STATE distinguishes current machine availability from an authoritative zero. Existing Hunts provide bounded list and detail screens. Entity results reuse Entity Explorer presentation; technique results show explicit ATT&CK observations and attribution; Investigation results reuse the Temporal cross-state view.
+
+All result views preserve safe structured fields, deterministic ordering, NO_COLOR, TERM=dumb, Unicode/ASCII fallback, and width bounds. Cross-Investigation output cautions that overlap does not establish a shared attacker, campaign, incident, or cause. Viewing and searching neither writes Hunt artifacts nor reruns detection.
