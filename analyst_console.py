@@ -7,6 +7,8 @@ from colorama import Fore, Style, init
 import time
 import sys
 from soc_forge.attack_activity import AttackActivityService
+from soc_forge.cross_investigation import CrossInvestigationAnalysisService
+from soc_forge.menus.cross_investigation import CrossInvestigationConsoleController
 from soc_forge.menus.attack_activity import AttackActivityConsoleController
 from soc_forge.entity_explorer import EntityExplorerService, EntityObservationService
 from soc_forge.menus.entity_explorer import EntityExplorerConsoleController
@@ -140,6 +142,13 @@ def build_attack_activity_controller(workspace_controller):
         get_current_analysis_result,
     ))
 
+
+def build_cross_investigation_controller(workspace_controller):
+    repository = workspace_controller.workspace_service.repository
+    return CrossInvestigationConsoleController(CrossInvestigationAnalysisService(
+        EntityObservationService(repository, get_current_analysis_result),
+        AttackActivityService(repository, get_current_analysis_result),
+    ))
 
 def startup_screen():
     ui_startup_screen(clear_screen)
@@ -1346,6 +1355,7 @@ def main_menu():
                 build_threat_activity_controller(workspace_controller),
                 build_entity_explorer_controller(workspace_controller),
                 build_attack_activity_controller(workspace_controller),
+                build_cross_investigation_controller(workspace_controller),
             )
 
         elif choice == "4":

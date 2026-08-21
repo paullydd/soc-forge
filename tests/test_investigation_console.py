@@ -719,10 +719,15 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
     monkeypatch.setattr(
         analyst_console, "build_attack_activity_controller", lambda _workspace: attack
     )
+    cross = object()
+    monkeypatch.setattr(
+        analyst_console, "build_cross_investigation_controller",
+        lambda _workspace: cross
+    )
     monkeypatch.setattr(
         analyst_console,
         "analysis_menu",
-        lambda pause, stories, graph, overview, entity, attack: calls.append((pause, stories, graph, overview, entity, attack)),
+        lambda pause, stories, graph, overview, entity, attack, cross: calls.append((pause, stories, graph, overview, entity, attack, cross)),
     )
 
     with pytest.raises(SystemExit):
@@ -736,6 +741,7 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
             overview,
             entity,
             attack,
+            cross,
         ),
     ]
 

@@ -47,6 +47,7 @@ class AttackTechniqueActivity:
     source_ids: tuple[str, ...]
     investigation_ids: tuple[str, ...]
     recent_observations: tuple[AttackActivityObservation, ...]
+    observations: tuple[AttackActivityObservation, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -72,6 +73,7 @@ class AttackActivitySummary:
     tactics: tuple[AttackTacticActivity, ...]
     techniques: tuple[AttackTechniqueActivity, ...]
     recent_observations: tuple[AttackActivityObservation, ...]
+    observations: tuple[AttackActivityObservation, ...] = ()
 
 
 class AttackActivityService:
@@ -112,6 +114,7 @@ class AttackActivityService:
             tactics=tactics,
             techniques=techniques,
             recent_observations=tuple(observations[:self.recent_limit]),
+            observations=tuple(observations),
         )
 
     def _analyst_observations(self):

@@ -99,3 +99,9 @@ Analysis option 2 is a real read-only Entity Explorer. EntityObservationService 
 ## ATT&CK Activity Analysis
 
 Analysis option 3 is a real ATT&CK Activity workspace backed by AttackActivityService. The immutable projection reads durable Finding ATT&CK fields and optional current AnalysisResult Alerts, explicitly mapped Cases, and Reconstruction steps. It groups and orders observed tactics and techniques without using Detection Coverage, persisting an activity index, or changing source state. FULL/OFFLINE attribution and cross-Investigation cautions remain explicit.
+
+## Cross-Investigation Analysis
+
+Analysis option 4 is a real deterministic projection over the existing EntityObservationService and AttackActivityService. It owns overlap questions only: shared exact entities, explicit ATT&CK tactics, and explicit ATT&CK techniques across two or more distinct Investigations. Entity Explorer remains authoritative for entity extraction and normalization, and ATT&CK Activity remains authoritative for observed mappings.
+
+The workspace does not persist or link Investigations, calculate relationship scores, infer campaigns or attackers, use temporal proximity, or mutate source state. FULL/OFFLINE mode, source attribution, counts, deterministic IDs, deterministic ordering, and the observation-without-causation caution are explicit. Temporal Analysis and Hunt Workspace remain bounded deferred destinations.

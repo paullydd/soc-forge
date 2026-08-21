@@ -241,3 +241,9 @@ The screen uses shared headers, breadcrumbs, panels, badges, attribution labels,
 Analysis option 3 opens SOC-FORGE > ANALYSIS > ATT&CK ACTIVITY. Its real menu provides Activity Summary, View by Tactic, View by Technique, Recent ATT&CK Observations, and Back. Summary shows FULL/OFFLINE mode, observation/tactic/technique totals, machine/analyst counts, and represented Investigations. Technique detail includes explicit names, tactics when paired, source counts, distinct Investigations, recent attributed observations, and the shared-technique caution.
 
 All views use shared headers, breadcrumbs, panels, badges, [MACHINE]/[ANALYST] labels, bounded lists, width handling, NO_COLOR, TERM=dumb, and Unicode/ASCII behavior. Empty states are explicit. Navigation and rendering are passive and do not mutate Investigations, analysis, rules, artifacts, or snapshots.
+
+## Cross-Investigation Analysis Presentation
+
+Analysis option 4 opens SOC-FORGE > ANALYSIS > CROSS-INVESTIGATION. Its menu provides Overview, Shared Entities, Shared ATT&CK Tactics, Shared ATT&CK Techniques, Relationship Detail, and Back. Overview shows mode and relationship counts without a risk label. Lists show distinct Investigation and observation counts with [MACHINE]/[ANALYST] attribution. Detail shows deterministic identity, Investigation membership, bounded safe supporting observations, fixed explanation, and the caution that overlap does not establish the same attack, attacker, campaign, or cause.
+
+Shared panels preserve width limits at 100, 80, 60, and minimum widths, including wrapped caution and empty-state text, NO_COLOR, TERM=dumb, and Unicode/ASCII fallback. Rendering and navigation are passive and create no relationship state or source mutation.
