@@ -70,3 +70,14 @@ Relationship IDs are deterministic and independent of display position: `XINV:EN
 FULL reads durable analyst state plus the active AnalysisResult. OFFLINE reads durable structured Investigation state only and never loads snapshots or scans output directories. An observation without an explicit Investigation ID cannot contribute cross-Investigation membership; the projection does not fabricate an association. Supporting observations are bounded and display timestamp, attribution, source type and ID, Investigation ID, and safe title only.
 
 The service and terminal presentation are read-only. They do not reveal protected evidence, persist relationships, create indexes, mutate repositories, Findings, Evidence, Response Actions, AnalysisResult, alerts, artifacts, or snapshots. Pair analysis and cross-navigation are deferred: pair scoring is outside scope, and current destination controllers do not expose a clean navigation contract.
+
+
+## Temporal Analysis
+
+Temporal Analysis orders timestamped security and analyst activity across current SOC-Forge state. Temporal proximity does not establish a shared attack, attacker, campaign, or causal relationship. It is a cross-state chronology and does not replace the authoritative Investigation Timeline for one Investigation.
+
+FULL combines current normalized events, alerts, cases, and reconstruction steps with durable selected evidence, hypotheses, decisions, Findings, and Response Action lifecycle history. OFFLINE includes durable analyst activity only and never restores snapshots or scans output directories. Response Action creation and each explicit transition are separate entries. Findings contribute creation and explicit supersession; repository saves do not manufacture update events.
+
+The primary view is ascending by timestamp, then attribution/category, Investigation ID, source ID, and deterministic entry ID. Recent activity is a bounded exact reversal. Untimed authoritative objects remain in a separate section. Filters support one exact Investigation, source type, ATT&CK tactic, or technique ID while preserving chronology. Entity filtering and custom time windows are deferred because current timestamped sources do not expose one consistent safe structured-entity contract.
+
+The projection uses safe titles, summaries, and explicit ATT&CK metadata only. It does not resolve protected evidence, infer from prose or Detection Coverage, persist an index, score proximity, construct attack chains, mutate source state, or change Investigation Timeline semantics.

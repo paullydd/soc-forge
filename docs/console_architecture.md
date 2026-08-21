@@ -104,4 +104,11 @@ Analysis option 3 is a real ATT&CK Activity workspace backed by AttackActivitySe
 
 Analysis option 4 is a real deterministic projection over the existing EntityObservationService and AttackActivityService. It owns overlap questions only: shared exact entities, explicit ATT&CK tactics, and explicit ATT&CK techniques across two or more distinct Investigations. Entity Explorer remains authoritative for entity extraction and normalization, and ATT&CK Activity remains authoritative for observed mappings.
 
-The workspace does not persist or link Investigations, calculate relationship scores, infer campaigns or attackers, use temporal proximity, or mutate source state. FULL/OFFLINE mode, source attribution, counts, deterministic IDs, deterministic ordering, and the observation-without-causation caution are explicit. Temporal Analysis and Hunt Workspace remain bounded deferred destinations.
+The workspace does not persist or link Investigations, calculate relationship scores, infer campaigns or attackers, use temporal proximity, or mutate source state. FULL/OFFLINE mode, source attribution, counts, deterministic IDs, deterministic ordering, and the observation-without-causation caution are explicit. Hunt Workspace remains a bounded deferred destination.
+
+
+## Temporal Analysis
+
+Analysis option 5 is a real read-only TemporalAnalysisService projection over the durable Investigation repository and optional active AnalysisResult. It produces immutable timed and untimed entries with deterministic identities, explicit [MACHINE]/[ANALYST] attribution, stable chronological ordering, and bounded recent reversal.
+
+The service supports exact Investigation, controlled source-type, explicit ATT&CK tactic, and technique-ID views. Temporal Analysis remains distinct from Investigation Timeline and Reconstruction. It performs no causal inference, correlation scoring, persistence, snapshot activation, output scanning, or mutation. Hunt Workspace remains deferred.

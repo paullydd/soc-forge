@@ -7,11 +7,6 @@ from soc_forge.ui.terminal import render_breadcrumb
 ANALYSIS_DESTINATIONS = {
 
 
-    "5": (
-        "Temporal Analysis",
-        "Cross-investigation temporal analysis is not implemented in this slice.",
-        ("event sequences", "time windows", "activity patterns"),
-    ),
     "6": (
         "Hunt Workspace",
         "The v3.5 Hunt Workspace is not implemented in this slice.",
@@ -23,7 +18,8 @@ ANALYSIS_DESTINATIONS = {
 def analysis_menu(pause, attack_stories, attack_graph_viewer,
                   threat_activity_controller=None, entity_explorer_controller=None,
                   attack_activity_controller=None,
-                  cross_investigation_controller=None):
+                  cross_investigation_controller=None,
+                  temporal_analysis_controller=None):
     while True:
         begin_screen("ANALYSIS")
         print(render_breadcrumb(("SOC-FORGE", "ANALYSIS")))
@@ -32,6 +28,7 @@ def analysis_menu(pause, attack_stories, attack_graph_viewer,
         menu_option("2", "Entity Explorer")
         menu_option("3", "ATT&CK Activity")
         menu_option("4", "Cross-Investigation Analysis")
+        menu_option("5", "Temporal Analysis")
         for number, (title, _summary, _scope) in ANALYSIS_DESTINATIONS.items():
             menu_option(number, title)
         menu_option("0", "Back")
@@ -61,6 +58,12 @@ def analysis_menu(pause, attack_stories, attack_graph_viewer,
                 pause()
             else:
                 cross_investigation_controller.run()
+        elif choice == "5":
+            if temporal_analysis_controller is None:
+                error("Temporal Analysis is unavailable.")
+                pause()
+            else:
+                temporal_analysis_controller.run()
         elif choice in ANALYSIS_DESTINATIONS:
             title, summary, scope = ANALYSIS_DESTINATIONS[choice]
             show_architecture_notice("ANALYSIS", title, summary, pause, scope)

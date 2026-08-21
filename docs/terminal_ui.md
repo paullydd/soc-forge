@@ -247,3 +247,10 @@ All views use shared headers, breadcrumbs, panels, badges, [MACHINE]/[ANALYST] l
 Analysis option 4 opens SOC-FORGE > ANALYSIS > CROSS-INVESTIGATION. Its menu provides Overview, Shared Entities, Shared ATT&CK Tactics, Shared ATT&CK Techniques, Relationship Detail, and Back. Overview shows mode and relationship counts without a risk label. Lists show distinct Investigation and observation counts with [MACHINE]/[ANALYST] attribution. Detail shows deterministic identity, Investigation membership, bounded safe supporting observations, fixed explanation, and the caution that overlap does not establish the same attack, attacker, campaign, or cause.
 
 Shared panels preserve width limits at 100, 80, 60, and minimum widths, including wrapped caution and empty-state text, NO_COLOR, TERM=dumb, and Unicode/ASCII fallback. Rendering and navigation are passive and create no relationship state or source mutation.
+
+
+## Temporal Analysis Presentation
+
+Analysis option 5 opens SOC-FORGE > ANALYSIS > TEMPORAL ANALYSIS. Chronological and Recent views show the same immutable entries in ascending and bounded reverse order. Investigation, source-type, and explicit ATT&CK filters apply one view filter at a time. TEMPORAL STATE displays FULL/OFFLINE mode, timed/untimed and attribution counts, represented Investigations, and actual first/last timestamps.
+
+Untimed entries have a separate panel. Every cross-state view includes the fixed caution that temporal proximity does not establish a shared attack, attacker, campaign, or causal relationship. Shared panels preserve safe wrapping, NO_COLOR, TERM=dumb, Unicode/ASCII fallback, and 100/80/60/minimum widths. Rendering and navigation do not change repository, analysis, artifacts, or snapshots.
