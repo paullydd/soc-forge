@@ -806,8 +806,13 @@ def test_main_menu_other_dispatch_remains_available(monkeypatch, choice, menu_na
     )
     monkeypatch.setattr(
         analyst_console,
+        "build_system_controller",
+        lambda _workspace: object(),
+    )
+    monkeypatch.setattr(
+        analyst_console,
         menu_name,
-        lambda *_args: calls.append(menu_name),
+        lambda *_args, **_kwargs: calls.append(menu_name),
     )
 
     with pytest.raises(SystemExit):

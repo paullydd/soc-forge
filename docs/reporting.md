@@ -31,3 +31,4 @@ Executive Summary composes the existing Operational Summary, Threat Activity Ove
 ## Safety and limitations
 
 Every report screen is read-only. Viewing or navigating Reporting does not save an Investigation, alter a Response Action, rerun detection, execute remediation, or write repository state. Screens use the shared terminal rendering and clearing conventions and include a warning that telemetry and analyst-authored content may be sensitive and should be reviewed before external sharing.
+System may report the bounded count and availability of known analysis report files as storage health. It does not open, parse, register, export, or take ownership of those reports; Report Center remains the authoritative Reporting discovery workflow.

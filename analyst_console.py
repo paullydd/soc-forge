@@ -43,7 +43,8 @@ from soc_forge.menus.analysis import analysis_menu
 from soc_forge.menus.threat_activity import ThreatActivityConsoleController
 from soc_forge.threat_activity import ThreatActivityOverviewService
 from soc_forge.menus.reporting import reporting_menu
-from soc_forge.menus.system import system_menu
+from soc_forge.menus.system import SystemConsoleController, system_menu
+from soc_forge.system_workspace import SystemWorkspaceService
 from soc_forge.dashboard.dashboard import show_dashboard
 from soc_forge.ui.screen import begin_screen, set_clear_screen
 from soc_forge.cases.store import load_cases_file, save_cases_file
@@ -190,6 +191,15 @@ def build_reporting_controller(workspace_controller):
         ),
         open_report,
     )
+
+def build_system_controller(workspace_controller):
+    repository = workspace_controller.workspace_service.repository
+    return SystemConsoleController(SystemWorkspaceService(
+        repository,
+        config_path=Path("config.yml"),
+        output_path=Path("out"),
+    ))
+
 
 def startup_screen():
     ui_startup_screen(clear_screen)
@@ -1423,6 +1433,7 @@ def main_menu():
             system_menu(
                 clear_screen,
                 pause,
+                controller=build_system_controller(workspace_controller),
             )
 
         elif choice == "6":

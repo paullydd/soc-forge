@@ -247,8 +247,13 @@ def test_main_menu_returns_from_each_target_without_extra_input_or_pause(
         "build_reporting_controller",
         lambda _workspace: object(),
     )
+    monkeypatch.setattr(
+        analyst_console,
+        "build_system_controller",
+        lambda _workspace: object(),
+    )
     monkeypatch.setattr(analyst_console, "pause", lambda: pauses.append("pause"))
-    monkeypatch.setattr(analyst_console, target, lambda *_args: dispatches.append(target))
+    monkeypatch.setattr(analyst_console, target, lambda *_args, **_kwargs: dispatches.append(target))
 
     with pytest.raises(SystemExit) as raised:
         analyst_console.main_menu()

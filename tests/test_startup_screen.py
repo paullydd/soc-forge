@@ -71,3 +71,24 @@ def test_progress_bar_respects_term_dumb(monkeypatch, capsys):
     assert "\x1b" not in output
     assert "Runtime" in output
     assert "50%" in output
+
+
+def test_startup_uses_shared_authoritative_status_states(monkeypatch, capsys):
+    from soc_forge.system_workspace import PlatformComponentStatus, PlatformStatus
+
+    rows = (
+        PlatformComponentStatus("runtime", "Runtime", "ready", "ok"),
+        PlatformComponentStatus("detection_rules", "Detection Rules", "ready", "ok"),
+        PlatformComponentStatus("investigation_repository", "Repository", "degraded", "read-only"),
+        PlatformComponentStatus("analysis_services", "Analysis", "unknown", "unknown"),
+        PlatformComponentStatus("analyst_services", "Analyst", "ready", "ok"),
+    )
+    monkeypatch.setattr(loading, "startup_platform_status", lambda: PlatformStatus("unknown", rows))
+    monkeypatch.setattr(loading.time, "sleep", lambda _delay: None)
+
+    loading.startup_screen(version="3.5.0")
+
+    output = strip_ansi(capsys.readouterr().out)
+    assert "[DEGRADED] Investigation Workspace" in output
+    assert "[UNKNOWN] Analysis Snapshots" in output
+    assert "Platform Status: UNKNOWN" in output

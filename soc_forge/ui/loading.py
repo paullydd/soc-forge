@@ -3,6 +3,7 @@ import time
 from soc_forge import __version__
 from soc_forge.ui.colors import Colors
 from soc_forge.ui.terminal import color_enabled, render_badge
+from soc_forge.system_workspace import startup_platform_status
 
 
 def typewriter(text: str, delay: float = 0.01, color: str = "") -> None:
@@ -62,25 +63,28 @@ def startup_screen(clear_func=None, version: str | None = None) -> None:
         Colors.GRAY,
     )
 
+    status = startup_platform_status()
+    by_id = {row.component_id: row for row in status.components}
     readiness_items = (
-        "Runtime",
-        "Detection Rules",
-        "Investigation Workspace",
-        "Analysis Snapshots",
-        "Analyst Services",
+        ("Runtime", by_id.get("runtime")),
+        ("Detection Rules", by_id.get("detection_rules")),
+        ("Investigation Workspace", by_id.get("investigation_repository")),
+        ("Analysis Snapshots", by_id.get("analysis_services")),
+        ("Analyst Services", by_id.get("analyst_services")),
     )
 
     bold = Colors.BOLD if styled else ""
     reset = Colors.RESET if styled else ""
     print(bold + "INITIALIZING PLATFORM\n" + reset)
-    for item in readiness_items:
-        print(render_badge("readiness", "ready") + f" {item}")
+    for title, component in readiness_items:
+        state = component.state if component is not None else "unknown"
+        print(render_badge("readiness", state) + f" {title}")
         time.sleep(0.08)
 
     print()
-    green = Colors.GREEN if styled else ""
+    green = Colors.GREEN if styled and status.overall_state == "ready" else ""
     cyan = Colors.CYAN if styled else ""
-    print("Platform Status: " + green + "READY" + reset)
+    print("Platform Status: " + green + status.overall_state.upper() + reset)
     print(cyan + "Entering Analyst Console..." + reset)
 
     time.sleep(1.2)

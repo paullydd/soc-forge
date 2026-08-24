@@ -222,7 +222,7 @@ Back navigation returns one level at a time. Both workspaces retain width-safe,
 
 Security Analysis destinations describe future cross-investigation analysis without fake data or state. Attack Narrative and Attack Graph remain available through the Investigation Workspace reconstruction workflow. Reporting provides Report Center, Investigation Report, Executive Summary, and Export Center. ATT&CK Coverage remains under Detection, while Investigation Handoff remains owned by Investigations and is referenced rather than duplicated by Export Center. System removes Demo Case from primary analyst navigation and retains About SOC-Forge.
 
-Unimplemented destinations use bounded informational panels after selection. Menu labels do not say Coming Soon. These screens preserve breadcrumbs, exact Back behavior, width limits, NO_COLOR, TERM=dumb, and ASCII fallback and do not modify analysis, investigation, queue, repository, or environment state. Platform Status is deferred until a shared authoritative readiness source exists.
+The System menu now provides Platform Status, Configuration, Rule / Asset Health, Repository & Storage, Environment, and About SOC-Forge. Each uses shared full-screen clearing, breadcrumbs, exact Back behavior, width limits, NO_COLOR, TERM=dumb, and ASCII fallback. Startup and Platform Status share authoritative immutable checks; all System navigation and rendering remain read-only.
 
 
 ## Threat Activity Overview

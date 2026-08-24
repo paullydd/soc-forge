@@ -61,9 +61,9 @@ ATT&CK Coverage remains owned by Detection. Investigation Handoff remains owned 
 
 ## System
 
-System now provides architectural destinations for Platform Status, Configuration, Rule / Asset Health, Repository & Storage, Environment, and About SOC-Forge.
+System owns read-only local platform inspection through Platform Status, Configuration, Rule / Asset Health, Repository & Storage, Environment, and About SOC-Forge. Startup and System consume the same immutable authoritative status model. Runtime, Detection Rules, Investigation Repository, Analysis Services, and Analyst Services are required; Reporting and Web Assets are optional for core terminal operation.
 
-Platform Status is deferred in Slice 1. The existing startup display uses fixed readiness labels and is not a reusable authoritative health source; presenting or duplicating it as live status would be misleading. Later work may introduce a shared read-only readiness source.
+System performs bounded current-process and known-path inspection only. It does not duplicate Detection Coverage, persist health state, modify configuration or environment, create write probes, monitor live services, control processes, install packages, or provide developer tools.
 
 Create Demo Case is removed from primary analyst navigation. Its helper remains in analyst_console.py for developer and test use, but the System controller no longer receives or invokes it.
 
