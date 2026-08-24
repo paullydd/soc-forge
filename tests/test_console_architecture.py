@@ -101,24 +101,38 @@ def test_reporting_preserves_handlers_without_duplicate_handoff(monkeypatch):
     from soc_forge.menus import reporting
 
     calls, entries = [], []
-    choices = iter(("1", "2", "0"))
+    choices = iter(("1", "2", "3", "4", "0"))
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(choices))
     monkeypatch.setattr(reporting, "begin_screen", lambda _title: None)
     monkeypatch.setattr(reporting, "menu_group", lambda _title: None)
     monkeypatch.setattr(
         reporting, "menu_option", lambda number, label: entries.append((number, label))
     )
+    controller = type("Controller", (), {
+        "report_center_run": lambda self: calls.append("report_center"),
+        "investigation_report_run": lambda self: calls.append("investigation_report"),
+        "executive_run": lambda self: calls.append("executive_summary"),
+        "export_run": lambda self: calls.append("export_center"),
+    })()
     reporting.reporting_menu(
         lambda: None,
         lambda: calls.append("pause"),
-        lambda: calls.append("report"),
-        lambda: calls.append("coverage"),
+        lambda: calls.append("legacy_report"),
+        lambda: calls.append("legacy_coverage"),
+        controller,
     )
 
-    assert calls == ["report", "coverage"]
-    assert ("1", "Analysis Report") in entries
-    assert ("2", "ATT&CK Coverage") in entries
-    assert all("Handoff" not in label and "Export" not in label for _, label in entries)
+    assert calls == [
+        "report_center", "investigation_report", "executive_summary", "export_center"
+    ]
+    assert entries == [
+        ("1", "Report Center"),
+        ("2", "Investigation Report"),
+        ("3", "Executive Summary"),
+        ("4", "Export Center"),
+        ("0", "Back"),
+    ] * 5
+    assert all("ATT&CK Coverage" not in label for _, label in entries)
 
 
 def test_system_removes_demo_from_primary_navigation_and_preserves_about(monkeypatch):

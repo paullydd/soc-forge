@@ -55,9 +55,9 @@ Operations Queue remains a deterministic, read-only projection of authoritative 
 
 ## Reporting
 
-Analysis Report remains the analysis-generated human-readable report. ATT&CK Coverage retains the existing report coverage behavior.
+Reporting is a read-only delivery workspace with Report Center, Investigation Report, Executive Summary, and Export Center. Report Center discovers only known existing analysis HTML artifacts; it does not create a report registry. Investigation Report presents durable Investigation state and remains distinct from the structured Investigation Handoff. Executive Summary composes the existing Operational Summary, Threat Activity, and ATT&CK Activity projections so queue counts, ordering, and top attention remain authoritative.
 
-Reporting does not own Investigation Handoff. Analysis Report and Investigation Handoff are separate delivery concepts and use their existing persistence behavior.
+ATT&CK Coverage remains owned by Detection. Investigation Handoff remains owned by Investigation Workspace; Export Center points to that workflow rather than duplicating its schema or export implementation. Reporting adds no persistence, mutation, AI inference, or remediation execution, and supports FULL and OFFLINE source-context disclosure.
 
 ## System
 

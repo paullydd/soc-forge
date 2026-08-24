@@ -7,6 +7,10 @@ from colorama import Fore, Style, init
 import time
 import sys
 from soc_forge.attack_activity import AttackActivityService
+from soc_forge.reporting import (
+    ExecutiveSummaryService, InvestigationReportService, ReportCenterService,
+)
+from soc_forge.menus.reporting import ReportingConsoleController
 from soc_forge.hunt_workspace import HuntWorkspaceService
 from soc_forge.menus.hunt_workspace import HuntWorkspaceConsoleController
 from soc_forge.temporal_analysis import TemporalAnalysisService
@@ -170,6 +174,22 @@ def build_hunt_workspace_controller(workspace_controller):
     return HuntWorkspaceConsoleController(HuntWorkspaceService(
         entity, attack, temporal, get_current_analysis_result,
     ))
+
+def build_reporting_controller(workspace_controller):
+    repository = workspace_controller.workspace_service.repository
+    operational = OperationalSummaryService(OperationsPrioritizationService(
+        OperationsQueueService(repository)
+    ))
+    return ReportingConsoleController(
+        ReportCenterService(Path("out")),
+        InvestigationReportService(repository, get_current_analysis_result),
+        ExecutiveSummaryService(
+            operational,
+            ThreatActivityOverviewService(repository, get_current_analysis_result),
+            AttackActivityService(repository, get_current_analysis_result),
+        ),
+        open_report,
+    )
 
 def startup_screen():
     ui_startup_screen(clear_screen)
@@ -1075,10 +1095,17 @@ def manage_case_status():
 
     pause()
 
-def open_report():
+def open_report(selected_report=None):
     clear_screen()
     print("OPEN REPORT")
     print("-" * 50)
+
+    if selected_report is not None:
+        absolute_path = os.path.abspath(selected_report)
+        print(f"Report selected:\n{absolute_path}")
+        print("\nOpen with your platform browser or file manager.")
+        pause()
+        return
 
     report_files = [
         "out/brute_force_report.html",
@@ -1389,6 +1416,7 @@ def main_menu():
                 pause,
                 open_report,
                 view_mitre_coverage,
+                build_reporting_controller(workspace_controller),
             )
 
         elif choice == "5":

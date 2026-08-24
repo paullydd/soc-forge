@@ -162,7 +162,7 @@ def test_dashboard_reads_each_existing_projection_once_without_mutation(capsys):
         ("detection", "detection_menu", "DETECTION", (None,) * 7, ("1", "2", "3", "4", "5", "6", "7", "0")),
         ("investigations", "investigations_menu", "INVESTIGATIONS", (None,) * 8, ("1", "2", "3", "4", "5", "6", "0")),
         ("analysis", "analysis_menu", "ANALYSIS", (None,) * 3, ("1", "2", "3", "4", "5", "6", "0")),
-        ("reporting", "reporting_menu", "REPORTING", (None,) * 4, ("1", "2", "0")),
+        ("reporting", "reporting_menu", "REPORTING", (None,) * 4, ("1", "2", "3", "4", "0")),
         ("system", "system_menu", "SYSTEM", (None,) * 3, ("1", "2", "3", "4", "5", "6", "0")),
     ],
 )
@@ -241,6 +241,11 @@ def test_main_menu_returns_from_each_target_without_extra_input_or_pause(
         analyst_console,
         "build_operations_queue_controller",
         lambda _workspace: queue_controller,
+    )
+    monkeypatch.setattr(
+        analyst_console,
+        "build_reporting_controller",
+        lambda _workspace: object(),
     )
     monkeypatch.setattr(analyst_console, "pause", lambda: pauses.append("pause"))
     monkeypatch.setattr(analyst_console, target, lambda *_args: dispatches.append(target))
