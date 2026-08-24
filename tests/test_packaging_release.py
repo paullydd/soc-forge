@@ -105,6 +105,22 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
         "soc_forge/menus/detection_lab.py",
         "soc_forge/detection_coverage.py",
         "soc_forge/menus/detection_coverage.py",
+        "soc_forge/investigations/operations_queue.py",
+        "soc_forge/investigations/operations_queue_console.py",
+        "soc_forge/threat_activity.py",
+        "soc_forge/menus/threat_activity.py",
+        "soc_forge/entity_explorer.py",
+        "soc_forge/menus/entity_explorer.py",
+        "soc_forge/attack_activity.py",
+        "soc_forge/menus/attack_activity.py",
+        "soc_forge/cross_investigation.py",
+        "soc_forge/menus/cross_investigation.py",
+        "soc_forge/temporal_analysis.py",
+        "soc_forge/menus/temporal_analysis.py",
+        "soc_forge/hunt_workspace.py",
+        "soc_forge/menus/hunt_workspace.py",
+        "soc_forge/reporting.py",
+        "soc_forge/menus/reporting.py",
         "soc_forge/system_workspace.py",
         "soc_forge/menus/system.py",
     ):
@@ -112,7 +128,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
     metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
     with zipfile.ZipFile(wheel) as archive:
         metadata = archive.read(metadata_name).decode("utf-8")
-    assert "Version: 3.0.0" in metadata
+    assert "Version: 3.5.0" in metadata
     assert "Requires-Dist: colorama<0.5,>=0.4.6" in metadata
     assert not any(
         name.startswith("tests/")
@@ -157,6 +173,6 @@ print(json.dumps({"version": __version__, "rule_count": len(rules), "rule_ids": 
         cwd=run_dir,
     )
     result = json.loads(completed.stdout)
-    assert result["version"] == "3.0.0"
+    assert result["version"] == "3.5.0"
     assert result["rule_count"] == expected_rule_count
     assert "SOCF-021" in result["rule_ids"]

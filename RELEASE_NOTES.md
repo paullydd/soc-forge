@@ -1,5 +1,35 @@
 # Release Notes
 
+## v3.5.0
+
+**Theme:** Deterministic analyst workspaces for detection engineering, security analysis, operations, reporting, and local platform inspection.
+
+### Detection Engineering
+
+- Added the Detection Overview, Rule Catalog, Rule Explainability, Detection Lab, Detection Coverage, and Detection Gaps terminal workspaces.
+- Kept rule inspection deterministic and read-only, with explicit ruleset coverage rather than a global effectiveness percentage.
+
+### Security Analysis
+
+- Added FULL/OFFLINE Threat Activity, Entity Explorer, ATT&CK Activity, Cross-Investigation Analysis, Temporal Analysis, and Hunt Workspace projections.
+- Preserved machine/analyst attribution and explicit boundaries between observation, chronology, overlap, causality, and attacker or campaign identity.
+
+### Operations and Reporting
+
+- Added deterministic Operations Queue prioritization, Operational Summary, Top Attention, uncovered-Finding handling, and terminal/web source navigation.
+- Rebuilt Reporting around Report Center, Investigation Report, Executive Summary, and Export Center while keeping Investigation Handoff authoritative and separate.
+
+### System and Terminal
+
+- Added read-only Platform Status, Configuration, Rule / Asset Health, Repository & Storage, Environment, and About screens.
+- Unified startup and System readiness signals and completed shared screen-clearing, width, no-color, ASCII-fallback, and cross-platform terminal behavior.
+
+### Safety and Validation
+
+- Response Actions remain analyst-controlled workflow records; SOC-Forge does not execute remediation.
+- Read-only projections do not persist derived state or auto-load analysis snapshots.
+- The release-candidate suite contains 1,412 tests, including isolated wheel installation and packaged rule/static-asset validation.
+
 ## v3.0.0
 
 **Theme:** Durable, evidence-grounded investigation from deterministic analysis through validated handoff.

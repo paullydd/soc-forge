@@ -41,7 +41,7 @@ Analyze telemetry
 
 The guided local web demo is the primary portfolio experience. It gives reviewers a fast, visual path through scenario generation, dashboard triage, case review, graph analysis, the detection scorecard, and the HTML incident report.
 
-The terminal analyst console is the deep investigation interface for durable workspaces, evidence, reasoning, timeline and pivots, and handoff validation. The CLI remains the ingestion, analysis, simulation, coverage, detection-engineering, and automation interface.
+The terminal analyst console is the deep investigation interface for durable workspaces, evidence, reasoning, timeline and pivots, and handoff validation. The CLI remains the ingestion, analysis, simulation, coverage, and detection-engineering interface.
 
 ## Shared Analysis Pipeline
 

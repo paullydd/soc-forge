@@ -45,9 +45,9 @@ Investigation Handoff is a structured durable investigation export. It remains u
 
 ## Analysis
 
-Analysis owns future cross-source and cross-investigation pattern analysis: Threat Activity Overview, Entity Explorer, ATT&CK Activity, Cross-Investigation Analysis, Temporal Analysis, and Hunt Workspace.
+Analysis owns deterministic cross-source and cross-investigation pattern analysis: Threat Activity Overview, Entity Explorer, ATT&CK Activity, Cross-Investigation Analysis, Temporal Analysis, and Hunt Workspace.
 
-These cross-investigation services are not implemented in Slice 1. Each selection states that limitation, lists planned scope without fabricated counts, and performs no source or investigation mutation.
+These services are immutable FULL/OFFLINE projections over existing current analysis and durable Investigation sources. They do not create an analysis registry, persist relationships, auto-load snapshots, or mutate source state.
 
 ## Operations Queue
 
@@ -67,31 +67,16 @@ System performs bounded current-process and known-path inspection only. It does 
 
 Create Demo Case is removed from primary analyst navigation. Its helper remains in analyst_console.py for developer and test use, but the System controller no longer receives or invokes it.
 
-## Placeholder policy
+## Persistence boundaries
 
-Production menu labels never say Coming Soon. A destination that is not implemented opens a professional bounded informational screen which:
-
-- states that the capability is not implemented in this slice;
-- identifies planned scope without fake data;
-- states that no independent state is created or modified;
-- uses shared width, breadcrumb, color, and ASCII-fallback rendering.
-
-A placeholder screen is not an implemented feature.
-
-## Persistence and roadmap boundaries
-
-Navigation changes do not create domain state or duplicate persistence. Detection, Investigation, Analysis, Operations Queue, Reporting, and System continue to use their existing authorities.
-
-Later v3.5 slices may implement detection coverage, rule explainability,
-detection gaps, and the listed Security Analysis and System services. Detection
-Overview and Rule Catalog are implemented without changing persistence.
+Navigation and read-only projections do not create domain state or duplicate persistence. Detection, Investigation, Analysis, Operations Queue, Reporting, and System continue to use their existing authorities. Detection Coverage, Rule Explainability, Detection Gaps, Security Analysis, Reporting, and System inspection are implemented without new persistence.
 
 
 ## Threat Activity Overview
 
 Analysis option 1 is a real read-only projection over durable Investigation state and optional current machine analysis. FULL exposes current alert, case, hunt, and reconstruction counts; OFFLINE preserves Investigation, Finding, and Response Action counts while machine fields say Unavailable.
 
-Explicit alert and Finding ATT&CK mappings are counted as separately attributed observations. Recent activity uses alert, Finding, and Response Action transition timestamps with deterministic ordering and [MACHINE]/[ANALYST] labels. The feature does not persist, prioritize, score, correlate Investigations, or measure detection coverage. Remaining Analysis destinations stay deferred.
+Explicit alert and Finding ATT&CK mappings are counted as separately attributed observations. Recent activity uses alert, Finding, and Response Action transition timestamps with deterministic ordering and [MACHINE]/[ANALYST] labels. The feature does not persist, prioritize, score, correlate Investigations, or measure detection coverage.
 
 ## Entity Explorer
 
@@ -104,14 +89,14 @@ Analysis option 3 is a real ATT&CK Activity workspace backed by AttackActivitySe
 
 Analysis option 4 is a real deterministic projection over the existing EntityObservationService and AttackActivityService. It owns overlap questions only: shared exact entities, explicit ATT&CK tactics, and explicit ATT&CK techniques across two or more distinct Investigations. Entity Explorer remains authoritative for entity extraction and normalization, and ATT&CK Activity remains authoritative for observed mappings.
 
-The workspace does not persist or link Investigations, calculate relationship scores, infer campaigns or attackers, use temporal proximity, or mutate source state. FULL/OFFLINE mode, source attribution, counts, deterministic IDs, deterministic ordering, and the observation-without-causation caution are explicit. Hunt Workspace remains a bounded deferred destination.
+The workspace does not persist or link Investigations, calculate relationship scores, infer campaigns or attackers, use temporal proximity, or mutate source state. FULL/OFFLINE mode, source attribution, counts, deterministic IDs, deterministic ordering, and the observation-without-causation caution are explicit.
 
 
 ## Temporal Analysis
 
 Analysis option 5 is a real read-only TemporalAnalysisService projection over the durable Investigation repository and optional active AnalysisResult. It produces immutable timed and untimed entries with deterministic identities, explicit [MACHINE]/[ANALYST] attribution, stable chronological ordering, and bounded recent reversal.
 
-The service supports exact Investigation, controlled source-type, explicit ATT&CK tactic, and technique-ID views. Temporal Analysis remains distinct from Investigation Timeline and Reconstruction. It performs no causal inference, correlation scoring, persistence, snapshot activation, output scanning, or mutation. Hunt Workspace remains deferred.
+The service supports exact Investigation, controlled source-type, explicit ATT&CK tactic, and technique-ID views. Temporal Analysis remains distinct from Investigation Timeline and Reconstruction. It performs no causal inference, correlation scoring, persistence, snapshot activation, output scanning, or mutation.
 
 
 ## Hunt Workspace

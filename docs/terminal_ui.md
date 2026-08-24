@@ -179,7 +179,7 @@ These panels consume the same Operational Summary projection and priority basis 
 
 Top-level numbers remain stable: Detection 1, Investigations 2, Analysis 3, Reporting 4, System 5, Operations Queue 6, and Exit 0.
 
-Detection now groups future Detection Engineering destinations separately from Detection Results. Existing log analysis, simulation, and rules-only workflows remain under Detection Lab; alert viewing and search remain under Alert Explorer.
+Detection groups implemented Detection Engineering workspaces separately from Detection Results. Existing log analysis, simulation, and rules-only workflows remain under Detection Lab; alert viewing and search remain under Alert Explorer.
 
 Detection Overview and Rule Catalog are implemented read-only workspaces. They
 use the production bundled-rule loader and existing stored alerts, deterministic
@@ -193,7 +193,7 @@ limitations panels. Long configured values wrap without changing their meaning.
 The Rule Catalog detail action reuses the same explanation screen. `[0] Back`
 returns exactly one level and blank rule selection returns to Detection.
 
-Detection Coverage and Detection Gaps remain bounded informational destinations.
+Detection Coverage and Detection Gaps are bounded read-only workspaces over explicit rule metadata and enabled-rule availability.
 
 Detection Lab uses a shared application header, Detection breadcrumb, bounded
 menu, result metadata, triggered-rule list, ATT&CK panel, existing-artifact
@@ -220,7 +220,7 @@ availability. They do not claim telemetry or sensor health.
 Back navigation returns one level at a time. Both workspaces retain width-safe,
 `NO_COLOR`, `TERM=dumb`, and ASCII-fallback behavior.
 
-Security Analysis destinations describe future cross-investigation analysis without fake data or state. Attack Narrative and Attack Graph remain available through the Investigation Workspace reconstruction workflow. Reporting provides Report Center, Investigation Report, Executive Summary, and Export Center. ATT&CK Coverage remains under Detection, while Investigation Handoff remains owned by Investigations and is referenced rather than duplicated by Export Center. System removes Demo Case from primary analyst navigation and retains About SOC-Forge.
+Security Analysis provides deterministic FULL/OFFLINE Threat Activity, Entity Explorer, ATT&CK Activity, Cross-Investigation, Temporal Analysis, and Hunt Workspace projections. Attack Narrative and Attack Graph remain available through the Investigation Workspace reconstruction workflow. Reporting provides Report Center, Investigation Report, Executive Summary, and Export Center. ATT&CK Coverage remains under Detection, while Investigation Handoff remains owned by Investigations and is referenced rather than duplicated by Export Center. System removes Demo Case from primary analyst navigation and retains About SOC-Forge.
 
 The System menu now provides Platform Status, Configuration, Rule / Asset Health, Repository & Storage, Environment, and About SOC-Forge. Each uses shared full-screen clearing, breadcrumbs, exact Back behavior, width limits, NO_COLOR, TERM=dumb, and ASCII fallback. Startup and Platform Status share authoritative immutable checks; all System navigation and rendering remain read-only.
 
@@ -229,7 +229,7 @@ The System menu now provides Platform Status, Configuration, Rule / Asset Health
 
 Analysis option 1 is a real read-only projection over durable Investigation state and optional current machine analysis. FULL exposes current alert, case, hunt, and reconstruction counts; OFFLINE preserves Investigation, Finding, and Response Action counts while machine fields say Unavailable.
 
-Explicit alert and Finding ATT&CK mappings are counted as separately attributed observations. Recent activity uses alert, Finding, and Response Action transition timestamps with deterministic ordering and [MACHINE]/[ANALYST] labels. The feature does not persist, prioritize, score, correlate Investigations, or measure detection coverage. Remaining Analysis destinations stay deferred.
+Explicit alert and Finding ATT&CK mappings are counted as separately attributed observations. Recent activity uses alert, Finding, and Response Action transition timestamps with deterministic ordering and [MACHINE]/[ANALYST] labels. The feature does not persist, prioritize, score, correlate Investigations, or measure detection coverage.
 
 ## Entity Explorer Presentation
 

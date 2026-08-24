@@ -35,8 +35,8 @@ Activity describes what machine analysis and analyst Findings recorded.
 The bounded list uses alert timestamps, Finding updates, and Response Action
 transition timestamps. It is reverse-chronological with stable tie-breaks and
 [MACHINE]/[ANALYST] labels. Building and rendering use repository reads only.
-They do not mutate or persist. Drill-down, Entity Explorer, Cross-Investigation
-Analysis, and Temporal Analysis remain deferred.
+They do not mutate or persist. Entity Explorer, Cross-Investigation Analysis,
+Temporal Analysis, and Hunt Workspace use their own bounded deterministic views.
 
 ## Entity Explorer
 

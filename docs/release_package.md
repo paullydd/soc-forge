@@ -6,7 +6,7 @@ This package is the recommended way to present SOC-Forge to reviewers, recruiter
 
 ```text
 Project: SOC-Forge
-Version: 3.0.0
+Version: 3.5.0
 Primary demo: Local analyst web UI guided demo
 Secondary demo: Terminal analyst console investigation workflow
 Test status: pytest -q
@@ -169,7 +169,7 @@ These ideas are postponed future work, not current release capability:
 
 ## Distribution Validation
 
-SOC-Forge v3.0.0 packages 21 built-in YAML rules. Installed CLI, pipeline, and web scorecard paths discover those rules from the installed `soc_forge.rules` package rather than the current working directory.
+SOC-Forge v3.5.0 packages 21 built-in YAML rules. Installed CLI, pipeline, and web scorecard paths discover those rules from the installed `soc_forge.rules` package rather than the current working directory.
 
 Build and validate from a clean repository root:
 
@@ -183,8 +183,8 @@ pytest -q tests/test_packaging_release.py
 Expected release artifacts:
 
 ```text
-dist/soc_forge-3.0.0-py3-none-any.whl
-dist/soc_forge-3.0.0.tar.gz
+dist/soc_forge-3.5.0-py3-none-any.whl
+dist/soc_forge-3.5.0.tar.gz
 ```
 
 The packaging contract verifies that the wheel contains all 21 YAML rules and the web static assets, both distributions exclude test fixtures and test modules, and the wheel installs into an isolated environment, discovers built-in rules outside the source checkout, reports the installed package version, and triggers SOCF-021 from a known Security Event ID 4688 event.
