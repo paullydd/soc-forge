@@ -1,6 +1,8 @@
 # Investigation Summary
 
-![Offline Investigation Summary preserving analyst assessment while source-derived context is unavailable](screenshots/investigation-summary.png)
+See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+
+![Offline Investigation Summary preserving analyst assessment while source-derived context is unavailable](screenshots/v3.5/20-investigation-summary.png)
 
 The investigation summary is a deterministic, read-only projection of one durable investigation. It condenses existing machine findings and analyst-authored reasoning for presentation without creating conclusions, changing investigation state, or rerunning analysis.
 

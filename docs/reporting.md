@@ -1,5 +1,7 @@
 # Reporting workspace
 
+See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+
 SOC-Forge v3.5 Reporting is a read-only delivery workspace built from existing authoritative state. It does not introduce a report registry, a second operations model, persistence, mutation, AI-generated conclusions, or remediation execution.
 
 ## Navigation and ownership

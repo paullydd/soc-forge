@@ -1,6 +1,8 @@
 # Investigation Findings
 
-![Investigation Findings workspace separating analyst-authored conclusions from machine certainty](screenshots/investigation-findings.png)
+See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+
+![Investigation Findings workspace separating analyst-authored conclusions from machine certainty](screenshots/v3.5/24-analyst-findings.png)
 
 An investigation finding is a durable, explicitly analyst-authored conclusion grounded in persisted investigation evidence and reasoning. It is not a detection, machine verdict, automated recommendation, or confirmation that an attack occurred.
 

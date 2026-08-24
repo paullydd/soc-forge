@@ -1,14 +1,16 @@
 # Terminal UI Foundation
 
+See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+
 ## Visual Tour
 
 The v3.2 terminal redesign keeps the established console workflows while giving startup, routine navigation, and durable investigations a consistent visual hierarchy.
 
-![SOC-Forge startup experience showing the v3.2 readiness sequence](screenshots/startup-experience.png)
+![SOC-Forge startup experience showing the v3.5 readiness sequence](screenshots/v3.5/01-startup-screen.png)
 
-![SOC-Forge Command Center showing grouped operations and platform status](screenshots/command-center.png)
+![SOC-Forge Command Center showing grouped operations and platform status](screenshots/v3.5/02-command-center.png)
 
-![SOC-Forge Investigation Workspace showing grouped analyst, case-management, and recovery actions](screenshots/investigation-workspace.png)
+![SOC-Forge Investigation Workspace showing grouped analyst, case-management, and recovery actions](screenshots/v3.5/19-investigation-workspaces.png)
 
 SOC-Forge v3.2 Slice 1 establishes shared presentation primitives for the Analyst Console. It improves formatting consistency and portability without changing console control flow, investigation semantics, persistence, analysis, or detection behavior.
 

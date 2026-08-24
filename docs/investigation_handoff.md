@@ -1,5 +1,7 @@
 # Investigation Handoff Packages
 
+See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+
 ## Visual workflow
 
 An offline Handoff can preview and export durable investigation state without an active source analysis. That durable state includes Findings, Response Actions, and their complete transition histories. SOC-Forge does not reconstruct unavailable analysis: analysis-derived timeline data and source artifacts remain unavailable and are reported as limitations.

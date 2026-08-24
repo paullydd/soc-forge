@@ -1,5 +1,7 @@
 # System workspace
 
+See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+
 SOC-Forge v3.5 System provides local platform inspection. It does not continuously monitor services or modify configuration.
 
 ## Ownership and navigation

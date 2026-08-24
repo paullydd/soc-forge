@@ -23,6 +23,7 @@
 
 - Added read-only Platform Status, Configuration, Rule / Asset Health, Repository & Storage, Environment, and About screens.
 - Unified startup and System readiness signals and completed shared screen-clearing, width, no-color, ASCII-fallback, and cross-platform terminal behavior.
+- Added a concise GitHub landing page, complete v3.5 visual walkthrough, and indexed versioned screenshot set across terminal and supported web workflows.
 
 ### Safety and Validation
 
