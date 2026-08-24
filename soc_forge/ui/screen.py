@@ -14,6 +14,14 @@ def clear():
         _active_clear_screen()
 
 
+def screen_output(output_func):
+    """Wrap output so each complete rendered screen starts at a clear boundary."""
+    def output(rendered):
+        clear()
+        return output_func(rendered)
+    return output
+
+
 def begin_screen(title: str) -> None:
     clear()
     header(title)

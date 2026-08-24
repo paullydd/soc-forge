@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soc_forge.ui.screen import screen_output
 from soc_forge.menus.entity_explorer import render_entity_result
 from soc_forge.menus.temporal_analysis import render_temporal
 from soc_forge.ui.terminal import (
@@ -116,35 +117,36 @@ def render_technique_hunt(mode, techniques, query, *, width=None,
 class HuntWorkspaceConsoleController:
     def __init__(self, service, *, input_func=input, output_func=print) -> None:
         self.service, self.input_func, self.output_func = service, input_func, output_func
+        self.screen_output = screen_output(output_func)
 
     def run(self):
         while True:
             summary = self.service.summarize()
-            self.output_func(render_hunt_menu(summary))
+            self.screen_output(render_hunt_menu(summary))
             choice = self.input_func("\nSelect option: ").strip()
             if choice == "0":
                 return
             if choice == "1":
-                self.output_func(render_existing_hunts(summary))
+                self.screen_output(render_existing_hunts(summary))
                 value = self.input_func("\nHunt number for detail, or Enter to go back: ").strip()
                 if value.isdigit() and 1 <= int(value) <= len(summary.hunts):
-                    self.output_func(render_hunt_detail(summary.hunts[int(value) - 1]))
+                    self.screen_output(render_hunt_detail(summary.hunts[int(value) - 1]))
                     self.input_func("\nPress Enter to go back...")
             elif choice == "2":
                 kind = self.input_func("\nEntity type (host/user/ip/process): ").strip()
                 value = self.input_func("\nExact entity value: ").strip()
-                self.output_func(render_entity_result(
+                self.screen_output(render_entity_result(
                     self.service.entity_hunt(kind, value)
                 ))
                 self.input_func("\nPress Enter to go back...")
             elif choice == "3":
                 value = self.input_func("\nTechnique ID: ").strip()
                 mode, rows = self.service.technique_hunt(value)
-                self.output_func(render_technique_hunt(mode, rows, value))
+                self.screen_output(render_technique_hunt(mode, rows, value))
                 self.input_func("\nPress Enter to go back...")
             elif choice == "4":
                 value = self.input_func("\nInvestigation ID: ").strip()
-                self.output_func(render_temporal(
+                self.screen_output(render_temporal(
                     self.service.investigation_hunt(value),
                     label=f"Hunt view filtered to {value}",
                 ))

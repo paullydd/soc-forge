@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soc_forge.ui.screen import screen_output
 from soc_forge.entity_explorer import ENTITY_TYPES, EntityExplorerResult, EntityExplorerService
 from soc_forge.investigations.query_models import InvalidEntityValueError
 from soc_forge.ui.terminal import (
@@ -87,10 +88,11 @@ class EntityExplorerConsoleController:
         self.service = service
         self.input_func = input_func
         self.output_func = output_func
+        self.screen_output = screen_output(output_func)
 
     def run(self) -> None:
         while True:
-            self.output_func(render_entity_type_menu())
+            self.screen_output(render_entity_type_menu())
             choice = self.input_func("\nSelect entity type: ").strip()
             if choice == "0":
                 return
@@ -108,5 +110,5 @@ class EntityExplorerConsoleController:
             except InvalidEntityValueError as exc:
                 self.output_func(f"ERROR: {exc}")
                 continue
-            self.output_func(render_entity_result(result))
+            self.screen_output(render_entity_result(result))
             self.input_func("\nPress Enter to go back...")

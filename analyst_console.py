@@ -454,6 +454,8 @@ def open_case(case):
     pause()
 
 def clear_screen():
+    if not sys.stdout.isatty() or os.getenv("TERM", "").lower() == "dumb":
+        return
     os.system("cls" if os.name == "nt" else "clear")
 
 

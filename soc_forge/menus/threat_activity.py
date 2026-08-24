@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soc_forge.ui.screen import screen_output
 from soc_forge.threat_activity import ThreatActivityOverview, ThreatActivityOverviewService
 from soc_forge.ui.terminal import (
     render_application_header, render_badge, render_breadcrumb, render_empty_state,
@@ -67,7 +68,8 @@ class ThreatActivityConsoleController:
         self.service = service
         self.input_func = input_func
         self.output_func = output_func
+        self.screen_output = screen_output(output_func)
 
     def run(self) -> None:
-        self.output_func(render_threat_activity_overview(self.service.summarize()))
+        self.screen_output(render_threat_activity_overview(self.service.summarize()))
         self.input_func("\nPress Enter to go back...")

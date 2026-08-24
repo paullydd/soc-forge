@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soc_forge.ui.screen import screen_output
 from soc_forge.cross_investigation import (
     CAUTION, CrossInvestigationRelationship, CrossInvestigationSummary,
 )
@@ -144,16 +145,17 @@ class CrossInvestigationConsoleController:
         self.service = service
         self.input_func = input_func
         self.output_func = output_func
+        self.screen_output = screen_output(output_func)
 
     def run(self) -> None:
         while True:
-            self.output_func(render_cross_investigation_menu())
+            self.screen_output(render_cross_investigation_menu())
             choice = self.input_func("\nSelect option: ").strip()
             if choice == "0":
                 return
             summary = self.service.summarize()
             if choice == "1":
-                self.output_func(render_overview(summary))
+                self.screen_output(render_overview(summary))
                 self.input_func("\nPress Enter to go back...")
             elif choice in ("2", "3", "4"):
                 kinds = {
@@ -162,7 +164,7 @@ class CrossInvestigationConsoleController:
                     "4": ("shared_attack_technique", "SHARED ATT&CK TECHNIQUES"),
                 }
                 kind, title = kinds[choice]
-                self.output_func(render_relationships(summary, kind, title))
+                self.screen_output(render_relationships(summary, kind, title))
                 self._select(summary, kind)
             elif choice == "5":
                 self._show_detail(summary)
@@ -176,16 +178,16 @@ class CrossInvestigationConsoleController:
             "\nRelationship number for detail, or Enter to go back: "
         ).strip()
         if value.isdigit() and 1 <= int(value) <= len(rows):
-            self.output_func(render_relationship_detail(rows[int(value) - 1]))
+            self.screen_output(render_relationship_detail(rows[int(value) - 1]))
             self.input_func("\nPress Enter to go back...")
 
     def _show_detail(self, summary):
-        self.output_func(render_relationship_index(summary))
+        self.screen_output(render_relationship_index(summary))
         value = self.input_func(
             "\nRelationship number for detail, or Enter to go back: "
         ).strip()
         if value.isdigit() and 1 <= int(value) <= len(summary.relationships):
-            self.output_func(render_relationship_detail(
+            self.screen_output(render_relationship_detail(
                 summary.relationships[int(value) - 1]
             ))
             self.input_func("\nPress Enter to go back...")

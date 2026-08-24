@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soc_forge.ui.screen import screen_output
 from soc_forge.attack_activity import (
     AttackActivitySummary, AttackTacticActivity, AttackTechniqueActivity,
 )
@@ -150,25 +151,26 @@ class AttackActivityConsoleController:
         self.service = service
         self.input_func = input_func
         self.output_func = output_func
+        self.screen_output = screen_output(output_func)
 
     def run(self) -> None:
         while True:
-            self.output_func(render_attack_activity_menu())
+            self.screen_output(render_attack_activity_menu())
             choice = self.input_func("\nSelect option: ").strip()
             if choice == "0":
                 return
             summary = self.service.summarize()
             if choice == "1":
-                self.output_func(render_attack_activity_summary(summary))
+                self.screen_output(render_attack_activity_summary(summary))
                 self.input_func("\nPress Enter to go back...")
             elif choice == "2":
-                self.output_func(render_tactics(summary))
+                self.screen_output(render_tactics(summary))
                 self._select_technique(summary)
             elif choice == "3":
-                self.output_func(render_techniques(summary))
+                self.screen_output(render_techniques(summary))
                 self._select_technique(summary)
             elif choice == "4":
-                self.output_func(render_recent(summary))
+                self.screen_output(render_recent(summary))
                 self.input_func("\nPress Enter to go back...")
             else:
                 self.output_func("ERROR: Invalid option.")
@@ -178,7 +180,7 @@ class AttackActivityConsoleController:
             "\nTechnique number for detail, or Enter to go back: "
         ).strip()
         if value.isdigit() and 1 <= int(value) <= len(summary.techniques):
-            self.output_func(render_technique_detail(
+            self.screen_output(render_technique_detail(
                 summary.techniques[int(value) - 1]
             ))
             self.input_func("\nPress Enter to go back...")

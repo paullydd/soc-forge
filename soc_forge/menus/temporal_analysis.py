@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from soc_forge.ui.screen import screen_output
 from soc_forge.ui.terminal import (
     render_application_header, render_badge, render_breadcrumb,
     render_message_block, render_metadata, render_panel, resolve_terminal_width,
@@ -87,10 +88,11 @@ class TemporalAnalysisConsoleController:
         self.service = service
         self.input_func = input_func
         self.output_func = output_func
+        self.screen_output = screen_output(output_func)
 
     def run(self):
         while True:
-            self.output_func(render_temporal_menu())
+            self.screen_output(render_temporal_menu())
             choice = self.input_func("\nSelect option: ").strip()
             if choice == "0":
                 return
@@ -126,5 +128,5 @@ class TemporalAnalysisConsoleController:
                 self.output_func("ERROR: Invalid option.")
 
     def _show(self, result, *, recent=False, label=None):
-        self.output_func(render_temporal(result, recent=recent, label=label))
+        self.screen_output(render_temporal(result, recent=recent, label=label))
         self.input_func("\nPress Enter to go back...")
