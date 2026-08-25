@@ -12,9 +12,15 @@ function showInvestigationSummaryError(error) {
 }
 
 async function openSummaryEvidence(evidenceId) {
+  setInvestigationTab('evidence');
   await inspectEvidence(evidenceId, false);
   const target = document.querySelector('#evidenceWorkspace');
   if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function openSummaryTimeline() {
+  setInvestigationTab('timeline');
+  await openQueryTimeline();
 }
 
 function summaryButton(label, handler) {
@@ -33,8 +39,8 @@ function summarySection(title, attribution) {
   return section;
 }
 
-function summaryMetric(label, value) {
-  const item = summaryNode('div', null, 'summary-metric');
+function summaryMetric(label, value, priority = 'secondary') {
+  const item = summaryNode('div', null, `summary-metric summary-metric-${priority}`);
   item.appendChild(summaryNode('span', label, 'summary-metric-label'));
   item.appendChild(summaryNode('strong', value));
   return item;
@@ -51,26 +57,29 @@ function renderInvestigationSummary(summary) {
   mount.appendChild(heading);
   mount.appendChild(summaryNode('p', summary.narrative, 'workspace-help'));
 
-  const identity = summaryNode('div', null, 'summary-metrics');
-  identity.appendChild(summaryMetric('Status', summary.status));
-  identity.appendChild(summaryMetric('Owner', summary.owner || 'Unassigned'));
-  identity.appendChild(summaryMetric('Revision', summary.revision));
-  identity.appendChild(summaryMetric('Selected cases', summary.selected_case_ids.length));
-  identity.appendChild(summaryMetric('Evidence', summary.state.selected_evidence_count));
-  identity.appendChild(summaryMetric('Decisions', summary.state.decision_count));
-  identity.appendChild(summaryMetric('Findings', summary.finding_counts.total));
-  identity.appendChild(summaryMetric('Active', summary.finding_counts.active));
-  identity.appendChild(summaryMetric('Historical', summary.finding_counts.superseded));
-  identity.appendChild(summaryMetric('Draft', summary.finding_counts.draft));
-  identity.appendChild(summaryMetric('Substantiated', summary.finding_counts.substantiated));
-  identity.appendChild(summaryMetric('Inconclusive', summary.finding_counts.inconclusive));
-  identity.appendChild(summaryMetric('Actions', summary.response_action_counts.total));
-  identity.appendChild(summaryMetric('Proposed', summary.response_action_counts.proposed));
-  identity.appendChild(summaryMetric('Approved', summary.response_action_counts.approved));
-  identity.appendChild(summaryMetric('In progress', summary.response_action_counts.in_progress));
-  identity.appendChild(summaryMetric('Completed', summary.response_action_counts.completed));
-  identity.appendChild(summaryMetric('Dismissed', summary.response_action_counts.dismissed));
-  mount.appendChild(identity);
+  const overview = summaryNode('div', null, 'summary-overview');
+  overview.appendChild(summaryMetric('Status', summary.status, 'primary'));
+  overview.appendChild(summaryMetric('Owner', summary.owner || 'Unassigned', 'primary'));
+  overview.appendChild(summaryMetric('Evidence', summary.state.selected_evidence_count, 'primary'));
+  overview.appendChild(summaryMetric('Findings', summary.finding_counts.total, 'primary'));
+  overview.appendChild(summaryMetric('Response actions', summary.response_action_counts.total, 'primary'));
+  mount.appendChild(overview);
+
+  const lifecycle = summaryNode('div', null, 'summary-lifecycle');
+  lifecycle.appendChild(summaryMetric('Revision', summary.revision));
+  lifecycle.appendChild(summaryMetric('Selected cases', summary.selected_case_ids.length));
+  lifecycle.appendChild(summaryMetric('Decisions', summary.state.decision_count));
+  lifecycle.appendChild(summaryMetric('Active findings', summary.finding_counts.active));
+  lifecycle.appendChild(summaryMetric('Historical findings', summary.finding_counts.superseded));
+  lifecycle.appendChild(summaryMetric('Draft findings', summary.finding_counts.draft));
+  lifecycle.appendChild(summaryMetric('Substantiated', summary.finding_counts.substantiated));
+  lifecycle.appendChild(summaryMetric('Inconclusive', summary.finding_counts.inconclusive));
+  lifecycle.appendChild(summaryMetric('Proposed actions', summary.response_action_counts.proposed));
+  lifecycle.appendChild(summaryMetric('Approved actions', summary.response_action_counts.approved));
+  lifecycle.appendChild(summaryMetric('Actions in progress', summary.response_action_counts.in_progress));
+  lifecycle.appendChild(summaryMetric('Completed actions', summary.response_action_counts.completed));
+  lifecycle.appendChild(summaryMetric('Dismissed actions', summary.response_action_counts.dismissed));
+  mount.appendChild(lifecycle);
 
   if (summary.mode === 'full' && summary.findings.length) {
     const findings = summarySection('Machine Context', 'Machine-derived');
@@ -146,7 +155,10 @@ function renderInvestigationSummary(summary) {
       record.appendChild(summaryNode('p', `ATT&CK: ${item.attack_tactics.concat(item.attack_techniques).join(', ')}`));
     }
     item.limitations.forEach((value) => record.appendChild(summaryNode('p', `Limitation: ${value}`)));
-    record.appendChild(summaryButton('Open Finding', () => openFinding(item.finding_id)));
+    record.appendChild(summaryButton('Open Finding', () => {
+      setInvestigationTab('findings');
+      return openFinding(item.finding_id);
+    }));
       analystFindings.appendChild(record);
     });
   });
@@ -172,7 +184,7 @@ function renderInvestigationSummary(summary) {
   if (summary.timeline) {
     timeline.appendChild(summaryNode('p', `${summary.timeline.timed_entry_count} timed and ${summary.timeline.untimed_entry_count} untimed entries.`));
     summary.timeline.milestones.forEach((item) => timeline.appendChild(summaryNode('p', `${item.timestamp} | ${item.title}`)));
-    timeline.appendChild(summaryButton('Open timeline', openQueryTimeline));
+    timeline.appendChild(summaryButton('Open timeline', openSummaryTimeline));
   } else {
     timeline.appendChild(summaryNode('p', 'Timeline requires the matching source analysis.'));
   }
@@ -188,7 +200,13 @@ function renderInvestigationSummary(summary) {
 }
 
 async function loadInvestigationSummary() {
-  if (!state.activeInvestigation) return;
-  const summary = await investigationRequest('GET', `/api/investigations/${encodeURIComponent(state.activeInvestigation.investigation_id)}/summary`);
+  const investigationId =
+    state.activeInvestigation?.investigation?.investigation_id;
+  if (!investigationId) return;
+
+  const summary = await investigationRequest(
+    'GET',
+    `/api/investigations/${encodeURIComponent(investigationId)}/summary`,
+  );
   renderInvestigationSummary(summary);
 }

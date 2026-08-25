@@ -222,6 +222,13 @@ th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; fon
 .summary-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
 .summary-metric { border: 1px solid var(--line); background: #12181f; border-radius: 6px; padding: 10px; display: grid; gap: 4px; }
 .summary-metric-label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }
+.summary-overview { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); gap: var(--space-2); }
+.summary-metric-primary { min-height: 78px; align-content: space-between; border-color: var(--border-strong); background: var(--surface-primary); }
+.summary-metric-primary strong { color: var(--text-primary); font-size: 1.15rem; overflow-wrap: anywhere; }
+.summary-lifecycle { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+.summary-lifecycle .summary-metric { display: flex; align-items: baseline; gap: var(--space-1); padding: 6px 9px; border-color: var(--border-subtle); background: transparent; }
+.summary-lifecycle .summary-metric-label { font-size: 0.68rem; }
+.summary-lifecycle strong { color: var(--text-secondary); font-size: 0.82rem; }
 
 .response-status-proposed,
 .response-priority-medium { border-color: #d6a84b; color: #f2ca72; }
@@ -243,6 +250,150 @@ th { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; fon
 #operationsItems { display: grid; gap: 10px; }
 #operationsItems .workspace-record { margin: 0; }
 #operationsItems .empty-state { min-height: 220px; }
+
+/* v3.6 Investigation workspace */
+
+.investigation-header {
+  display: grid;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.investigation-header .workspace-heading {
+  align-items: flex-start;
+}
+
+.investigation-id {
+  margin-bottom: var(--space-1);
+  color: var(--text-tertiary);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.investigation-header h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.investigation-status {
+  color: var(--text-primary);
+  font-weight: 750;
+}
+
+.investigation-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.investigation-header-meta strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.investigation-tabs {
+  display: flex;
+  gap: var(--space-1);
+  overflow-x: auto;
+  padding: var(--space-2) 0 0;
+  border-bottom: 1px solid var(--border-subtle);
+  scrollbar-width: thin;
+}
+
+.investigation-tabs button {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.investigation-tabs button:hover {
+  background: var(--surface-interactive);
+  color: var(--text-primary);
+}
+
+.investigation-tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.investigation-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.investigation-context-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-secondary);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.investigation-context-strip strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+[data-investigation-tab-panel][hidden] {
+  display: none !important;
+}
+
+[data-investigation-tab-panel] {
+  min-width: 0;
+}
+
+.case-brief > [data-investigation-tab-panel] {
+  margin-top: 0;
+}
+
+.investigation-tabs + [data-investigation-tab-panel] {
+  margin-top: var(--space-2);
+}
+
+@media (max-width: 900px) {
+  .investigation-header .workspace-heading {
+    flex-direction: column;
+  }
+
+  .investigation-header .danger-button {
+    align-self: flex-start;
+  }
+
+  .investigation-tabs {
+    margin-inline: -2px;
+  }
+
+  .investigation-header-meta,
+  .investigation-context-strip {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .summary-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .summary-overview {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* v3.6 shared web design-system foundation */
 :root {

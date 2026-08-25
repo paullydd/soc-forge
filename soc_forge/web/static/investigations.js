@@ -46,6 +46,7 @@ async function loadInvestigationSummaries() {
 }
 
 async function openInvestigation(investigationId) {
+  const previousId = state.activeInvestigation?.investigation?.investigation_id;
   const response = await fetch(
     `/api/investigations/${encodeURIComponent(investigationId)}`,
   );
@@ -56,6 +57,7 @@ async function openInvestigation(investigationId) {
     );
   }
   state.activeInvestigation = payload;
+  if (previousId !== investigationId) state.investigationTab = 'summary';
   state.evidenceCandidates = [];
   state.evidenceDraft = null;
   await loadEvidenceSelections();
@@ -118,6 +120,38 @@ function selectedCaseIds(investigation) {
     .map((reference) => reference.source_id);
 }
 
+function setInvestigationTab(tab) {
+  const allowed = new Set(['summary', 'findings', 'evidence', 'timeline', 'response', 'handoff']);
+  const selected = allowed.has(tab) ? tab : 'summary';
+  state.investigationTab = selected;
+  document.querySelectorAll('[data-investigation-tab]').forEach((button) => {
+    const active = button.dataset.investigationTab === selected;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll('[data-investigation-tab-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.investigationTabPanel !== selected;
+  });
+}
+
+function bindInvestigationTabs() {
+  document.querySelectorAll('[data-investigation-tab]').forEach((button) => {
+    button.addEventListener('click', () => setInvestigationTab(button.dataset.investigationTab));
+    button.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const tabs = Array.from(document.querySelectorAll('[data-investigation-tab]'));
+      const current = tabs.indexOf(button);
+      const target = event.key === 'Home' ? 0
+        : event.key === 'End' ? tabs.length - 1
+          : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      event.preventDefault();
+      tabs[target].focus();
+      setInvestigationTab(tabs[target].dataset.investigationTab);
+    });
+  });
+  setInvestigationTab(state.investigationTab);
+}
 function renderInvestigations() {
   const list = $('#investigationList');
   const detail = $('#investigationDetail');
@@ -156,25 +190,37 @@ function renderInvestigations() {
   const sourceAvailable = sourceAnalysis.available === true;
   detail.innerHTML = `
     <div class="case-brief">
-      <div class="workspace-heading">
-        <div>
-          <h2>${escapeHtml(metadata.title)}</h2>
-          <div class="pill-row">
-            <span class="pill mono">${escapeHtml(investigation.investigation_id)}</span>
-            <span class="pill">${escapeHtml(metadata.status)}</span>
-            <span class="pill">${escapeHtml(metadata.owner || 'Unassigned')}</span>
-            <span class="pill mono">Revision ${escapeHtml(revision)}</span>
+      <header class="investigation-header">
+        <div class="workspace-heading">
+          <div>
+            <div class="technical-id investigation-id">${escapeHtml(investigation.investigation_id)}</div>
+            <h2>${escapeHtml(metadata.title)}</h2>
+            <div class="pill-row">
+              <span class="pill investigation-status">${escapeHtml(metadata.status)}</span>
+              <span class="muted">Owner: ${escapeHtml(metadata.owner || 'Unassigned')}</span>
+              <span class="technical-id muted">Revision ${escapeHtml(revision)}</span>
+            </div>
           </div>
+          <button id="deleteInvestigationButton" class="danger-button" type="button">Delete Workspace</button>
         </div>
-        <button id="deleteInvestigationButton" class="danger-button" type="button">Delete Workspace</button>
+        <div class="investigation-header-meta">
+          <span>Created <strong class="technical-id">${escapeHtml(metadata.created_at)}</strong></span>
+          <span>Updated <strong class="technical-id">${escapeHtml(metadata.updated_at)}</strong></span>
+        </div>
+      </header>
+      <div class="investigation-tabs" role="tablist" aria-label="Investigation workspace">
+        <button type="button" role="tab" data-investigation-tab="summary">Summary</button>
+        <button type="button" role="tab" data-investigation-tab="findings">Findings</button>
+        <button type="button" role="tab" data-investigation-tab="evidence">Evidence</button>
+        <button type="button" role="tab" data-investigation-tab="timeline">Timeline</button>
+        <button type="button" role="tab" data-investigation-tab="response">Response</button>
+        <button type="button" role="tab" data-investigation-tab="handoff">Handoff</button>
       </div>
-      <div class="workspace-metadata">
-        <div><span>Created</span><strong>${escapeHtml(metadata.created_at)}</strong></div>
-        <div><span>Updated</span><strong>${escapeHtml(metadata.updated_at)}</strong></div>
-        <div><span>Source Analysis</span><strong class="mono">${escapeHtml(investigation.analysis_id)}</strong></div>
-        <div><span>Selected Cases</span><strong class="mono">${escapeHtml(selectedCaseIds(investigation).join(', ') || 'None')}</strong></div>
+      <div class="investigation-context-strip" data-investigation-tab-panel="summary">
+        <span>Source Analysis <strong class="technical-id">${escapeHtml(investigation.analysis_id)}</strong></span>
+        <span>Related Cases <strong class="technical-id">${escapeHtml(selectedCaseIds(investigation).join(', ') || 'None')}</strong></span>
       </div>
-      <section class="brief-section source-analysis-section">
+      <section class="brief-section source-analysis-section" data-investigation-tab-panel="summary">
         <div class="panel-head">
           <h3>Source Analysis</h3>
           <span id="sourceAnalysisAvailability" class="pill">${sourceAvailable ? 'Available' : 'Unavailable'}</span>
@@ -186,10 +232,10 @@ function renderInvestigations() {
           ? ''
           : '<button id="loadSourceAnalysisButton" type="button">Load Source Analysis</button>'}
       </section>
-      <section class="brief-section investigation-summary-section">
+      <section class="brief-section investigation-summary-section" data-investigation-tab-panel="summary">
         <div id="investigationSummary" class="workspace-records"></div>
       </section>
-      <div class="workspace-actions">
+      <div class="workspace-actions" data-investigation-tab-panel="summary">
         <button id="assignOwnerButton" type="button">Assign Owner</button>
         <button id="clearOwnerButton" type="button">Clear Owner</button>
         ${metadata.status === 'closed'
@@ -197,7 +243,7 @@ function renderInvestigations() {
           : '<button id="changeStatusButton" type="button">Change Status</button>'}
         <button id="addAnnotationButton" type="button">Add Annotation</button>
       </div>
-      <section class="brief-section handoff-section">
+      <section class="brief-section handoff-section" data-investigation-tab-panel="handoff">
         <div class="panel-head">
           <h3>Investigation Handoff</h3>
           <span class="pill">Read Only</span>
@@ -221,7 +267,7 @@ function renderInvestigations() {
         <div id="handoffStatus" class="muted evidence-status"></div>
         <div id="handoffWorkspace" class="workspace-records"></div>
       </section>
-      <section class="brief-section reasoning-section">
+      <section class="brief-section reasoning-section" data-investigation-tab-panel="summary">
         <div class="panel-head">
           <h3>Hypotheses and Decisions</h3>
           <span class="muted">Analyst-authored reasoning</span>
@@ -237,7 +283,7 @@ function renderInvestigations() {
         <div id="reasoningStatus" class="muted evidence-status"></div>
         <div id="reasoningWorkspace" class="workspace-records"></div>
       </section>
-      <section class="brief-section response-actions-section">
+      <section class="brief-section response-actions-section" data-investigation-tab-panel="response">
         <div class="panel-head">
           <h3>Response Actions</h3>
           <span class="muted">Analyst-controlled response work</span>
@@ -251,7 +297,7 @@ function renderInvestigations() {
         <div id="responseActionStatus" class="muted evidence-status"></div>
         <div id="responseActionWorkspace" class="workspace-records"></div>
       </section>
-      <section class="brief-section findings-section">
+      <section class="brief-section findings-section" data-investigation-tab-panel="findings">
         <div class="panel-head">
           <h3>Investigation Findings</h3>
           <span class="muted">Analyst-authored conclusions</span>
@@ -264,7 +310,8 @@ function renderInvestigations() {
         </div>
         <div id="findingStatus" class="muted evidence-status"></div>
         <div id="findingWorkspace" class="workspace-records"></div>
-      </section>      <section class="brief-section workbench-section">
+      </section>
+      <section class="brief-section workbench-section" data-investigation-tab-panel="timeline">
         <div class="panel-head">
           <h3>Timeline and Pivot Workbench</h3>
           <span class="pill">Read Only</span>
@@ -281,7 +328,7 @@ function renderInvestigations() {
         <div id="workbenchActiveFilters" class="pill-row"></div>
         <div id="workbenchContent" class="workbench-content"></div>
       </section>
-      <section class="brief-section evidence-section">
+      <section class="brief-section evidence-section" data-investigation-tab-panel="evidence">
         <div class="panel-head">
           <h3>Evidence</h3>
           <span id="evidenceAvailability" class="muted"></span>
@@ -301,7 +348,7 @@ function renderInvestigations() {
         <div id="evidenceStatus" class="muted evidence-status"></div>
         <div id="evidenceWorkspace" class="workspace-records"></div>
       </section>
-      <section class="brief-section">
+      <section class="brief-section" data-investigation-tab-panel="summary">
         <h3>Analyst Annotations</h3>
         <div class="workspace-records">${annotations.map((annotation) => `
           <article class="workspace-record">
@@ -317,7 +364,7 @@ function renderInvestigations() {
             </div>
           </article>`).join('') || '<div class="muted">No annotations.</div>'}</div>
       </section>
-      <section class="brief-section">
+      <section class="brief-section" data-investigation-tab-panel="summary">
         <h3>Analyst Decisions</h3>
         <div class="workspace-records">${decisions.map((decision) => `
           <article class="workspace-record">
@@ -330,6 +377,7 @@ function renderInvestigations() {
           </article>`).join('') || '<div class="muted">No analyst decisions.</div>'}</div>
       </section>
     </div>`;
+  bindInvestigationTabs();
   bindInvestigationActions(investigation);
   bindSourceAnalysisActions(investigation, sourceAvailable);
   bindHandoffActions();

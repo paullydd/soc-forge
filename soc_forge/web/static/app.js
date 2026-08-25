@@ -2,6 +2,7 @@ const state = {
   workspace: null,
   investigations: [],
   activeInvestigation: null,
+  investigationTab: 'summary',
   evidenceCandidates: [],
   evidenceSelections: null,
   evidenceFilter: "all",
