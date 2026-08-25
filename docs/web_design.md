@@ -110,3 +110,48 @@ No information was deleted in Slice 1. No CSS selectors were removed because cur
 - Deferred platform work: global search redesign, command palette, charts, polling, WebSockets, themes, preferences, authentication, and roles.
 
 Slice 1 adds no API, dependency, framework, persistence, polling, remediation, or screenshot refresh.
+
+## Slice 2: Command Center
+
+The Command Center answers one primary question: **what requires analyst attention now?** Its hierarchy is:
+
+1. compact operational status
+2. authoritative Top Attention
+3. bounded Recent Activity
+4. supporting generated security activity
+
+### Authoritative ownership
+
+The dashboard composes existing read-only sources and owns no business rules:
+
+| Display | Authoritative source |
+| --- | --- |
+| Investigation count and recent updates | `/api/investigations` durable summaries |
+| High/Critical attention and open Response Actions | Operations Queue `operational_summary` |
+| Top Attention membership, order, reasons, and destinations | Operations Queue `top_items` |
+| Alerts, correlations, Hunts, cases, rule counts, tactic observations | `/api/workspace` generated analysis artifacts |
+| Enabled rule count | existing Detection Scorecard projection |
+
+There is no dashboard-specific priority or risk score. Top Attention takes the first four already ordered Operations Queue `top_items` and exposes authoritative Finding or Response Action navigation. The former Highest Risk Case panel was removed from the landing page because it competed with Operations prioritization and displayed report-like prose; full case risk and quality remain accessible in Cases.
+
+### Recent Activity
+
+Recent Activity is a non-persistent presentation merge of timestamped machine alerts and durable Investigation summary updates. It is reverse chronological, deterministically tie-broken, bounded to seven rows, visibly attributed, and navigates only to an existing Alerts or Investigation destination. It does not infer causality or claim to be a complete activity log. Finding and Response Action transitions are not added independently because no unified web activity projection currently owns that stream.
+
+### Supporting security activity
+
+The former equal-bar Rule Activity chart was removed: many one-count bars provided little situational value. A compact Detection summary now reports the existing enabled-rule count, correlations, Hunts, and cases. ATT&CK is limited to five observed tactics with counts and explicitly states that observed activity is not Detection Coverage. No completeness or effectiveness percentage is calculated.
+
+When generated machine artifacts are absent, the Command Center reports that fact without calling the state OFFLINE: the current web workspace payload does not expose an authoritative global analysis mode. It also states that durable Investigation and Operations state is separate. Unavailable values are not silently converted into machine zeroes.
+
+### Controls and navigation
+
+Refresh remains a primary analyst control because it reloads workspace artifacts, Investigation summaries, and the authoritative Operations Queue. Scenario generation and the guided demo remain available inside a collapsed **Demo / Lab controls** disclosure below operational content. Their labels distinguish generation and guidance from analyst or remediation actions.
+
+The existing search filters cases, alerts, and Hunts in current generated analysis; it is not a global authoritative search engine. It remains in the header with reduced width and is labelled **Filter current analysis**. A later search slice may replace it.
+
+No sidebar destinations changed in Slice 2. Cases, Alerts, Detection Scorecard, Investigation Graph, Hunt Findings, and secondary output artifacts remain reachable. Later work should move raw JSON/report artifacts into a dedicated Reporting or developer-actions surface when web Reporting scope is authorized.
+
+### Dashboard/report boundary
+
+Command Center rows contain status, technical identity, a short authoritative reason, attribution, and timestamp. Long executive summaries, evidence narratives, and deep lifecycle history remain in Cases, Investigations, Findings, Response Actions, reports, and handoffs. Dashboard projection never mutates those sources.

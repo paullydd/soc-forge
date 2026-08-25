@@ -48,14 +48,17 @@ function qualityScore(caseItem) { return Number((caseItem.case_quality || {}).qu
 function matchesSearch(item) { return JSON.stringify(item).toLowerCase().includes(state.search.toLowerCase()); }
 
 async function loadWorkspace() {
-  const [workspaceResponse, investigationsResponse] = await Promise.all([
+  const [workspaceResponse, investigationsResponse, operationsResponse] = await Promise.all([
     fetch('/api/workspace'),
     fetch('/api/investigations'),
+    fetch('/api/operations-queue', { cache: 'no-store' }),
   ]);
   if (!workspaceResponse.ok) throw new Error('Unable to load workspace');
   if (!investigationsResponse.ok) throw new Error('Unable to load investigations');
+  if (!operationsResponse.ok) throw new Error('Unable to load analyst operations queue');
   state.workspace = await workspaceResponse.json();
   state.investigations = await investigationsResponse.json();
+  state.operationsQueue = await operationsResponse.json();
   if (!state.activeCaseId && state.workspace.cases.length) state.activeCaseId = state.workspace.cases[0].case_id;
   render();
 }
@@ -93,11 +96,11 @@ function renderScenarioButton() {
   const startButton = $('#startDemoButton');
   if (button) {
     button.disabled = state.runningScenario;
-    button.textContent = state.runningScenario ? 'Running...' : 'Run Demo';
+    button.textContent = state.runningScenario ? 'Generating...' : 'Generate Scenario';
   }
   if (startButton) {
     startButton.disabled = state.runningScenario;
-    startButton.textContent = state.runningScenario ? 'Running...' : 'Start Demo';
+    startButton.textContent = state.runningScenario ? 'Generating...' : 'Start Guided Demo';
   }
 }
 
@@ -179,48 +182,9 @@ function setView(view) {
   $('#sidebarToggle')?.setAttribute('aria-expanded', 'false');
 }
 
-function renderMetrics(summary) {
-  const metrics = [
-    ['Cases', summary.case_count],
-    ['Alerts', summary.alert_count],
-    ['Correlations', summary.correlated_alert_count],
-    ['Hunts', summary.hunt_count],
-    ['Avg Quality', `${summary.average_case_quality}/100`],
-  ];
-  $('#metrics').innerHTML = metrics.map(([label, value]) => `<div class="metric"><div class="metric-label">${label}</div><div class="metric-value">${value}</div></div>`).join('');
-}
-
-function renderBars(target, rows, labelKey) {
-  const max = Math.max(1, ...rows.map((row) => Number(row.count || 0)));
-  target.innerHTML = rows.length ? rows.map((row) => `
-    <div class="bar-item">
-      <div class="mono">${escapeHtml(row[labelKey])}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(6, Number(row.count || 0) * 100 / max)}%"></div></div>
-      <div class="mono muted">${row.count}</div>
-    </div>`).join('') : '<div class="muted">No data available.</div>';
-}
-
 function renderOverview() {
-  const { summary, cases } = state.workspace;
-  renderMetrics(summary);
-  const top = cases.find((caseItem) => caseItem.case_id === summary.top_case_id) || cases[0];
-  $('#topCase').innerHTML = top ? `
-    <div class="case-brief">
-      <div>
-        <h3>${escapeHtml(top.title)}</h3>
-        <div class="pill-row" style="margin-top:10px;">
-          <span class="pill ${severityClass(top.severity)}">${escapeHtml(top.severity || 'case')}</span>
-          <span class="pill">Risk ${caseRisk(top)}</span>
-          <span class="pill">Quality ${qualityScore(top)}/100</span>
-          <span class="pill mono">${escapeHtml(top.case_id)}</span>
-        </div>
-      </div>
-      <p>${escapeHtml((top.case_quality || {}).executive_summary || top.summary || 'No summary available.')}</p>
-    </div>` : '<div class="muted">No cases found. Generate SOC-Forge output first.</div>';
-  renderBars($('#ruleCounts'), summary.rule_counts || [], 'rule_id');
-  renderBars($('#tacticCounts'), summary.tactic_counts || [], 'tactic');
+  renderCommandCenter();
 }
-
 function sortedCases() {
   const sort = $('#caseSort')?.value || 'risk';
   let cases = asArray(state.workspace.cases).filter(matchesSearch);
@@ -560,6 +524,7 @@ $('#closeDemoButton').addEventListener('click', () => { state.demo.active = fals
 $('#searchInput').addEventListener('input', (event) => { state.search = event.target.value; render(); });
 $('#caseSort').addEventListener('change', renderCases);
 bindOperationsQueue();
+bindCommandCenter();
 
 if ($('#graphCaseSelect')) $('#graphCaseSelect').addEventListener('change', (event) => { state.activeCaseId = event.target.value; renderCases(); renderGraph(); });
 

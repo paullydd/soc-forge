@@ -59,15 +59,7 @@
         <div class="toolbar">
           <span class="status-indicator status-available"><span aria-hidden="true"></span>Local</span>
           <span class="technical-id">v3.5.0</span>
-          <div class="scenario-control" aria-label="Demo scenario">
-            <select id="scenarioSelect">
-              <option value="detection_lab">Detection Lab</option>
-              <option value="attack_chain">Attack Chain</option>
-            </select>
-            <button id="runScenarioButton" type="button">Run Demo</button>
-            <button id="startDemoButton" type="button" class="primary-button">Start Demo</button>
-          </div>
-          <input id="searchInput" type="search" placeholder="Search cases, rules, entities" aria-label="Search" />
+          <input id="searchInput" class="compact-search" type="search" placeholder="Filter current analysis" aria-label="Filter cases, alerts, and hunts" />
           <button id="refreshButton" type="button">Refresh</button>
         </div>
       </header>
@@ -86,28 +78,37 @@
         <div id="demoSteps" class="demo-steps"></div>
       </section>
 
-      <section id="overviewView" class="view active">
-        <div class="metrics" id="metrics"></div>
-        <div class="two-column">
-          <section class="panel">
-            <div class="panel-head">
-              <h2>Highest Risk Case</h2>
-            </div>
-            <div id="topCase"></div>
+      <section id="overviewView" class="view active command-center">
+        <section aria-labelledby="operationalStatusHeading">
+          <div class="section-heading">
+            <div><div class="eyebrow">Operational status</div><h2 id="operationalStatusHeading">Current analyst workload</h2></div>
+          </div>
+          <div class="metrics command-metrics" id="metrics"></div>
+        </section>
+        <div class="command-primary-grid">
+          <section class="panel attention-panel" aria-labelledby="topAttentionHeading">
+            <div class="panel-head"><div><div class="eyebrow">Priority</div><h2 id="topAttentionHeading">Top Attention</h2></div><button id="openOperationsButton" type="button">View Operations Queue</button></div>
+            <div id="commandTopAttention" class="attention-list"></div>
           </section>
-          <section class="panel">
-            <div class="panel-head">
-              <h2>Rule Activity</h2>
-            </div>
-            <div id="ruleCounts" class="bar-list"></div>
+          <section class="panel activity-panel" aria-labelledby="recentActivityHeading">
+            <div class="panel-head"><div><div class="eyebrow">Latest state changes</div><h2 id="recentActivityHeading">Recent Activity</h2></div></div>
+            <div id="commandRecentActivity" class="activity-list"></div>
           </section>
         </div>
-        <section class="panel">
-          <div class="panel-head">
-            <h2>MITRE Tactics</h2>
-          </div>
-          <div id="tacticCounts" class="bar-list compact"></div>
+        <section class="panel supporting-activity" aria-labelledby="securityActivityHeading">
+          <div class="panel-head"><div><div class="eyebrow">Supporting context</div><h2 id="securityActivityHeading">Security Activity</h2></div></div>
+          <div id="commandSecurityActivity"></div>
         </section>
+        <details class="demo-lab panel">
+          <summary>Demo / Lab controls</summary>
+          <p>Generate a controlled synthetic scenario for portfolio demonstration. These controls do not execute remediation.</p>
+          <div class="scenario-control" aria-label="Demo scenario">
+            <label for="scenarioSelect">Scenario</label>
+            <select id="scenarioSelect"><option value="detection_lab">Detection Lab</option><option value="attack_chain">Attack Chain</option></select>
+            <button id="runScenarioButton" type="button">Generate Scenario</button>
+            <button id="startDemoButton" type="button" class="primary-button">Start Guided Demo</button>
+          </div>
+        </details>
       </section>
 
       <section id="casesView" class="view">
@@ -214,6 +215,7 @@
   <script src="/static/investigation_summary.js"></script>
   <script src="/static/query_workbench.js"></script>
   <script src="/static/operations_queue.js"></script>
+  <script src="/static/command_center.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>
