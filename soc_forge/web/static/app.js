@@ -19,6 +19,16 @@ const state = {
   demo: { active: false, step: 0 },
 };
 
+const viewMetadata = {
+  overview: ['Command Center', 'Review current generated analysis and durable analyst operations.'],
+  operations: ['Operations Queue', 'Prioritized attention derived from authoritative Investigation state.'],
+  investigations: ['Investigations', 'Review durable analyst workspaces and their current context.'],
+  cases: ['Cases', 'Triage generated cases and inspect their evidence and quality.'],
+  alerts: ['Alerts', 'Review current machine-generated detection alerts.'],
+  scorecard: ['Detection Scorecard', 'Inspect the current ruleset program and engineering quality.'],
+  graph: ['Investigation Graph', 'Explore structured entities and relationships in a selected case.'],
+  hunts: ['Hunt Findings', 'Review structured hunt projections from the current analysis.'],
+};
 const demoSteps = [
   { label: 'Generate', title: 'Generate Scenario', view: 'overview' },
   { label: 'Dashboard', title: 'Review Dashboard', view: 'overview' },
@@ -151,10 +161,22 @@ function advanceGuidedDemo() {
 }
 
 function setView(view) {
+  const target = $(`#${view}View`);
+  if (!target || !viewMetadata[view]) return;
   state.view = view;
-  document.querySelectorAll('.nav-tab').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
+  document.querySelectorAll('.nav-tab').forEach((button) => {
+    const active = button.dataset.view === view;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
   document.querySelectorAll('.view').forEach((section) => section.classList.remove('active'));
-  $(`#${view}View`).classList.add('active');
+  target.classList.add('active');
+  const [title, description] = viewMetadata[view];
+  $('#pageTitle').textContent = title;
+  $('#pageDescription').textContent = description;
+  $('#appSidebar')?.classList.remove('open');
+  $('#sidebarToggle')?.setAttribute('aria-expanded', 'false');
 }
 
 function renderMetrics(summary) {
@@ -503,6 +525,13 @@ function render() {
   setView(state.view);
 }
 
+const sidebarToggle = $('#sidebarToggle');
+if (sidebarToggle) sidebarToggle.addEventListener('click', () => {
+  const sidebar = $('#appSidebar');
+  const open = !sidebar?.classList.contains('open');
+  sidebar?.classList.toggle('open', open);
+  sidebarToggle.setAttribute('aria-expanded', String(open));
+});
 document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListener('click', () => {
   setView(button.dataset.view);
   if (button.dataset.view === 'investigations') {

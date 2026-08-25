@@ -142,6 +142,7 @@ Generated artifacts can contain sensitive telemetry and analyst content. Review 
 
 - [Full Visual Walkthrough](docs/walkthrough.md)
 - [Architecture](docs/architecture.md)
+- [Web Design System](docs/web_design.md)
 - [Terminal UI](docs/terminal_ui.md)
 - [Detection Engineering](docs/detection_engineering.md)
 - [Security Analysis](docs/security_analysis.md)

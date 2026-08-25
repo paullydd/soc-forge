@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar">
+    <aside id="appSidebar" class="sidebar">
       <div class="brand">
         <div class="mark">SF</div>
         <div>
@@ -16,18 +16,30 @@
           <div class="brand-subtitle">Analyst Web UI</div>
         </div>
       </div>
-      <nav class="nav-tabs" aria-label="Views">
-        <button class="nav-tab active" data-view="overview">Overview</button>
-        <button class="nav-tab" data-view="cases">Cases</button>
-        <button class="nav-tab" data-view="investigations">Investigations</button>
-        <button class="nav-tab" data-view="operations">Operations Queue</button>
-        <button class="nav-tab" data-view="graph">Graph</button>
-        <button class="nav-tab" data-view="scorecard">Scorecard</button>
-        <button class="nav-tab" data-view="alerts">Alerts</button>
-        <button class="nav-tab" data-view="hunts">Hunts</button>
+      <nav class="nav-tabs" aria-label="Primary navigation">
+        <div class="nav-group">
+          <div class="nav-group-label">Workspace</div>
+          <button class="nav-tab active" data-view="overview" aria-current="page">Command Center</button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">Operations</div>
+          <button class="nav-tab" data-view="operations">Operations Queue</button>
+          <button class="nav-tab" data-view="investigations">Investigations</button>
+          <button class="nav-tab" data-view="cases">Cases</button>
+          <button class="nav-tab" data-view="alerts">Alerts</button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">Engineering</div>
+          <button class="nav-tab" data-view="scorecard">Detection Scorecard</button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-label">Analysis</div>
+          <button class="nav-tab" data-view="graph">Investigation Graph</button>
+          <button class="nav-tab" data-view="hunts">Hunt Findings</button>
+        </div>
       </nav>
       <div class="sidebar-block">
-        <div class="sidebar-label">Artifacts</div>
+        <div class="sidebar-label">Output</div>
         <a href="/artifact?file=report.html" target="_blank" rel="noreferrer">Open HTML report</a>
         <a href="/artifact?file=cases.json" target="_blank" rel="noreferrer">Cases JSON</a>
         <a href="/artifact?file=alerts.json" target="_blank" rel="noreferrer">Alerts JSON</a>
@@ -36,11 +48,17 @@
 
     <main class="main">
       <header class="topbar">
-        <div>
-          <h1>Investigation Workspace</h1>
-          <p>Review generated SOC-Forge cases, alerts, case quality, and evidence from local artifacts.</p>
+        <div class="topbar-context">
+          <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-controls="appSidebar" aria-expanded="false">Navigation</button>
+          <div>
+            <div class="eyebrow">SOC-Forge analyst workspace</div>
+            <h1 id="pageTitle">Command Center</h1>
+            <p id="pageDescription">Review current generated analysis and durable analyst operations.</p>
+          </div>
         </div>
         <div class="toolbar">
+          <span class="status-indicator status-available"><span aria-hidden="true"></span>Local</span>
+          <span class="technical-id">v3.5.0</span>
           <div class="scenario-control" aria-label="Demo scenario">
             <select id="scenarioSelect">
               <option value="detection_lab">Detection Lab</option>
