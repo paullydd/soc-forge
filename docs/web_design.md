@@ -111,6 +111,19 @@ No information was deleted in Slice 1. No CSS selectors were removed because cur
 
 Slice 1 adds no API, dependency, framework, persistence, polling, remediation, or screenshot refresh.
 
+## Slice 4: Detection Workspace
+
+The former separate **Alerts** and **Detection Scorecard** sidebar destinations are consolidated into one focused **Detection** workspace. Contextual tabs expose only implemented data: Overview, Alerts, Rules, ATT&CK, and Health. The workspace remains framework-free and consumes the existing generated-alert and scorecard projections plus a new read-only web projection of the existing `DetectionEngineeringService` rule catalog.
+
+Overview prioritizes current alert volume, Critical/High alerts, triggered rules, enabled rules, recent machine detections, and bounded rule activity. Alerts use a list/detail layout with textual severity, technical identity, detection reason, normalized entity context, observed ATT&CK mappings, and supporting metadata. Rules use a list/detail layout with loaded state, current trigger count, purpose, ATT&CK coverage, and deterministic match/emit/aggregate/modifier metadata. There are no rule editing or enable/disable controls.
+
+ATT&CK maintains two explicit semantic regions:
+
+- **Detection Coverage** answers what loaded rules are mapped to detect. It does not claim complete ATT&CK coverage.
+- **Observed ATT&CK Activity** answers which mappings are present on alerts in the current analysis. It does not prove attacker intent.
+
+Health preserves the existing scorecard grade, score, quality gate, component scores, and supporting details without reinterpreting them. Missing values are labelled Unknown or Unavailable rather than treated as failure. Detection rendering uses `createElement`, `textContent`, and `replaceChildren`; the backend remains authoritative and no browser persistence or mutation endpoint is introduced.
+
 ## Slice 2: Command Center
 
 The Command Center answers one primary question: **what requires analyst attention now?** Its hierarchy is:

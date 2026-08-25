@@ -11,6 +11,11 @@ const state = {
   responseActions: null,
   operationsQueue: null,
   operationsFilter: "all",
+  detectionTab: "overview",
+  detectionSeverity: "all",
+  detectionRuleFilter: "all",
+  activeDetectionAlertId: null,
+  activeDetectionRuleId: null,
   reasoningSummary: null,
   reasoningDraft: null,
   activeCaseId: null,
@@ -25,8 +30,7 @@ const viewMetadata = {
   operations: ['Operations Queue', 'Prioritized attention derived from authoritative Investigation state.'],
   investigations: ['Investigations', 'Review durable analyst workspaces and their current context.'],
   cases: ['Cases', 'Triage generated cases and inspect their evidence and quality.'],
-  alerts: ['Alerts', 'Review current machine-generated detection alerts.'],
-  scorecard: ['Detection Scorecard', 'Inspect the current ruleset program and engineering quality.'],
+  detection: ['Detection', 'Review machine alerts, deterministic rules, ATT&CK context, and detection health.'],
   graph: ['Investigation Graph', 'Explore structured entities and relationships in a selected case.'],
   hunts: ['Hunt Findings', 'Review structured hunt projections from the current analysis.'],
 };
@@ -35,7 +39,7 @@ const demoSteps = [
   { label: 'Dashboard', title: 'Review Dashboard', view: 'overview' },
   { label: 'Case', title: 'Open Highest-Risk Case', view: 'cases' },
   { label: 'Graph', title: 'Review Entity Graph', view: 'graph' },
-  { label: 'Scorecard', title: 'Review Detection Scorecard', view: 'scorecard' },
+  { label: 'Detection', title: 'Review Detection Health', view: 'detection', detectionTab: 'health' },
   { label: 'Report', title: 'Open Incident Report', view: 'overview', report: true },
 ];
 
@@ -138,6 +142,7 @@ function highestRiskCaseId() {
 function goToDemoStep(stepIndex) {
   state.demo.step = Math.max(0, Math.min(stepIndex, demoSteps.length - 1));
   const step = demoSteps[state.demo.step];
+  if (step.detectionTab) state.detectionTab = step.detectionTab;
   if (step.view === 'cases' || step.view === 'graph') {
     state.activeCaseId = highestRiskCaseId() || state.activeCaseId;
   }
@@ -419,57 +424,6 @@ function renderGraph() {
     </div>`;
 }
 
-function renderScorecard() {
-  const scorecard = state.workspace.detection_scorecard || {};
-  const categories = asArray(scorecard.categories);
-  const severityRows = asArray(scorecard.severity_balance);
-  const tactics = asArray((scorecard.coverage || {}).tactics);
-  $('#scorecardWorkspace').innerHTML = `
-    <div class="scorecard-hero">
-      <div>
-        <div class="metric-label">Overall Detection Program Score</div>
-        <div class="scorecard-grade">${escapeHtml(scorecard.grade || 'N/A')}</div>
-      </div>
-      <div class="scorecard-score mono">${escapeHtml(scorecard.overall_score ?? 0)}/100</div>
-      <div class="scorecard-facts">
-        <span class="pill">Rules ${escapeHtml(scorecard.enabled_rule_count ?? 0)}/${escapeHtml(scorecard.rule_count ?? 0)}</span>
-        <span class="pill">Quality ${scorecard.quality_gate ? 'Pass' : 'Review'}</span>
-        <span class="pill">Correlations ${escapeHtml(scorecard.correlation_alert_count ?? 0)}</span>
-      </div>
-    </div>
-    <div class="scorecard-grid">
-      ${categories.map((item) => `
-        <div class="scorecard-card">
-          <div class="scorecard-card-head">
-            <h3>${escapeHtml(item.name)}</h3>
-            <span class="pill">${escapeHtml(item.grade)} ${escapeHtml(item.score)}/100</span>
-          </div>
-          <div class="score-track"><div class="score-fill" style="width:${Math.max(4, Number(item.score || 0))}%"></div></div>
-          <p>${escapeHtml(item.detail)}</p>
-        </div>`).join('')}
-    </div>
-    <div class="scorecard-lower">
-      <div class="scorecard-card">
-        <h3>MITRE Tactics Covered</h3>
-        <div class="tag-cloud">${tactics.map((tactic) => `<span class="pill">${escapeHtml(tactic)}</span>`).join('') || '<span class="muted">No tactics mapped.</span>'}</div>
-      </div>
-      <div class="scorecard-card">
-        <h3>Rule Severity Balance</h3>
-        <div class="bar-list">${severityRows.map((row) => `
-          <div class="bar-item">
-            <div class="mono">${escapeHtml(row.severity)}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${Math.max(8, Number(row.count || 0) * 100 / Math.max(1, scorecard.enabled_rule_count || 1))}%"></div></div>
-            <div class="mono muted">${escapeHtml(row.count)}</div>
-          </div>`).join('') || '<div class="muted">No severity data.</div>'}</div>
-      </div>
-    </div>`;
-}
-
-function renderAlerts() {
-  const alerts = asArray(state.workspace.alerts).filter(matchesSearch);
-  $('#alertsTable').innerHTML = `<div class="table-wrap"><table><thead><tr><th>Time</th><th>Severity</th><th>Rule</th><th>Title</th><th>Score</th><th>Correlation</th></tr></thead><tbody>${alerts.map((alert) => `<tr><td class="mono muted">${escapeHtml(alert.timestamp)}</td><td><span class="pill ${severityClass(alert.severity)}">${escapeHtml(alert.severity)}</span></td><td class="mono">${escapeHtml(alert.rule_id)}</td><td>${escapeHtml(alert.title)}</td><td class="mono muted">${escapeHtml(alert.score)}</td><td class="mono muted">${escapeHtml(alert.correlation_id || '')}</td></tr>`).join('') || '<tr><td colspan="6" class="muted">No matching alerts.</td></tr>'}</tbody></table></div>`;
-}
-
 function renderHunts() {
   const hunts = asArray(state.workspace.hunts).filter(matchesSearch);
   $('#huntsList').innerHTML = hunts.length ? hunts.map((hunt) => `<div class="evidence-row"><div class="evidence-head"><span class="pill mono">${escapeHtml(hunt.hunt_id)}</span><span class="pill ${severityClass(hunt.severity)}">${escapeHtml(hunt.severity)}</span><span class="pill">${escapeHtml(hunt.confidence || 'confidence n/a')}</span></div><strong>${escapeHtml(hunt.title)}</strong><p>${escapeHtml(hunt.summary || '')}</p></div>`).join('') : '<div class="empty-state">No matching hunt findings.</div>';
@@ -483,8 +437,7 @@ function render() {
   renderCases();
   renderGraph();
   renderInvestigations();
-  renderScorecard();
-  renderAlerts();
+  renderDetectionWorkspace();
   renderHunts();
   if (state.operationsQueue) renderOperationsQueue();
   setView(state.view);
@@ -508,6 +461,7 @@ document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListene
     loadOperationsQueue().catch((error) => alert(error.message));
   }
 }));
+bindDetectionWorkspace();
 $('#refreshButton').addEventListener('click', () => {
   loadWorkspace().then(() => {
     if (state.view === 'operations') return loadOperationsQueue();

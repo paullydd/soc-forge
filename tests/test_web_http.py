@@ -55,7 +55,7 @@ def json_request(server_info, method, path, payload=None, raw_body=None, headers
 
 
 def assert_workspace_shape(workspace, expected):
-    assert {"summary", "detection_scorecard", "cases", "alerts", "hunts", "reconstructions"}.issubset(workspace)
+    assert {"summary", "detection_scorecard", "detection_rules", "cases", "alerts", "hunts", "reconstructions"}.issubset(workspace)
     assert workspace["summary"]["alert_count"] == expected["alerts"]
     assert workspace["summary"]["correlated_alert_count"] == expected["correlations"]
     assert workspace["summary"]["case_count"] == expected["cases"]
@@ -64,6 +64,8 @@ def assert_workspace_shape(workspace, expected):
     assert len(workspace["cases"]) == expected["cases"]
     assert len(workspace["hunts"]) == expected["hunts"]
     assert len(workspace["reconstructions"]) == expected["cases"]
+    assert workspace["detection_rules"]
+    assert all(rule["rule_id"] for rule in workspace["detection_rules"])
 
 
 @pytest.mark.parametrize("scenario,expected", sorted(SCENARIO_EXPECTATIONS.items()))

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 import soc_forge.web.app as web_app
-from soc_forge.web.app import build_detection_scorecard, build_summary, load_workspace, run_demo_scenario, safe_artifact_path
+from soc_forge.web.app import build_detection_rule_catalog, build_detection_scorecard, build_summary, load_workspace, run_demo_scenario, safe_artifact_path
 
 
 SCENARIO_EXPECTATIONS = {
@@ -159,3 +159,16 @@ def test_detection_scorecard_summarizes_rule_program(tmp_path):
     assert scorecard["enabled_rule_count"] >= 19
     assert scorecard["coverage"]["tactic_count"] >= 5
     assert scorecard["correlation_alert_count"] == 1
+
+
+def test_detection_rule_catalog_projects_authoritative_metadata():
+    catalog = build_detection_rule_catalog()
+
+    assert len(catalog) >= 19
+    assert [item["rule_id"] for item in catalog] == sorted(
+        item["rule_id"] for item in catalog
+    )
+    assert all(item["rule_id"] and item["title"] for item in catalog)
+    assert all(isinstance(item["enabled"], bool) for item in catalog)
+    assert all("match_metadata" in item and "emit_metadata" in item for item in catalog)
+    assert any(item["attack_mappings"] for item in catalog)

@@ -5,11 +5,14 @@ function commandNode(tag, text, className) {
   return node;
 }
 
-function commandMetric(label, value, destination) {
+function commandMetric(label, value, destination, detectionTab) {
   const metric = commandNode(destination ? 'button' : 'div', undefined, 'metric command-metric');
   if (destination) {
     metric.type = 'button';
-    metric.addEventListener('click', () => setView(destination));
+    metric.addEventListener('click', () => {
+      if (detectionTab) setDetectionTab(detectionTab);
+      setView(destination);
+    });
   }
   metric.append(
     commandNode('div', label, 'metric-label'),
@@ -29,9 +32,9 @@ function renderCommandMetrics() {
     ['Investigations', state.investigations.length, 'investigations'],
     ['High / Critical Attention', highCritical, 'operations'],
     ['Open Response Actions', operations.response_action_count || 0, 'operations'],
-    ['Alerts', summary.alert_count || 0, 'alerts'],
+    ['Alerts', summary.alert_count || 0, 'detection', 'alerts'],
     ['Hunts', summary.hunt_count || 0, 'hunts'],
-  ].forEach(([label, value, destination]) => target.append(commandMetric(label, value, destination)));
+  ].forEach(([label, value, destination, detectionTab]) => target.append(commandMetric(label, value, destination, detectionTab)));
 }
 
 function renderCommandAttention() {
@@ -87,12 +90,14 @@ function commandRecentActivity() {
   const alerts = Array.isArray(state.workspace?.alerts) ? state.workspace.alerts : [];
   const investigations = Array.isArray(state.investigations) ? state.investigations : [];
   const activity = [
-    ...alerts.map((alert) => ({
+    ...alerts.map((alert, alertIndex) => ({
       timestamp: alert.timestamp || alert.created_at || '',
       kind: 'Machine alert',
       id: alert.rule_id || alert.alert_id || 'Alert',
       description: alert.title || 'Detection alert observed',
-      destination: 'alerts',
+      destination: 'detection',
+      detectionTab: 'alerts',
+      alertKey: detectionAlertKey(alert, alertIndex),
     })),
     ...investigations.map((investigation) => ({
       timestamp: investigation.updated_at || '',
@@ -136,6 +141,11 @@ function renderCommandRecentActivity() {
           .then(() => setView('investigations'))
           .catch((error) => target.replaceChildren(commandNode('div', error.message, 'notice')));
       } else {
+        if (item.detectionTab) {
+          state.activeDetectionAlertId = item.alertKey;
+          setDetectionTab(item.detectionTab);
+          renderDetectionAlerts();
+        }
         setView(item.destination);
       }
     });

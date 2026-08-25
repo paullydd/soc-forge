@@ -101,6 +101,7 @@ from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
 )
 from soc_forge.core.investigation_graph import build_investigation_graph, summarize_graph
+from soc_forge.detection_engineering import DetectionEngineeringService
 from soc_forge.pipeline import AnalysisOptions, run_analysis_for_events
 from soc_forge.rules import BUILTIN_RULES_PATH
 from soc_forge.rules.engine import load_rules
@@ -310,11 +311,43 @@ def load_workspace(out_dir: Path = DEFAULT_OUT_DIR) -> Dict[str, Any]:
     return {
         "summary": build_summary(cases, alerts, hunts, reconstructions, out_dir),
         "detection_scorecard": build_detection_scorecard(alerts, cases, hunts, out_dir),
+        "detection_rules": build_detection_rule_catalog(),
         "cases": cases,
         "alerts": alerts,
         "hunts": hunts,
         "reconstructions": reconstructions,
     }
+
+
+def build_detection_rule_catalog() -> List[Dict[str, Any]]:
+    """Project the existing read-only rule catalog for web presentation."""
+    return [
+        {
+            "rule_id": entry.rule_id,
+            "title": entry.title,
+            "enabled": entry.enabled,
+            "severity": entry.severity,
+            "score": entry.score,
+            "description": entry.description,
+            "tags": list(entry.tags),
+            "author": entry.author,
+            "created": entry.created,
+            "logsource": entry.logsource,
+            "attack_mappings": [
+                {
+                    "tactic": mapping.tactic,
+                    "technique": mapping.technique,
+                    "technique_id": mapping.technique_id,
+                }
+                for mapping in entry.attack_mappings
+            ],
+            "match_metadata": entry.match_metadata,
+            "emit_metadata": entry.emit_metadata,
+            "aggregate_metadata": entry.aggregate_metadata,
+            "score_modifiers_metadata": entry.score_modifiers_metadata,
+        }
+        for entry in DetectionEngineeringService().rule_catalog()
+    ]
 
 
 def build_summary(

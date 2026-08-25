@@ -26,11 +26,10 @@
           <button class="nav-tab" data-view="operations">Operations Queue</button>
           <button class="nav-tab" data-view="investigations">Investigations</button>
           <button class="nav-tab" data-view="cases">Cases</button>
-          <button class="nav-tab" data-view="alerts">Alerts</button>
         </div>
         <div class="nav-group">
           <div class="nav-group-label">Engineering</div>
-          <button class="nav-tab" data-view="scorecard">Detection Scorecard</button>
+          <button class="nav-tab" data-view="detection">Detection</button>
         </div>
         <div class="nav-group">
           <div class="nav-group-label">Analysis</div>
@@ -181,22 +180,27 @@
         </section>
       </section>
 
-      <section id="scorecardView" class="view">
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Detection Engineering Scorecard</h2>
+      <section id="detectionView" class="view detection-workspace">
+        <div class="detection-header">
+          <div>
+            <div class="eyebrow">Machine-derived detection context</div>
+            <h2>Detection Workspace</h2>
+            <p>Review current alerts and the deterministic rules that produced them.</p>
           </div>
-          <div id="scorecardWorkspace"></div>
-        </section>
-      </section>
-
-      <section id="alertsView" class="view">
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Alerts</h2>
-          </div>
-          <div id="alertsTable"></div>
-        </section>
+          <div id="detectionAnalysisStatus" class="status-indicator status-available"><span aria-hidden="true"></span>Current analysis</div>
+        </div>
+        <div class="detection-tabs" role="tablist" aria-label="Detection workspace">
+          <button type="button" role="tab" data-detection-tab="overview">Overview</button>
+          <button type="button" role="tab" data-detection-tab="alerts">Alerts</button>
+          <button type="button" role="tab" data-detection-tab="rules">Rules</button>
+          <button type="button" role="tab" data-detection-tab="attack">ATT&amp;CK</button>
+          <button type="button" role="tab" data-detection-tab="health">Health</button>
+        </div>
+        <section data-detection-panel="overview" class="detection-panel"><div id="detectionOverview"></div></section>
+        <section data-detection-panel="alerts" class="detection-panel" hidden><div id="detectionAlerts"></div></section>
+        <section data-detection-panel="rules" class="detection-panel" hidden><div id="detectionRules"></div></section>
+        <section data-detection-panel="attack" class="detection-panel" hidden><div id="detectionAttack"></div></section>
+        <section data-detection-panel="health" class="detection-panel" hidden><div id="detectionHealth"></div></section>
       </section>
 
       <section id="huntsView" class="view">
@@ -216,6 +220,7 @@
   <script src="/static/query_workbench.js"></script>
   <script src="/static/operations_queue.js"></script>
   <script src="/static/command_center.js"></script>
+  <script src="/static/detection_workspace.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

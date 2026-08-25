@@ -43,9 +43,10 @@ def test_operational_metrics_use_existing_authoritative_payloads_and_destination
     assert "operations.high_count" in command
     assert "operations.response_action_count" in command
     assert "summary.alert_count" in command
+    assert "'detection', 'alerts'" in command
     assert "summary.hunt_count" in command
     assert "Avg Quality" not in command
-    assert "commandMetric(label, value, destination)" in command
+    assert "commandMetric(label, value, destination, detectionTab)" in command
 
 
 def test_top_attention_reuses_operations_queue_order_and_is_bounded():
