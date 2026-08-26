@@ -168,3 +168,24 @@ No sidebar destinations changed in Slice 2. Cases, Alerts, Detection Scorecard, 
 ### Dashboard/report boundary
 
 Command Center rows contain status, technical identity, a short authoritative reason, attribution, and timestamp. Long executive summaries, evidence narratives, and deep lifecycle history remain in Cases, Investigations, Findings, Response Actions, reports, and handoffs. Dashboard projection never mutates those sources.
+
+## Slice 5: Operations Workspace
+
+The former card-heavy Operations Queue is now a focused prioritization and navigation workspace. It answers what needs attention, why it is prioritized, what kind of work it is, which Investigation owns it, and which authoritative Finding or Response Action workflow the analyst should open next.
+
+### Authority and semantics
+
+The workspace continues to consume `/api/operations-queue` with `no-store` caching. `OperationsQueueService` remains the sole membership authority and `OperationsPrioritizationService` remains the sole ordering and explainability authority. The browser preserves the server-provided order and fixed `priority_basis`; it does not score, rank, age, group, or infer work locally.
+
+The projection remains read-only. It does not persist queue items or introduce acknowledgement, assignment, snoozing, escalation, ticketing, orchestration, remediation, or execution. Permitted changes remain in the owning Investigation's existing Finding or Response Action workflow, and returning to Operations reloads authoritative state.
+
+### Information hierarchy
+
+The repeated Top Priority cards and full queue cards were consolidated into:
+
+1. five compact workload facts: attention items, High/Critical, Response Actions, uncovered Findings, and represented Investigations;
+2. the existing read-only filters;
+3. one server-ordered attention list; and
+4. a persistent detail pane containing the authoritative reason, complete priority basis, work type, owner, timestamps, and source-workflow destination.
+
+Priority and lifecycle remain textual, not color-only. Uncovered Findings retain neutral MEDIUM priority; Finding confidence is never reinterpreted as operational severity. Empty filtered views explicitly distinguish an empty queue projection from an absence of alerts or Investigations. Rendering uses `createElement`, `textContent`, and `replaceChildren`, with no browser persistence.

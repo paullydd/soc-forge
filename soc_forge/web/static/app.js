@@ -11,6 +11,7 @@ const state = {
   responseActions: null,
   operationsQueue: null,
   operationsFilter: "all",
+  activeOperationsItemId: null,
   detectionTab: "overview",
   detectionSeverity: "all",
   detectionRuleFilter: "all",

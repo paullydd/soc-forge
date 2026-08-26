@@ -386,11 +386,13 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
     app = (root / "soc_forge/web/static/app.js").read_text()
     index = (root / "soc_forge/web/static/index.html").read_text()
     assert "Operations Queue" in index
-    assert "Analyst Operations Queue" in index
+    assert "Operations Workspace" in index
+    assert "What needs attention" in index
+    assert "Read-only prioritization surface." in index
     assert index.index("id=\"operationsTopItems\"") < index.index(
-        "class=\"workspace-actions operations-filters\""
+        "class=\"operations-browser\""
     )
-    assert "Current analyst attention items derived from durable Findings and Response Actions." in index
+    assert "Prioritize current attention items derived from durable Findings and Response Actions." in index
     for label in (
         "All",
         "Response Actions",
@@ -403,14 +405,10 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
         assert label in source or label in index
     for label in (
         "Attention Items",
+        "High / Critical",
         "Investigations Represented",
-        "Critical",
-        "High",
-        "Medium",
-        "Low",
-        "Proposed",
-        "Approved",
-        "In Progress",
+        "Why it needs attention",
+        "Authoritative destination",
     ):
         assert label in source
     assert "createElement" in source
@@ -418,6 +416,8 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
     assert "replaceChildren" in source
     assert "Why this is prioritized:" in source
     assert "priority_basis" in source
+    assert "state.activeOperationsItemId" in source
+    assert "renderOperationsDetail" in source
     assert "innerHTML" not in source
     assert "score" not in source.lower()
     assert "gauge" not in source.lower()
@@ -425,10 +425,12 @@ def test_web_operations_contract_uses_safe_dom_and_existing_source_workflows():
     for forbidden in ("Acknowledge", "Dismiss Queue Item", "Snooze", "Escalate"):
         assert forbidden not in source
     assert "openInvestigation(item.investigation_id)" in source
-    assert "openResponseAction(item.source_id)" in source
+    assert "await openResponseAction(item.source_id)" in source
     assert "openFinding(item.source_id, item.investigation_id)" in source
     assert "async function openFinding(findingId, investigationId = null)" in findings_source
     assert "findingBase(investigationId)" in findings_source
+    assert "items.forEach((item, index)" in source
+    assert "items.sort" not in source
     assert "innerHTML" not in findings_source
     assert "loadOperationsQueue()" in app
     assert "/static/operations_queue.js" in index

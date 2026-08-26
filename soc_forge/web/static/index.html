@@ -23,7 +23,7 @@
         </div>
         <div class="nav-group">
           <div class="nav-group-label">Operations</div>
-          <button class="nav-tab" data-view="operations">Operations Queue</button>
+          <button class="nav-tab" data-view="operations">Operations</button>
           <button class="nav-tab" data-view="investigations">Investigations</button>
           <button class="nav-tab" data-view="cases">Cases</button>
         </div>
@@ -144,30 +144,39 @@
         </div>
       </section>
 
-      <section id="operationsView" class="view">
+      <section id="operationsView" class="view operations-workspace">
         <div class="operations-header">
           <div>
-            <h2>Analyst Operations Queue</h2>
-            <p>Current analyst attention items derived from durable Findings and Response Actions.</p>
+            <div class="eyebrow">Authoritative analyst work</div>
+            <h2>Operations Workspace</h2>
+            <p>Prioritize current attention items derived from durable Findings and Response Actions.</p>
           </div>
           <button id="refreshOperationsButton" type="button">Refresh</button>
         </div>
-        <div class="evidence-warning">
-          Queue items are projections of authoritative investigation state. They cannot be acknowledged or edited directly.
-        </div>
         <div id="operationsSummary" class="metrics operations-metrics"></div>
-        <section class="panel">
-          <h3>Top Priority Work</h3>
-          <div id="operationsTopItems" class="workspace-records"></div>
-        </section>
-        <div class="workspace-actions operations-filters" aria-label="Operations Queue filters">
-          <button type="button" data-operations-filter="all">All</button>
-          <button type="button" data-operations-filter="response_action">Response Actions</button>
-          <button type="button" data-operations-filter="uncovered_finding">Uncovered Findings</button>
-          <button type="button" data-operations-filter="high_critical">High/Critical</button>
+        <div class="operations-boundary">
+          <strong>Read-only prioritization surface.</strong>
+          Queue items reflect authoritative Investigation state and cannot be acknowledged, assigned, or changed here.
         </div>
-        <div id="operationsStatus" class="muted evidence-status"></div>
-        <div id="operationsItems" class="workspace-records"></div>
+        <div id="operationsTopItems" hidden></div>
+        <div class="operations-toolbar">
+          <div><div class="eyebrow">Ordered attention queue</div><h3>What needs attention</h3></div>
+          <div class="workspace-actions operations-filters" aria-label="Operations Queue filters">
+            <button type="button" data-operations-filter="all">All</button>
+            <button type="button" data-operations-filter="response_action">Response Actions</button>
+            <button type="button" data-operations-filter="uncovered_finding">Uncovered Findings</button>
+            <button type="button" data-operations-filter="high_critical">High/Critical</button>
+          </div>
+        </div>
+        <div id="operationsStatus" class="muted evidence-status" role="status"></div>
+        <div class="operations-browser">
+          <section class="operations-list-panel" aria-label="Prioritized Operations Queue">
+            <div id="operationsItems" class="operations-list"></div>
+          </section>
+          <section id="operationsDetail" class="operations-detail" aria-live="polite">
+            <div class="empty-state">Select an attention item to review its priority basis and authoritative destination.</div>
+          </section>
+        </div>
       </section>
 
       <section id="graphView" class="view">
