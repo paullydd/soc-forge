@@ -57,6 +57,24 @@ class AttackObservation:
 
 
 @dataclass(frozen=True)
+class DiscoverableEntity:
+    entity_type: str
+    display_value: str
+    normalized_value: str
+    observation_count: int
+    machine_observation_count: int
+    analyst_observation_count: int
+    investigation_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EntityDiscoveryResult:
+    mode: str
+    machine_context_available: bool
+    entities: tuple[DiscoverableEntity, ...]
+
+
+@dataclass(frozen=True)
 class EntityExplorerResult:
     entity_type: str
     query: str
@@ -247,6 +265,37 @@ class EntityExplorerService:
                  *, observation_limit: int = 10) -> None:
         self.observation_service = observation_service
         self.observation_limit = max(0, observation_limit)
+
+    def discover(self) -> EntityDiscoveryResult:
+        mode, observations = self.observation_service.list_observations()
+        grouped = {}
+        for observation in observations:
+            seen = set()
+            for entity in observation.entities:
+                key = (entity.entity_type, entity.normalized_value)
+                if key in seen:
+                    continue
+                seen.add(key)
+                value = grouped.setdefault(key, {
+                    "display_value": entity.display_value,
+                    "machine": 0,
+                    "analyst": 0,
+                    "investigations": set(),
+                })
+                value[observation.origin] += 1
+                if observation.investigation_id:
+                    value["investigations"].add(observation.investigation_id)
+        entities = tuple(sorted((
+            DiscoverableEntity(
+                entity_type, values["display_value"], normalized_value,
+                values["machine"] + values["analyst"], values["machine"],
+                values["analyst"], tuple(sorted(values["investigations"])),
+            )
+            for (entity_type, normalized_value), values in grouped.items()
+        ), key=lambda row: (
+            row.entity_type, -row.observation_count, row.normalized_value
+        )))
+        return EntityDiscoveryResult(mode, mode == "full", entities)
 
     def search(self, entity_type: str, query: object) -> EntityExplorerResult:
         entity = normalize_entity(entity_type, query)

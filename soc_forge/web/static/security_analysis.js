@@ -29,10 +29,17 @@ function analysisMetric(label, value, unavailable) {
 }
 
 async function loadSecurityAnalysis() {
-  const response = await fetch('/api/security-analysis', { cache: 'no-store' });
-  const payload = await response.json();
+  const [response, entitiesResponse] = await Promise.all([
+    fetch('/api/security-analysis', { cache: 'no-store' }),
+    fetch('/api/security-analysis/entities', { cache: 'no-store' }),
+  ]);
+  const [payload, entityDiscovery] = await Promise.all([
+    response.json(), entitiesResponse.json(),
+  ]);
   if (!response.ok) throw new Error(payload.error || 'Unable to load Security Analysis');
+  if (!entitiesResponse.ok) throw new Error(entityDiscovery.error || 'Unable to load observed entities');
   state.securityAnalysis = payload;
+  state.analysisEntityDiscovery = entityDiscovery;
   renderSecurityAnalysis();
 }
 
@@ -131,6 +138,67 @@ async function searchAnalysisEntity(entityType, value) {
   if (!response.ok) throw new Error(payload.error || 'Unable to explore entity');
   state.analysisEntityResult = payload;
   renderAnalysisEntity();
+}
+
+function selectDiscoveredEntity(entity) {
+  const type = document.querySelector('#analysisEntityType');
+  const value = document.querySelector('#analysisEntityValue');
+  if (type) type.value = entity.entity_type;
+  if (value) value.value = entity.display_value;
+  searchAnalysisEntity(entity.entity_type, entity.display_value).catch(showAnalysisError);
+}
+
+function renderAnalysisEntityDiscovery() {
+  const target = document.querySelector('#analysisEntityDiscovery');
+  const discovery = state.analysisEntityDiscovery;
+  if (!target) return;
+  target.replaceChildren();
+  if (!discovery) return;
+  const section = analysisNode('section', undefined, 'analysis-entity-discovery');
+  const head = analysisNode('div', undefined, 'analysis-entity-discovery-head');
+  head.append(
+    analysisNode('div', undefined),
+    analysisNode('span', discovery.mode === 'full'
+      ? 'Current machine + analyst observations'
+      : 'OFFLINE · machine context unavailable', 'muted'),
+  );
+  head.firstChild.append(
+    analysisNode('div', 'Exact normalized values', 'eyebrow'),
+    analysisNode('h3', 'Observed entities'),
+  );
+  section.append(head);
+  if (!discovery.entities.length) {
+    section.append(analysisEmpty(
+      'No authoritative entity values are discoverable',
+      discovery.machine_context_available
+        ? 'Current machine and analyst projections contain no structured entity values.'
+        : 'Machine context is unavailable. Persisted Investigation state does not contain standalone entity values that can be safely reconstructed offline.',
+    ));
+    target.append(section);
+    return;
+  }
+  const groups = analysisNode('div', undefined, 'analysis-entity-groups');
+  const labels = { host: 'Hosts', user: 'Users', ip: 'IP addresses', process: 'Processes' };
+  ['host', 'user', 'ip', 'process'].forEach((entityType) => {
+    const entities = discovery.entities.filter((entity) => entity.entity_type === entityType);
+    if (!entities.length) return;
+    const group = analysisNode('div', undefined, 'analysis-entity-group');
+    group.append(analysisNode('h4', labels[entityType]));
+    entities.forEach((entity) => {
+      const button = analysisNode('button', undefined, 'analysis-entity-option');
+      button.type = 'button';
+      button.append(
+        analysisNode('strong', entity.display_value, 'mono'),
+        analysisNode('span', entity.observation_count + ' observations', 'muted'),
+        analysisNode('span', 'Machine ' + entity.machine_observation_count + ' · Analyst ' + entity.analyst_observation_count, 'analysis-entity-attribution'),
+      );
+      button.addEventListener('click', () => selectDiscoveredEntity(entity));
+      group.append(button);
+    });
+    groups.append(group);
+  });
+  section.append(groups);
+  target.append(section);
 }
 
 function renderAnalysisEntity() {
@@ -309,6 +377,7 @@ function renderSecurityAnalysis() {
   if (!state.securityAnalysis) return;
   renderAnalysisMode();
   renderAnalysisOverview();
+  renderAnalysisEntityDiscovery();
   renderAnalysisEntity();
   renderAnalysisAttack();
   renderAnalysisRelationships();

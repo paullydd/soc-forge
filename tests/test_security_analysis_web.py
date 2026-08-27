@@ -66,6 +66,11 @@ def test_entity_explorer_is_exact_safe_dom_and_has_clean_pivots():
     assert "openInvestigation(investigationId)" in source
     assert "setInvestigationTab('summary')" in source
     assert "setAnalysisTab('hunts')" in source
+    assert "Observed entities" in source
+    assert "selectDiscoveredEntity(entity)" in source
+    assert "searchAnalysisEntity(entity.entity_type, entity.display_value)" in source
+    assert "Machine " in source and "Analyst " in source
+    assert "Persisted Investigation state does not contain standalone entity values" in source
 
 
 def test_offline_api_is_read_only_and_marks_machine_fields_unavailable(tmp_path):
@@ -110,6 +115,28 @@ def test_entity_api_rejects_unsupported_or_empty_queries(tmp_path):
     assert empty == 400
 
 
+def test_entity_discovery_api_is_offline_honest_and_no_store(tmp_path):
+    server = make_server("127.0.0.1", 0, tmp_path / "out")
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, headers, payload = _request(
+            server.server_address, "/api/security-analysis/entities"
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+    assert status == 200
+    assert headers["Cache-Control"] == "no-store"
+    assert payload == {
+        "mode": "offline",
+        "machine_context_available": False,
+        "entities": [],
+    }
+
+
 def test_security_analysis_asset_is_packaged_and_responsive():
     index = (STATIC / "index.html").read_text()
     styles = (STATIC / "styles.css").read_text()
@@ -118,6 +145,7 @@ def test_security_analysis_asset_is_packaged_and_responsive():
     for selector in (
         ".analysis-workspace", ".analysis-tabs", ".analysis-browser",
         ".analysis-timeline-list", ".analysis-context-strip",
+        ".analysis-entity-discovery", ".analysis-entity-groups",
     ):
         assert selector in styles
     assert "overflow-x: auto" in styles

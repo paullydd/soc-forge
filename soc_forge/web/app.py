@@ -1254,6 +1254,11 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 return
             self.send_json(payload, no_store=True)
             return
+        if path == "/api/security-analysis/entities":
+            self.send_json(
+                asdict(self.server.entity_explorer.discover()), no_store=True
+            )
+            return
 
         workspace = load_workspace(self.out_dir)
         if path == "/api/summary":

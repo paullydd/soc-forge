@@ -20,6 +20,7 @@ const state = {
   securityAnalysis: null,
   analysisTab: "overview",
   analysisEntityResult: null,
+  analysisEntityDiscovery: null,
   analysisTechniqueQuery: "",
   analysisTimelineFilters: {},
   reasoningSummary: null,

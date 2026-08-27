@@ -91,6 +91,34 @@ def test_full_machine_observations_counts_related_entities_and_attack(tmp_path):
     assert related[("process", "powershell.exe")] == 2
 
 
+def test_entity_discovery_groups_exact_values_and_preserves_provenance(tmp_path):
+    _repository, service = _service(tmp_path, _analysis())
+
+    result = service.discover()
+
+    assert result.mode == "full"
+    assert result.machine_context_available is True
+    assert {row.entity_type for row in result.entities} == {
+        "host", "user", "ip", "process",
+    }
+    host = next(row for row in result.entities if row.entity_type == "host")
+    assert host.display_value == "WIN-ENDPOINT-01"
+    assert host.normalized_value == "win-endpoint-01"
+    assert host.observation_count == host.machine_observation_count == 2
+    assert host.analyst_observation_count == 0
+
+
+def test_entity_discovery_offline_is_unavailable_not_fabricated_empty(tmp_path):
+    repository, service = _service(tmp_path)
+    repository.save(build_investigation("INV-1"))
+
+    result = service.discover()
+
+    assert result.mode == "offline"
+    assert result.machine_context_available is False
+    assert result.entities == ()
+
+
 def test_exact_search_handles_each_supported_type(tmp_path):
     _repository, service = _service(tmp_path, _analysis())
     for kind, value in (
@@ -153,6 +181,11 @@ def test_selected_evidence_finding_and_action_are_explicit_analyst_observations(
         "event", "evidence", "finding", "response_action"
     }
     assert any(row.origin == "analyst" for row in result.observations)
+    discovery = service.discover()
+    host = next(row for row in discovery.entities if row.entity_type == "host")
+    assert host.machine_observation_count > 0
+    assert host.analyst_observation_count > 0
+    assert host.investigation_ids == ("INV-1",)
 
 
 def test_sensitive_structured_field_is_not_projected(tmp_path, monkeypatch):
