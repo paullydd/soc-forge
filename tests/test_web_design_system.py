@@ -16,7 +16,7 @@ def test_application_shell_has_grouped_implemented_navigation_and_context():
     destinations = re.findall(r'data-view="([a-z]+)"', index)
     assert destinations == [
         "overview", "operations", "investigations", "cases", "detection",
-        "graph", "hunts",
+        "analysis",
     ]
     for destination in destinations:
         assert f'id="{destination}View"' in index

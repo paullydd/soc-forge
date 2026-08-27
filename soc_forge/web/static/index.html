@@ -33,8 +33,7 @@
         </div>
         <div class="nav-group">
           <div class="nav-group-label">Analysis</div>
-          <button class="nav-tab" data-view="graph">Investigation Graph</button>
-          <button class="nav-tab" data-view="hunts">Hunt Findings</button>
+          <button class="nav-tab" data-view="analysis">Security Analysis</button>
         </div>
       </nav>
       <div class="sidebar-block">
@@ -212,13 +211,39 @@
         <section data-detection-panel="health" class="detection-panel" hidden><div id="detectionHealth"></div></section>
       </section>
 
-      <section id="huntsView" class="view">
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Hunt Findings</h2>
+      <section id="analysisView" class="view analysis-workspace">
+        <div class="analysis-header">
+          <div>
+            <div class="eyebrow">Cross-state exploration</div>
+            <h2>Security Analysis Workspace</h2>
+            <p>Explore patterns, entities, observed ATT&amp;CK activity, relationships, chronology, and Hunt projections without changing source state.</p>
           </div>
-          <div id="huntsList"></div>
+          <div id="analysisMode" class="status-indicator"><span aria-hidden="true"></span>Loading</div>
+        </div>
+        <div class="analysis-tabs" role="tablist" aria-label="Security Analysis workspace">
+          <button type="button" role="tab" data-analysis-tab="overview">Overview</button>
+          <button type="button" role="tab" data-analysis-tab="entities">Entities</button>
+          <button type="button" role="tab" data-analysis-tab="attack">ATT&amp;CK</button>
+          <button type="button" role="tab" data-analysis-tab="relationships">Relationships</button>
+          <button type="button" role="tab" data-analysis-tab="timeline">Timeline</button>
+          <button type="button" role="tab" data-analysis-tab="hunts">Hunts</button>
+        </div>
+        <section class="analysis-panel" data-analysis-panel="overview"><div id="analysisOverview"></div></section>
+        <section class="analysis-panel" data-analysis-panel="entities" hidden>
+          <form id="entityExplorerForm" class="analysis-query-bar">
+            <label for="analysisEntityType">Entity type</label>
+            <select id="analysisEntityType"><option value="host">Host</option><option value="user">User</option><option value="ip">IP address</option><option value="process">Process</option></select>
+            <label for="analysisEntityValue">Exact entity</label>
+            <input id="analysisEntityValue" required autocomplete="off" placeholder="Enter an exact value" />
+            <button type="submit" class="primary-button">Explore entity</button>
+          </form>
+          <div id="analysisEntityResult"></div>
         </section>
+        <section class="analysis-panel" data-analysis-panel="attack" hidden><div id="analysisAttack"></div></section>
+        <section class="analysis-panel" data-analysis-panel="relationships" hidden><div id="analysisRelationships"></div></section>
+        <section class="analysis-panel" data-analysis-panel="timeline" hidden><div id="analysisTimeline"></div></section>
+        <section class="analysis-panel" data-analysis-panel="hunts" hidden><div id="analysisHunts"></div></section>
+        <div id="analysisStatus" class="muted evidence-status" role="status"></div>
       </section>
     </main>
   </div>
@@ -230,6 +255,7 @@
   <script src="/static/operations_queue.js"></script>
   <script src="/static/command_center.js"></script>
   <script src="/static/detection_workspace.js"></script>
+  <script src="/static/security_analysis.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

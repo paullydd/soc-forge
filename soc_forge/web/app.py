@@ -5,6 +5,7 @@ import json
 import mimetypes
 import ipaddress
 from collections import Counter
+from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List
@@ -101,6 +102,12 @@ from soc_forge.investigations.workspace_service import (
     InvestigationWorkspaceService,
 )
 from soc_forge.core.investigation_graph import build_investigation_graph, summarize_graph
+from soc_forge.attack_activity import AttackActivityService
+from soc_forge.cross_investigation import CrossInvestigationAnalysisService
+from soc_forge.entity_explorer import EntityExplorerService, EntityObservationService
+from soc_forge.hunt_workspace import HuntWorkspaceService
+from soc_forge.temporal_analysis import TemporalAnalysisService
+from soc_forge.threat_activity import ThreatActivityOverviewService
 from soc_forge.detection_engineering import DetectionEngineeringService
 from soc_forge.pipeline import AnalysisOptions, run_analysis_for_events
 from soc_forge.rules import BUILTIN_RULES_PATH
@@ -1220,6 +1227,34 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             self.send_json(payload, no_store=True)
             return
 
+        if path == "/api/security-analysis":
+            payload = {
+                "overview": asdict(self.server.threat_activity.summarize()),
+                "attack": asdict(self.server.attack_activity.summarize()),
+                "relationships": asdict(
+                    self.server.cross_investigation.summarize()
+                ),
+                "timeline": asdict(self.server.temporal_analysis.analyze()),
+                "hunts": asdict(self.server.hunt_workspace.summarize()),
+            }
+            self.send_json(payload, no_store=True)
+            return
+        if path == "/api/security-analysis/entity":
+            query = parse_qs(parsed.query)
+            entity_type = query.get("type", [""])[0]
+            value = query.get("value", [""])[0]
+            try:
+                payload = asdict(self.server.entity_explorer.search(
+                    entity_type, value
+                ))
+            except (InvalidEntityValueError, UnsupportedEntityTypeError) as exc:
+                self.send_json(
+                    {"error": str(exc)}, status=400, no_store=True
+                )
+                return
+            self.send_json(payload, no_store=True)
+            return
+
         workspace = load_workspace(self.out_dir)
         if path == "/api/summary":
             self.send_json(workspace["summary"])
@@ -1615,6 +1650,29 @@ def make_server(
         analysis_activator=lambda result: setattr(
             server, "active_analysis_result", result
         ),
+    )
+    analysis_provider = lambda: server.active_analysis_result  # type: ignore[attr-defined]
+    server.threat_activity = ThreatActivityOverviewService(  # type: ignore[attr-defined]
+        repository, analysis_provider
+    )
+    server.entity_observations = EntityObservationService(  # type: ignore[attr-defined]
+        repository, analysis_provider
+    )
+    server.entity_explorer = EntityExplorerService(  # type: ignore[attr-defined]
+        server.entity_observations
+    )
+    server.attack_activity = AttackActivityService(  # type: ignore[attr-defined]
+        repository, analysis_provider
+    )
+    server.cross_investigation = CrossInvestigationAnalysisService(  # type: ignore[attr-defined]
+        server.entity_observations, server.attack_activity
+    )
+    server.temporal_analysis = TemporalAnalysisService(  # type: ignore[attr-defined]
+        repository, analysis_provider
+    )
+    server.hunt_workspace = HuntWorkspaceService(  # type: ignore[attr-defined]
+        server.entity_explorer, server.attack_activity,
+        server.temporal_analysis, analysis_provider,
     )
     return server
 

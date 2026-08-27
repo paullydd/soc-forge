@@ -189,3 +189,28 @@ The repeated Top Priority cards and full queue cards were consolidated into:
 4. a persistent detail pane containing the authoritative reason, complete priority basis, work type, owner, timestamps, and source-workflow destination.
 
 Priority and lifecycle remain textual, not color-only. Uncovered Findings retain neutral MEDIUM priority; Finding confidence is never reinterpreted as operational severity. Empty filtered views explicitly distinguish an empty queue projection from an absence of alerts or Investigations. Rendering uses `createElement`, `textContent`, and `replaceChildren`, with no browser persistence.
+
+## Slice 6: Security Analysis Workspace
+
+The fragmented Analysis navigation is consolidated into one **Security Analysis** destination with six contextual subviews: Overview, Entities, ATT&CK, Relationships, Timeline, and Hunts. The former case-scoped Investigation Graph remains an internal guided-demo view rather than a primary Analysis destination; it is not presented as a substitute for cross-state relationship analysis.
+
+### Semantic ownership
+
+Security Analysis is an immutable exploration layer over existing authoritative services. Detection continues to own current alerts, rule explainability, and rule coverage. Investigations continue to own durable state and all Finding, Response Action, evidence, handoff, and lifecycle mutation. Operations continues to own analyst-work prioritization. Security Analysis owns only cross-state pattern, entity, explicit ATT&CK observation, overlap, chronology, and Hunt projections.
+
+### FULL and OFFLINE
+
+FULL means current machine analysis plus durable analyst state. OFFLINE means durable analyst state only and is a valid operating mode, not a failure. Machine alert, case, reconstruction, and existing pipeline Hunt values are labelled **Unavailable** when current machine context is absent; they are never rendered as misleading zeroes. Machine and analyst attribution remains textual throughout the workspace.
+
+### Subview boundaries
+
+- **Overview** uses `ThreatActivityOverviewService` for bounded state, attribution, and recent activity. It introduces no synthetic score.
+- **Entities** uses the four supported `EntityExplorerService` types and exact normalization. There is no fuzzy matching, alias resolution, identity stitching, enrichment, or global-search claim.
+- **ATT&CK** uses `AttackActivityService` and shows explicit observed or recorded mappings. It never imports Detection Coverage or the rule catalog.
+- **Relationships** uses deterministic `CrossInvestigationAnalysisService` IDs and exact shared entities, tactics, and techniques. Shared observations do not establish the same attacker, attack, campaign, or cause; no relationship score is calculated.
+- **Timeline** uses `TemporalAnalysisService` deterministic chronology, its existing Investigation/source/tactic/technique filters, and a separate untimed region. Chronology does not establish causality and remains distinct from an Investigation-specific Timeline or Reconstruction.
+- **Hunts** preserves the difference between current pipeline Hunt findings and ephemeral entity, technique, or Investigation projections. Exploration does not save a Hunt, persist results, or rerun detection.
+
+### Pivots and deferred capabilities
+
+Read-only pivots open the authoritative Investigation Workspace, move explicit entity ATT&CK context into an ephemeral technique Hunt projection, and preserve technical identity without mutation coupling. Deferred capabilities include fuzzy/global search, external enrichment, campaign inference, relationship scoring, saved or scheduled Hunts, query languages, SIEM connectors, background monitoring, entity/time-window Timeline filters, and Detection rule/coverage duplication.

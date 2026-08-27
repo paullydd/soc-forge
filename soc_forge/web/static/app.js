@@ -17,6 +17,11 @@ const state = {
   detectionRuleFilter: "all",
   activeDetectionAlertId: null,
   activeDetectionRuleId: null,
+  securityAnalysis: null,
+  analysisTab: "overview",
+  analysisEntityResult: null,
+  analysisTechniqueQuery: "",
+  analysisTimelineFilters: {},
   reasoningSummary: null,
   reasoningDraft: null,
   activeCaseId: null,
@@ -32,6 +37,7 @@ const viewMetadata = {
   investigations: ['Investigations', 'Review durable analyst workspaces and their current context.'],
   cases: ['Cases', 'Triage generated cases and inspect their evidence and quality.'],
   detection: ['Detection', 'Review machine alerts, deterministic rules, ATT&CK context, and detection health.'],
+  analysis: ['Security Analysis', 'Explore patterns, entities, relationships, observed ATT&CK activity, chronology, and Hunts.'],
   graph: ['Investigation Graph', 'Explore structured entities and relationships in a selected case.'],
   hunts: ['Hunt Findings', 'Review structured hunt projections from the current analysis.'],
 };
@@ -439,7 +445,7 @@ function render() {
   renderGraph();
   renderInvestigations();
   renderDetectionWorkspace();
-  renderHunts();
+  renderSecurityAnalysis();
   if (state.operationsQueue) renderOperationsQueue();
   setView(state.view);
 }
@@ -461,8 +467,12 @@ document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListene
   if (button.dataset.view === 'operations') {
     loadOperationsQueue().catch((error) => alert(error.message));
   }
+  if (button.dataset.view === 'analysis') {
+    loadSecurityAnalysis().catch(showAnalysisError);
+  }
 }));
 bindDetectionWorkspace();
+bindSecurityAnalysis();
 $('#refreshButton').addEventListener('click', () => {
   loadWorkspace().then(() => {
     if (state.view === 'operations') return loadOperationsQueue();
