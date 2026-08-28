@@ -486,17 +486,18 @@ def open_case(case):
 def clear_screen():
     if not sys.stdout.isatty() or os.getenv("TERM", "").lower() == "dumb":
         return
-    os.system("cls" if os.name == "nt" else "clear")
+    # Fixed literal command, no user input reaches the shell here.
+    os.system("cls" if os.name == "nt" else "clear")  # nosec B605
 
 
 def pause():
     input("\nPress Enter to return to the menu...")
 
 
-def run_command(command):
+def run_command(args):
     print("\nRunning command...\n")
     try:
-        subprocess.run(command, shell=True, check=True)
+        subprocess.run(args, check=True)
     except subprocess.CalledProcessError:
         print("\nSomething went wrong while running that command.")
 
@@ -569,11 +570,11 @@ def run_attack_simulation():
     alerts_output = f"out/{scenario}_alerts.json"
     html_output = f"out/{scenario}_report.html"
 
-    generate_command = (
-        f"python -m soc_forge.cli "
-        f"--simulate {scenario} "
-        f"--sim-output {sim_output}"
-    )
+    generate_command = [
+        sys.executable, "-m", "soc_forge.cli",
+        "--simulate", scenario,
+        "--sim-output", sim_output,
+    ]
 
     run_command(generate_command)
 
@@ -606,7 +607,7 @@ def view_mitre_coverage():
     print("MITRE COVERAGE")
     print("-" * 50)
 
-    command = "python -m soc_forge.cli --coverage"
+    command = [sys.executable, "-m", "soc_forge.cli", "--coverage"]
     run_command(command)
     pause()
 
@@ -623,7 +624,7 @@ def run_rules_only():
         pause()
         return
 
-    command = f"python -m soc_forge.cli --input {input_file} --rules-only"
+    command = [sys.executable, "-m", "soc_forge.cli", "--input", input_file, "--rules-only"]
     run_command(command)
     pause()
 

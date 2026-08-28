@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import hmac
 import json
 import mimetypes
 import ipaddress
+import os
 from collections import Counter
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -430,11 +433,51 @@ def run_demo_scenario(scenario: str, out_dir: Path = DEFAULT_OUT_DIR) -> Dict[st
     return ScenarioWorkspace(workspace, result)
 
 
+MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024
+
+
 class SocForgeWebHandler(BaseHTTPRequestHandler):
     out_dir = DEFAULT_OUT_DIR
+    auth_token: str | None = None
 
     def log_message(self, format: str, *args: Any) -> None:
         return
+
+    def is_authorized(self) -> bool:
+        if not self.auth_token:
+            return True
+        header = self.headers.get("Authorization") or ""
+        if not header.startswith("Basic "):
+            return False
+        try:
+            decoded = base64.b64decode(header[len("Basic "):]).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            return False
+        _, _, password = decoded.partition(":")
+        return hmac.compare_digest(password, self.auth_token)
+
+    def require_auth(self) -> bool:
+        if self.is_authorized():
+            return True
+        body = b"Authentication required"
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="SOC-Forge"')
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+        return False
+
+    def send_security_headers(self) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
+        )
 
     def send_json(
         self,
@@ -447,6 +490,7 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.send_security_headers()
         if no_store:
             self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -500,6 +544,23 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             return None
         try:
             length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0:
+            self.send_investigation_error(
+                "invalid_request",
+                "Content-Length header is required and must be a non-negative integer.",
+                400,
+            )
+            return None
+        if length > MAX_REQUEST_BODY_BYTES:
+            self.send_investigation_error(
+                "payload_too_large",
+                "Request body exceeds the maximum allowed size.",
+                413,
+            )
+            return None
+        try:
             raw_body = self.rfile.read(length).decode("utf-8") if length else "{}"
             payload = json.loads(raw_body or "{}")
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -1103,12 +1164,15 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type or mimetypes.guess_type(str(path))[0] or "application/octet-stream")
         self.send_header("Content-Length", str(len(body)))
+        self.send_security_headers()
         if STATIC_DIR in path.resolve().parents or path.resolve() == STATIC_DIR / "index.html":
             self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
     def do_HEAD(self) -> None:
+        if not self.require_auth():
+            return
         parsed = urlparse(self.path)
         if parsed.path in {"/", "/index.html"}:
             self.send_response(200)
@@ -1123,6 +1187,8 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Not found")
 
     def do_POST(self) -> None:
+        if not self.require_auth():
+            return
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
 
@@ -1133,6 +1199,16 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
 
             try:
                 length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = -1
+            if length < 0:
+                self.send_json_error("Content-Length header is required and must be a non-negative integer.", status=400)
+                return
+            if length > MAX_REQUEST_BODY_BYTES:
+                self.send_json_error("Request body exceeds the maximum allowed size.", status=413)
+                return
+
+            try:
                 raw_body = self.rfile.read(length).decode("utf-8") if length else "{}"
                 payload = json.loads(raw_body or "{}")
                 scenario = str(payload.get("scenario") or "")
@@ -1169,6 +1245,8 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Not found")
 
     def do_GET(self) -> None:
+        if not self.require_auth():
+            return
         parsed = urlparse(self.path)
         path = unquote(parsed.path)
 
@@ -1570,6 +1648,8 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Not found")
 
     def do_PUT(self) -> None:
+        if not self.require_auth():
+            return
         path = unquote(urlparse(self.path).path)
         segments = self.investigation_segments(path)
         if segments is None:
@@ -1610,6 +1690,8 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
             self.handle_investigation_error(exc, segments[0])
 
     def do_DELETE(self) -> None:
+        if not self.require_auth():
+            return
         path = unquote(urlparse(self.path).path)
         segments = self.investigation_segments(path)
         if segments is None:
@@ -1664,11 +1746,14 @@ def is_loopback_host(host: str) -> bool:
         return host.lower() == "localhost"
 
 
-def warn_if_non_loopback(host: str) -> None:
+def warn_if_non_loopback(host: str, auth_token: str | None) -> None:
     if is_loopback_host(host):
+        return
+    if auth_token:
         return
     print("WARNING: SOC-Forge web UI has no authentication.")
     print("Binding to a non-loopback host may expose investigation data and generated artifacts.")
+    print("Set SOC_FORGE_WEB_TOKEN or pass --auth-token to require credentials.")
 
 
 def make_server(
@@ -1679,11 +1764,13 @@ def make_server(
     *,
     workspace_clock: Any = None,
     bootstrap_clock: Any = None,
+    auth_token: str | None = None,
 ) -> ThreadingHTTPServer:
     class Handler(SocForgeWebHandler):
         pass
 
     Handler.out_dir = out_dir
+    Handler.auth_token = auth_token
     server = ThreadingHTTPServer((host, port), Handler)
     resolved_workspace_root = resolve_workspace_root(out_dir, workspace_root)
     repository = InvestigationRepository(resolved_workspace_root)
@@ -1753,14 +1840,21 @@ def main() -> int:
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind")
     parser.add_argument("--out-dir", default="out", help="Directory containing SOC-Forge output artifacts")
+    parser.add_argument(
+        "--auth-token",
+        default=os.environ.get("SOC_FORGE_WEB_TOKEN"),
+        help="Shared secret required (as an HTTP Basic Auth password) to access the web UI. "
+        "Defaults to the SOC_FORGE_WEB_TOKEN environment variable.",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir).resolve()
-    warn_if_non_loopback(args.host)
-    server = make_server(args.host, args.port, out_dir)
+    warn_if_non_loopback(args.host, args.auth_token)
+    server = make_server(args.host, args.port, out_dir, auth_token=args.auth_token)
     print(f"SOC-Forge web UI running at http://{args.host}:{args.port}")
     print(f"Reading artifacts from: {out_dir}")
     print(f"Investigation workspaces: {server.workspace_root}")
+    print(f"Authentication: {'enabled' if args.auth_token else 'disabled'}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -108,9 +108,22 @@ Investigation, evidence, reasoning, Finding, Response Action, Handoff, and query
 
 ## Local Safety
 
-The server is local-only by default and binds to `127.0.0.1`. It does not include authentication, users, sessions, cookies, TLS, or role-based access control. If you explicitly bind it to a non-loopback host, SOC-Forge prints a console warning because generated artifacts may expose investigation data.
+The server is local-only by default and binds to `127.0.0.1`. By default it does not include authentication, sessions, cookies, TLS, or role-based access control. If you explicitly bind it to a non-loopback host, SOC-Forge prints a console warning because generated artifacts may expose investigation data, unless you have also configured an auth token (see below).
 
 Generated HTML and JSON artifacts can contain usernames, hosts, IP addresses, command lines, and investigation notes. Review and redact artifacts before sharing them.
+
+### Optional authentication
+
+Set a shared secret to require credentials for every request:
+
+```bash
+python -m soc_forge.web.app --port 8765 --auth-token "$(openssl rand -hex 32)"
+# or
+export SOC_FORGE_WEB_TOKEN="$(openssl rand -hex 32)"
+python -m soc_forge.web.app --port 8765
+```
+
+When a token is set, the server challenges with HTTP Basic Auth (`WWW-Authenticate: Basic`); the browser will prompt for credentials on first access. Any username works — only the password (the token) is checked, using a constant-time comparison. This is plaintext-equivalent HTTP Basic Auth with no TLS, so it is meant to add a barrier on a shared or non-loopback host, not to replace a real reverse proxy with TLS if you expose this beyond your own machine.
 
 
 ### Durable Investigation Evidence

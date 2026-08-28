@@ -1,3 +1,4 @@
+import base64
 import json
 import threading
 from http.client import HTTPConnection
@@ -168,7 +169,7 @@ def test_malformed_json_error_is_generic_but_diagnostic_is_local(web_server, cap
 
 
 def test_non_loopback_warning_is_printed_without_binding_externally(capsys):
-    warn_if_non_loopback("0.0.0.0")
+    warn_if_non_loopback("0.0.0.0", None)
 
     captured = capsys.readouterr()
     assert "no authentication" in captured.out
@@ -176,8 +177,15 @@ def test_non_loopback_warning_is_printed_without_binding_externally(capsys):
 
 
 def test_loopback_warning_is_not_printed(capsys):
-    warn_if_non_loopback("127.0.0.1")
-    warn_if_non_loopback("localhost")
+    warn_if_non_loopback("127.0.0.1", None)
+    warn_if_non_loopback("localhost", None)
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+
+
+def test_non_loopback_warning_is_suppressed_when_auth_token_is_set(capsys):
+    warn_if_non_loopback("0.0.0.0", "some-secret-token")
 
     captured = capsys.readouterr()
     assert captured.out == ""
@@ -228,6 +236,45 @@ def test_empty_api_collections_over_http(web_server):
     assert scorecard["enabled_rule_count"] >= 19
     assert scorecard["correlation_alert_count"] == 0
     assert scorecard["demo_signal_count"] == 0
+
+
+def test_responses_carry_security_headers(web_server):
+    status, headers, _payload = json_request(web_server, "GET", "/api/summary")
+
+    assert status == 200
+    assert headers["X-Content-Type-Options"] == "nosniff"
+    assert headers["X-Frame-Options"] == "DENY"
+    assert "Content-Security-Policy" in headers
+
+
+def test_auth_token_required_when_configured(tmp_path):
+    server = make_server("127.0.0.1", 0, tmp_path, auth_token="s3cret")
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    host, port = server.server_address
+    server_info = {"host": host, "port": port, "out_dir": tmp_path}
+    try:
+        status, headers, _body = request(server_info, "GET", "/api/summary")
+        assert status == 401
+        assert headers["WWW-Authenticate"] == 'Basic realm="SOC-Forge"'
+
+        wrong_credentials = base64.b64encode(b"analyst:wrong").decode("ascii")
+        status, _headers, _body = request(
+            server_info, "GET", "/api/summary",
+            headers={"Authorization": f"Basic {wrong_credentials}"},
+        )
+        assert status == 401
+
+        correct_credentials = base64.b64encode(b"analyst:s3cret").decode("ascii")
+        status, _headers, _payload = json_request(
+            server_info, "GET", "/api/summary",
+            headers={"Authorization": f"Basic {correct_credentials}"},
+        )
+        assert status == 200
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
 
 
 def test_head_requests_return_headers_without_response_body(web_server):

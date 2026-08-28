@@ -67,7 +67,7 @@ def normalize_alerts(alerts: Iterable[Any]) -> List[Dict[str, Any]]:
 
 def build_case_id(correlation_id: str, index: int = 1) -> str:
     if correlation_id and correlation_id != "UNCORRELATED":
-        digest = sha1(correlation_id.encode("utf-8")).hexdigest()[:8].upper()
+        digest = sha1(correlation_id.encode("utf-8"), usedforsecurity=False).hexdigest()[:8].upper()
         return f"CASE-{digest}"
     return f"CASE-{index:03d}"
 

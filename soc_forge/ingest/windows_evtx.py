@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
+from defusedxml.common import DefusedXmlException
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,7 +11,7 @@ from Evtx.Evtx import Evtx
 
 MAX_EVTX_RECORD_XML_CHARS = 16_384
 MAX_MESSAGE_FIELD_CHARS = 512
-PLACEHOLDER_VALUES = {"", "-", "N/A", "n/a", "unknown", "UNKNOWN", "::1", "127.0.0.1", "0.0.0.0", "::"}
+PLACEHOLDER_VALUES = {"", "-", "N/A", "n/a", "unknown", "UNKNOWN", "::1", "127.0.0.1", "0.0.0.0", "::"}  # nosec B104
 
 
 @dataclass(frozen=True)
@@ -164,7 +165,7 @@ def normalize_evtx_record_xml(record: EvtxRecordXml) -> tuple[Dict[str, Any] | N
     diagnostics: List[Dict[str, Any]] = []
     try:
         root = ET.fromstring(record.xml)
-    except ET.ParseError:
+    except (ET.ParseError, DefusedXmlException):
         return None, [_diagnostic("warning", "Malformed EVTX record XML", field="record_xml", row=record.record_number)], True
 
     system = _child(root, "System")

@@ -1,4 +1,5 @@
 import ast
+import sys
 from pathlib import Path
 
 import pytest
@@ -510,9 +511,11 @@ def test_console_simulation_retains_completed_analysis(
     assert analyst_console.get_current_analysis_result() is expected
     assert analyst_console.get_current_analysis_result().cases == expected.cases
     assert commands == [
-        "python -m soc_forge.cli "
-        f"--simulate {scenario} "
-        f"--sim-output out/{scenario}_events.jsonl"
+        [
+            sys.executable, "-m", "soc_forge.cli",
+            "--simulate", scenario,
+            "--sim-output", f"out/{scenario}_events.jsonl",
+        ]
     ]
     assert len(options) == 1
     assert options[0].input_path == Path(f"out/{scenario}_events.jsonl")

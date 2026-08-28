@@ -13,7 +13,7 @@ def _parse_ts(ts: str) -> datetime:
 
 def _cid(*parts: str) -> str:
     raw = "|".join([p for p in parts if p])
-    return sha1(raw.encode("utf-8")).hexdigest()[:12]
+    return sha1(raw.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
 
 
 def _details(alert: Dict[str, Any]) -> Dict[str, Any]:
