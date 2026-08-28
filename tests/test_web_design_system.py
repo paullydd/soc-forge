@@ -11,12 +11,12 @@ def test_application_shell_has_grouped_implemented_navigation_and_context():
     app = (STATIC / "app.js").read_text()
 
     assert 'aria-label="Primary navigation"' in index
-    for group in ("Workspace", "Operations", "Engineering", "Analysis", "Output"):
+    for group in ("Workspace", "Operations", "Engineering", "Analysis", "Information"):
         assert group in index
     destinations = re.findall(r'data-view="([a-z]+)"', index)
     assert destinations == [
         "overview", "operations", "investigations", "cases", "detection",
-        "analysis",
+        "analysis", "reporting", "system",
     ]
     for destination in destinations:
         assert f'id="{destination}View"' in index

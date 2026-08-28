@@ -108,6 +108,13 @@ from soc_forge.entity_explorer import EntityExplorerService, EntityObservationSe
 from soc_forge.hunt_workspace import HuntWorkspaceService
 from soc_forge.temporal_analysis import TemporalAnalysisService
 from soc_forge.threat_activity import ThreatActivityOverviewService
+from soc_forge.reporting import (
+    ExecutiveSummaryService, InvestigationReportService, ReportCenterService,
+)
+from soc_forge.system_workspace import SystemWorkspaceService
+from soc_forge.investigations.operational_summary import OperationalSummaryService
+from soc_forge.investigations.operations_prioritization import OperationsPrioritizationService
+from soc_forge.investigations.operations_queue import OperationsQueueService
 from soc_forge.detection_engineering import DetectionEngineeringService
 from soc_forge.pipeline import AnalysisOptions, run_analysis_for_events
 from soc_forge.rules import BUILTIN_RULES_PATH
@@ -1259,6 +1266,52 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 asdict(self.server.entity_explorer.discover()), no_store=True
             )
             return
+        if path == "/api/reporting":
+            self.send_json({
+                "reports": [asdict(row) for row in self.server.report_center.list_reports()],
+                "investigations": [asdict(row) for row in self.server.investigation_reports.list_investigations()],
+                "executive": asdict(self.server.executive_summary.summarize()),
+                "exports": [
+                    {"filename": name, "available": (self.out_dir / name).is_file()}
+                    for name in (
+                        "report.html", "cases.json", "alerts.json",
+                        "hunts.json", "reconstructions.json",
+                    )
+                ],
+            }, no_store=True)
+            return
+        if path.startswith("/api/reporting/investigations/"):
+            investigation_id = path.removeprefix("/api/reporting/investigations/")
+            if not investigation_id or "/" in investigation_id:
+                self.send_json({"error": "Investigation report not found"}, status=404, no_store=True)
+                return
+            try:
+                payload = asdict(self.server.investigation_reports.build(investigation_id))
+            except InvestigationNotFoundError:
+                self.send_json({"error": "Investigation report not found"}, status=404, no_store=True)
+                return
+            self.send_json(payload, no_store=True)
+            return
+        if path == "/api/system":
+            self.send_json({
+                "status": asdict(self.server.system_workspace.platform_status()),
+                "configuration": asdict(self.server.system_workspace.configuration()),
+                "health": asdict(self.server.system_workspace.rule_asset_health()),
+                "storage": asdict(self.server.system_workspace.storage()),
+                "environment": asdict(self.server.system_workspace.environment()),
+                "about": {
+                    "product": "SOC-Forge",
+                    "description": "Security Operations Platform",
+                    "version": self.server.system_workspace.version,
+                    "capabilities": (
+                        "Detection engineering", "Durable Investigations",
+                        "Operations prioritization", "Security Analysis",
+                        "Reporting and structured Handoff",
+                    ),
+                    "remediation_boundary": "SOC-Forge does not execute remediation.",
+                },
+            }, no_store=True)
+            return
 
         workspace = load_workspace(self.out_dir)
         if path == "/api/summary":
@@ -1678,6 +1731,19 @@ def make_server(
     server.hunt_workspace = HuntWorkspaceService(  # type: ignore[attr-defined]
         server.entity_explorer, server.attack_activity,
         server.temporal_analysis, analysis_provider,
+    )
+    operational = OperationalSummaryService(
+        OperationsPrioritizationService(OperationsQueueService(repository))
+    )
+    server.report_center = ReportCenterService(out_dir)  # type: ignore[attr-defined]
+    server.investigation_reports = InvestigationReportService(  # type: ignore[attr-defined]
+        repository, analysis_provider
+    )
+    server.executive_summary = ExecutiveSummaryService(  # type: ignore[attr-defined]
+        operational, server.threat_activity, server.attack_activity
+    )
+    server.system_workspace = SystemWorkspaceService(  # type: ignore[attr-defined]
+        repository, output_path=out_dir, web_assets_path=STATIC_DIR
     )
     return server
 

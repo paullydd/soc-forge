@@ -214,3 +214,23 @@ FULL means current machine analysis plus durable analyst state. OFFLINE means du
 ### Pivots and deferred capabilities
 
 Read-only pivots open the authoritative Investigation Workspace, move explicit entity ATT&CK context into an ephemeral technique Hunt projection, and preserve technical identity without mutation coupling. Deferred capabilities include fuzzy/global search, external enrichment, campaign inference, relationship scoring, saved or scheduled Hunts, query languages, SIEM connectors, background monitoring, entity/time-window Timeline filters, and Detection rule/coverage duplication.
+
+## Slice 7: Reporting and System Workspaces
+
+The former sidebar Output links are consolidated into one **Reporting** workspace, and the established terminal System projections now have one intentionally read-only **System** workspace. Both are lower-frequency information surfaces and introduce no persistence, polling, mutation, or remote administration.
+
+### Reporting architecture
+
+Reporting uses five contextual views: Overview, Reports, Investigation Report, Executive, and Exports. `ReportCenterService` remains the bounded authority for known existing HTML reports and their real modified timestamps. `InvestigationReportService` projects durable Investigation state without revealing protected evidence values. `ExecutiveSummaryService` deterministically composes the authoritative Operations, Threat Activity, and observed ATT&CK projections; it adds no generated prose or score.
+
+Investigation Report is a presentation view. Investigation Handoff remains the structured operational-transfer artifact owned by Investigations, and Reporting only links analysts back to that workflow. Exports exposes the existing allowlisted HTML and JSON artifacts without transformation. PDF, arbitrary CSV, scheduling, email delivery, document management, mutable report building, and AI-generated summaries remain deferred.
+
+Reporting uses one contextual sensitive-content notice because generated and durable reports can contain usernames, hosts, IP addresses, analyst rationales, Findings, annotations, and case metadata. FULL means current machine analysis plus durable analyst state. OFFLINE means durable analyst state only; machine context is labelled unavailable rather than rendered as zero or failure.
+
+### System architecture
+
+System uses six contextual views: Status, Configuration, Health, Storage, Environment, and About. All data comes from `SystemWorkspaceService`. Platform Status preserves the authoritative `ready`, `degraded`, `unavailable`, and `unknown` states and separates required components from optional Reporting/Web assets. UNKNOWN means the state could not be determined and is never converted into failure.
+
+Configuration is a bounded read-only effective configuration projection with sensitive-key masking. Health reports rule loadability and packaged web/report assets; it does not duplicate Detection Coverage, ATT&CK completeness, or rule effectiveness. Storage inspects only known repository, output, snapshot, and report locations without write probes, repair, directory creation, permission changes, or snapshot mutation. Environment uses the existing Python-native cross-platform projection and does not expose environment variables, secrets, credentials, tokens, or PATH.
+
+About uses the authoritative SOC-Forge version and current **Security Operations Platform** identity and explicitly states that SOC-Forge does not execute remediation. Configuration editing, service control, repository repair, package installation, secret management, live monitoring, remote diagnostics, and environment mutation remain deferred.

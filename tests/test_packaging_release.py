@@ -87,6 +87,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
         "soc_forge/web/static/investigations.js",
         "soc_forge/web/static/operations_queue.js",
         "soc_forge/web/static/query_workbench.js",
+        "soc_forge/web/static/reporting_system.js",
         "soc_forge/web/static/security_analysis.js",
         "soc_forge/web/static/styles.css",
     ]

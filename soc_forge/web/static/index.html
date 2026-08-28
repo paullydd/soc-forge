@@ -35,13 +35,12 @@
           <div class="nav-group-label">Analysis</div>
           <button class="nav-tab" data-view="analysis">Security Analysis</button>
         </div>
+        <div class="nav-group">
+          <div class="nav-group-label">Information</div>
+          <button class="nav-tab" data-view="reporting">Reporting</button>
+          <button class="nav-tab" data-view="system">System</button>
+        </div>
       </nav>
-      <div class="sidebar-block">
-        <div class="sidebar-label">Output</div>
-        <a href="/artifact?file=report.html" target="_blank" rel="noreferrer">Open HTML report</a>
-        <a href="/artifact?file=cases.json" target="_blank" rel="noreferrer">Cases JSON</a>
-        <a href="/artifact?file=alerts.json" target="_blank" rel="noreferrer">Alerts JSON</a>
-      </div>
     </aside>
 
     <main class="main">
@@ -246,6 +245,50 @@
         <section class="analysis-panel" data-analysis-panel="hunts" hidden><div id="analysisHunts"></div></section>
         <div id="analysisStatus" class="muted evidence-status" role="status"></div>
       </section>
+
+      <section id="reportingView" class="view reporting-workspace">
+        <div class="reporting-header">
+          <div><div class="eyebrow">Review and delivery</div><h2>Reporting Workspace</h2><p>Review existing reports, present durable Investigation state, and access supported artifacts.</p></div>
+          <div id="reportingMode" class="status-indicator"><span aria-hidden="true"></span>Loading</div>
+        </div>
+        <div class="reporting-notice"><strong>Sensitive content.</strong><span>Reports may contain usernames, hosts, IP addresses, analyst rationales, Findings, annotations, and case metadata. Review before sharing.</span></div>
+        <div class="reporting-tabs" role="tablist" aria-label="Reporting workspace">
+          <button type="button" role="tab" data-reporting-tab="overview">Overview</button>
+          <button type="button" role="tab" data-reporting-tab="reports">Reports</button>
+          <button type="button" role="tab" data-reporting-tab="investigation">Investigation Report</button>
+          <button type="button" role="tab" data-reporting-tab="executive">Executive</button>
+          <button type="button" role="tab" data-reporting-tab="exports">Exports</button>
+        </div>
+        <section data-reporting-panel="overview"><div id="reportingOverview"></div></section>
+        <section data-reporting-panel="reports" hidden><div id="reportCenter"></div></section>
+        <section data-reporting-panel="investigation" hidden><div id="investigationReport"></div></section>
+        <section data-reporting-panel="executive" hidden><div id="executiveSummary"></div></section>
+        <section data-reporting-panel="exports" hidden><div id="exportCenter"></div></section>
+        <div id="reportingStatus" class="muted evidence-status" role="status"></div>
+      </section>
+
+      <section id="systemView" class="view system-workspace">
+        <div class="system-header">
+          <div><div class="eyebrow">Local platform inspection</div><h2>System Workspace</h2><p>Review current runtime, configuration, packaged assets, storage, and environment state.</p></div>
+          <div id="systemOverallStatus" class="status-indicator"><span aria-hidden="true"></span>Loading</div>
+        </div>
+        <div class="system-boundary"><strong>Read-only local inspection.</strong><span>No configuration editing, service control, repository repair, permission changes, or live monitoring.</span></div>
+        <div class="system-tabs" role="tablist" aria-label="System workspace">
+          <button type="button" role="tab" data-system-tab="status">Status</button>
+          <button type="button" role="tab" data-system-tab="configuration">Configuration</button>
+          <button type="button" role="tab" data-system-tab="health">Health</button>
+          <button type="button" role="tab" data-system-tab="storage">Storage</button>
+          <button type="button" role="tab" data-system-tab="environment">Environment</button>
+          <button type="button" role="tab" data-system-tab="about">About</button>
+        </div>
+        <section data-system-panel="status"><div id="systemStatus"></div></section>
+        <section data-system-panel="configuration" hidden><div id="systemConfiguration"></div></section>
+        <section data-system-panel="health" hidden><div id="systemHealth"></div></section>
+        <section data-system-panel="storage" hidden><div id="systemStorage"></div></section>
+        <section data-system-panel="environment" hidden><div id="systemEnvironment"></div></section>
+        <section data-system-panel="about" hidden><div id="systemAbout"></div></section>
+        <div id="systemMessage" class="muted evidence-status" role="status"></div>
+      </section>
     </main>
   </div>
   <script src="/static/investigations.js"></script>
@@ -257,6 +300,7 @@
   <script src="/static/command_center.js"></script>
   <script src="/static/detection_workspace.js"></script>
   <script src="/static/security_analysis.js"></script>
+  <script src="/static/reporting_system.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

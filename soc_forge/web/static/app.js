@@ -23,6 +23,11 @@ const state = {
   analysisEntityDiscovery: null,
   analysisTechniqueQuery: "",
   analysisTimelineFilters: {},
+  reporting: null,
+  reportingTab: "overview",
+  investigationReport: null,
+  systemWorkspace: null,
+  systemTab: "status",
   reasoningSummary: null,
   reasoningDraft: null,
   activeCaseId: null,
@@ -39,6 +44,8 @@ const viewMetadata = {
   cases: ['Cases', 'Triage generated cases and inspect their evidence and quality.'],
   detection: ['Detection', 'Review machine alerts, deterministic rules, ATT&CK context, and detection health.'],
   analysis: ['Security Analysis', 'Explore patterns, entities, relationships, observed ATT&CK activity, chronology, and Hunts.'],
+  reporting: ['Reporting', 'Review existing reports, durable Investigation presentations, executive context, and supported artifacts.'],
+  system: ['System', 'Inspect local platform, configuration, asset, storage, and environment state.'],
   graph: ['Investigation Graph', 'Explore structured entities and relationships in a selected case.'],
   hunts: ['Hunt Findings', 'Review structured hunt projections from the current analysis.'],
 };
@@ -447,6 +454,8 @@ function render() {
   renderInvestigations();
   renderDetectionWorkspace();
   renderSecurityAnalysis();
+  renderReportingWorkspace();
+  renderSystemWorkspace();
   if (state.operationsQueue) renderOperationsQueue();
   setView(state.view);
 }
@@ -471,9 +480,16 @@ document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListene
   if (button.dataset.view === 'analysis') {
     loadSecurityAnalysis().catch(showAnalysisError);
   }
+  if (button.dataset.view === 'reporting') {
+    loadReportingWorkspace().catch(showReportingError);
+  }
+  if (button.dataset.view === 'system') {
+    loadSystemWorkspace().catch(showSystemError);
+  }
 }));
 bindDetectionWorkspace();
 bindSecurityAnalysis();
+bindReportingSystem();
 $('#refreshButton').addEventListener('click', () => {
   loadWorkspace().then(() => {
     if (state.view === 'operations') return loadOperationsQueue();
