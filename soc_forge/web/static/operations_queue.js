@@ -89,8 +89,8 @@ function renderOperationsDetail(item) {
     operationsFact('Investigation ID', item.investigation_id, 'mono'),
     operationsFact('Work Type', operationsTypeLabel(item)),
     operationsFact('Operational State', item.operational_state.replaceAll('_', ' ')),
-    operationsFact('Created', item.created_at),
-    operationsFact('Updated', item.updated_at),
+    operationsFact('Created', formatUtcTimestamp(item.created_at, 'Unknown')),
+    operationsFact('Updated', formatUtcTimestamp(item.updated_at, 'Unknown')),
   );
 
   const destination = operationsNode('section', undefined, 'operations-destination');
@@ -129,7 +129,7 @@ function renderOperationsRow(item, rank) {
     operationsNode('span', operationsTypeLabel(item), 'operations-row-type'),
     operationsNode('span', item.reason, 'operations-row-reason'),
     operationsNode('span', item.investigation_title + ' · ' + item.investigation_id, 'operations-row-owner'),
-    operationsNode('span', 'Updated ' + item.updated_at, 'operations-row-time'),
+    operationsNode('span', 'Updated ' + formatUtcTimestamp(item.updated_at, 'Unknown'), 'operations-row-time'),
   );
   button.addEventListener('click', () => {
     state.activeOperationsItemId = item.queue_item_id;

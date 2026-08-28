@@ -21,6 +21,10 @@ function infoMetric(label, value) {
   return node;
 }
 
+function infoTime(value, fallback) {
+  return presentationTime(value, fallback || 'Time unavailable');
+}
+
 function infoFacts(entries, className) {
   const list = infoNode('dl', undefined, className || 'information-facts');
   entries.forEach(([label, value]) => {
@@ -56,15 +60,20 @@ function setInformationTab(kind, tab) {
     const active = button.dataset[kind + 'Tab'] === tab;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
+    button.setAttribute('aria-controls', kind + '-panel-' + button.dataset[kind + 'Tab']);
     button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll('[data-' + kind + '-panel]').forEach((panel) => {
+    panel.id = kind + '-panel-' + panel.dataset[kind + 'Panel'];
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', kind + '-tab-' + panel.dataset[kind + 'Panel']);
     panel.hidden = panel.dataset[kind + 'Panel'] !== tab;
   });
 }
 
 function bindInformationTabs(kind) {
   document.querySelectorAll('[data-' + kind + '-tab]').forEach((button) => {
+    button.id = kind + '-tab-' + button.dataset[kind + 'Tab'];
     button.addEventListener('click', () => setInformationTab(kind, button.dataset[kind + 'Tab']));
     button.addEventListener('keydown', (event) => {
       const tabs = [...document.querySelectorAll('[data-' + kind + '-tab]')];
@@ -145,7 +154,7 @@ function renderReportCenter() {
   const list = infoNode('div', undefined, 'information-list');
   reports.forEach((report) => {
     const row = infoNode('article', undefined, 'information-record');
-    row.append(infoNode('div', report.report_type, 'eyebrow'), infoNode('h3', report.filename), infoNode('span', report.modified_at || 'Modified time unavailable', 'muted'), reportLink(report.filename, 'Open report'));
+    row.append(infoNode('div', report.report_type, 'eyebrow'), infoNode('h3', report.filename), infoTime(report.modified_at, 'Modified time unavailable'), reportLink(report.filename, 'Open report'));
     const details = infoNode('details');
     details.append(infoNode('summary', 'Technical details'), infoNode('div', report.path, 'technical-id information-path'));
     row.append(details); list.append(row);
@@ -191,7 +200,7 @@ function renderInvestigationReport() {
   identity.append(infoNode('h3', report.title), infoFacts([
     ['Investigation ID', report.investigation_id], ['Status', infoLabel(report.status)],
     ['Owner', report.owner || 'Unassigned'], ['Revision', report.revision],
-    ['Source mode', report.mode.toUpperCase()], ['Updated', report.updated_at],
+    ['Source mode', report.mode.toUpperCase()], ['Updated', formatUtcTimestamp(report.updated_at, 'Unknown')],
   ]));
   const assessment = infoNode('section', undefined, 'panel information-section');
   assessment.append(infoNode('h3', 'Analyst assessment'));

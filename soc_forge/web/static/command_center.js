@@ -79,7 +79,7 @@ function renderCommandAttention() {
       identity,
       commandNode('div', item.investigation_title, 'attention-title'),
       commandNode('p', reason || 'Authoritative Operations Queue attention item.', 'attention-reason'),
-      commandNode('div', 'Updated ' + (item.updated_at || 'Unknown'), 'technical-id muted'),
+      commandNode('div', 'Updated ' + formatUtcTimestamp(item.updated_at, 'Unknown'), 'technical-id muted'),
       open,
     );
     target.append(row);
@@ -133,7 +133,7 @@ function renderCommandRecentActivity() {
       commandNode('span', item.kind, 'activity-kind'),
       commandNode('strong', item.id, 'technical-id'),
       commandNode('span', item.description, 'activity-description'),
-      commandNode('time', item.timestamp || 'Timestamp unavailable', 'technical-id muted'),
+      presentationTime(item.timestamp, 'Timestamp unavailable'),
     );
     row.addEventListener('click', () => {
       if (item.investigationId) {

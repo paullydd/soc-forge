@@ -49,9 +49,13 @@ function setAnalysisTab(tab) {
     const active = button.dataset.analysisTab === tab;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
+    button.setAttribute('aria-controls', 'analysis-panel-' + button.dataset.analysisTab);
     button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll('[data-analysis-panel]').forEach((panel) => {
+    panel.id = 'analysis-panel-' + panel.dataset.analysisPanel;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', 'analysis-tab-' + panel.dataset.analysisPanel);
     panel.hidden = panel.dataset.analysisPanel !== tab;
   });
 }
@@ -393,6 +397,7 @@ function showAnalysisError(error) {
 
 function bindSecurityAnalysis() {
   document.querySelectorAll('[data-analysis-tab]').forEach((button) => {
+    button.id = 'analysis-tab-' + button.dataset.analysisTab;
     button.addEventListener('click', () => setAnalysisTab(button.dataset.analysisTab));
     button.addEventListener('keydown', (event) => {
       const tabs = [...document.querySelectorAll('[data-analysis-tab]')];

@@ -62,6 +62,27 @@ const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
 const asArray = (value) => Array.isArray(value) ? value : [];
 
+function formatUtcTimestamp(value, fallback = 'Timestamp unavailable') {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const hour = String(parsed.getUTCHours()).padStart(2, '0');
+  const minute = String(parsed.getUTCMinutes()).padStart(2, '0');
+  return `${months[parsed.getUTCMonth()]} ${parsed.getUTCDate()}, ${parsed.getUTCFullYear()} · ${hour}:${minute} UTC`;
+}
+
+function presentationTime(value, fallback) {
+  const node = document.createElement('time');
+  node.className = 'technical-id muted';
+  node.textContent = formatUtcTimestamp(value, fallback);
+  if (value) {
+    node.dateTime = String(value);
+    node.title = String(value);
+  }
+  return node;
+}
+
 function severityClass(value) { return String(value || "low").toLowerCase(); }
 function caseRisk(caseItem) { return Number(caseItem.risk_score || caseItem.risk || 0); }
 function qualityScore(caseItem) { return Number((caseItem.case_quality || {}).quality_score || 0); }
@@ -466,6 +487,14 @@ if (sidebarToggle) sidebarToggle.addEventListener('click', () => {
   const open = !sidebar?.classList.contains('open');
   sidebar?.classList.toggle('open', open);
   sidebarToggle.setAttribute('aria-expanded', String(open));
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  const sidebar = $('#appSidebar');
+  if (!sidebar?.classList.contains('open')) return;
+  sidebar.classList.remove('open');
+  sidebarToggle?.setAttribute('aria-expanded', 'false');
+  sidebarToggle?.focus();
 });
 document.querySelectorAll('.nav-tab').forEach((button) => button.addEventListener('click', () => {
   setView(button.dataset.view);

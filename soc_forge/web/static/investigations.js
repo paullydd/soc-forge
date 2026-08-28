@@ -128,15 +128,20 @@ function setInvestigationTab(tab) {
     const active = button.dataset.investigationTab === selected;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
+    button.setAttribute('aria-controls', 'investigation-panel-' + button.dataset.investigationTab);
     button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll('[data-investigation-tab-panel]').forEach((panel) => {
+    panel.id = 'investigation-panel-' + panel.dataset.investigationTabPanel;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', 'investigation-tab-' + panel.dataset.investigationTabPanel);
     panel.hidden = panel.dataset.investigationTabPanel !== selected;
   });
 }
 
 function bindInvestigationTabs() {
   document.querySelectorAll('[data-investigation-tab]').forEach((button) => {
+    button.id = 'investigation-tab-' + button.dataset.investigationTab;
     button.addEventListener('click', () => setInvestigationTab(button.dataset.investigationTab));
     button.addEventListener('keydown', (event) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -167,7 +172,7 @@ function renderInvestigations() {
           <span class="pill">${escapeHtml(summary.owner || 'Unassigned')}</span>
           <span class="pill mono">Revision ${escapeHtml(summary.revision)}</span>
         </div>
-        <div class="mono muted compact-time">${escapeHtml(summary.updated_at)}</div>
+        <div class="mono muted compact-time" title="${escapeHtml(summary.updated_at)}">${escapeHtml(formatUtcTimestamp(summary.updated_at, 'Unknown'))}</div>
       </button>`).join('')
     : '<div class="empty-state">No durable investigations yet. Open a case to create one.</div>';
   document.querySelectorAll('[data-investigation-id]').forEach((button) => {
@@ -204,8 +209,8 @@ function renderInvestigations() {
           <button id="deleteInvestigationButton" class="danger-button" type="button">Delete Workspace</button>
         </div>
         <div class="investigation-header-meta">
-          <span>Created <strong class="technical-id">${escapeHtml(metadata.created_at)}</strong></span>
-          <span>Updated <strong class="technical-id">${escapeHtml(metadata.updated_at)}</strong></span>
+          <span>Created <strong class="technical-id" title="${escapeHtml(metadata.created_at)}">${escapeHtml(formatUtcTimestamp(metadata.created_at, 'Unknown'))}</strong></span>
+          <span>Updated <strong class="technical-id" title="${escapeHtml(metadata.updated_at)}">${escapeHtml(formatUtcTimestamp(metadata.updated_at, 'Unknown'))}</strong></span>
         </div>
       </header>
       <div class="investigation-tabs" role="tablist" aria-label="Investigation workspace">

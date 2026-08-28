@@ -234,3 +234,13 @@ System uses six contextual views: Status, Configuration, Health, Storage, Enviro
 Configuration is a bounded read-only effective configuration projection with sensitive-key masking. Health reports rule loadability and packaged web/report assets; it does not duplicate Detection Coverage, ATT&CK completeness, or rule effectiveness. Storage inspects only known repository, output, snapshot, and report locations without write probes, repair, directory creation, permission changes, or snapshot mutation. Environment uses the existing Python-native cross-platform projection and does not expose environment variables, secrets, credentials, tokens, or PATH.
 
 About uses the authoritative SOC-Forge version and current **Security Operations Platform** identity and explicitly states that SOC-Forge does not execute remediation. Configuration editing, service control, repository repair, package installation, secret management, live monitoring, remote diagnostics, and environment mutation remain deferred.
+
+## Slice 8: Cross-Workspace Release Polish
+
+All primary web workspaces now share one compact hierarchy for workspace headers, tabs, metrics, panels, state notices, lists, and technical disclosures. Analyst-readable UTC timestamps are used for summary metadata while exact serialized UTC values remain available through semantic time metadata or technical detail; forensic timelines retain their precision.
+
+The interface remains desktop-first and reflows at narrower widths: navigation becomes dismissible, tab rows scroll deliberately, metric groups collapse without joining labels and values, list/detail surfaces stack, controls stay reachable, and long identifiers or analyst text wrap safely. Tabs expose selected state, keyboard traversal, and explicit control/panel relationships; status updates are announced where useful and visible focus treatment is consistent.
+
+State wording preserves product semantics across workspaces. **UNKNOWN** is not failure, **OFFLINE** is valid durable analyst state, and unavailable machine context is not converted to zero activity. Observed ATT&CK activity remains distinct from Detection Coverage. Analyst-readable summaries precede collapsed technical paths and supporting metadata, while ownership, provenance, severity, priority, and evidence remain visible.
+
+Presentation changes do not move authority. Investigations retain durable mutation workflows; Operations, Security Analysis, Reporting, and System remain read-only projections within their documented boundaries. SOC-Forge continues not to execute remediation, orchestrate endpoint changes, infer campaign identity, or treat chronology as causality.

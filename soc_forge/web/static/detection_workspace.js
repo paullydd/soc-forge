@@ -125,15 +125,20 @@ function setDetectionTab(tab) {
     const active = button.dataset.detectionTab === state.detectionTab;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
+    button.setAttribute('aria-controls', 'detection-panel-' + button.dataset.detectionTab);
     button.tabIndex = active ? 0 : -1;
   });
   document.querySelectorAll('[data-detection-panel]').forEach((panel) => {
+    panel.id = 'detection-panel-' + panel.dataset.detectionPanel;
+    panel.setAttribute('role', 'tabpanel');
+    panel.setAttribute('aria-labelledby', 'detection-tab-' + panel.dataset.detectionPanel);
     panel.hidden = panel.dataset.detectionPanel !== state.detectionTab;
   });
 }
 
 function bindDetectionWorkspace() {
   document.querySelectorAll('[data-detection-tab]').forEach((button) => {
+    button.id = 'detection-tab-' + button.dataset.detectionTab;
     button.addEventListener('click', () => setDetectionTab(button.dataset.detectionTab));
     button.addEventListener('keydown', (event) => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -196,7 +201,7 @@ function renderDetectionOverview() {
     row.append(
       head,
       detectionNode('strong', alert.title || 'Untitled alert'),
-      detectionNode('span', alert.timestamp || 'Unknown time', 'technical-id'),
+      presentationTime(alert.timestamp, 'Unknown time'),
     );
     priorityList.appendChild(row);
   });
@@ -372,7 +377,7 @@ function renderDetectionAlerts() {
     row.setAttribute('aria-pressed', String(key === state.activeDetectionAlertId));
     const head = detectionNode('div', null, 'detection-record-head');
     head.append(detectionBadge(alert.severity), detectionNode('span', alert.rule_id || 'Unknown rule', 'technical-id'));
-    row.append(head, detectionNode('strong', alert.title || 'Untitled alert'), detectionNode('span', alert.timestamp || 'Unknown time', 'technical-id'));
+    row.append(head, detectionNode('strong', alert.title || 'Untitled alert'), presentationTime(alert.timestamp, 'Unknown time'));
     const context = alertContextRows(alert).slice(0, 3).map(([keyName, value]) => `${keyName.replaceAll('_', ' ')}: ${value}`).join(' · ');
     if (context) row.appendChild(detectionNode('span', context, 'muted'));
     list.appendChild(row);
@@ -431,7 +436,7 @@ function renderRuleDetail(rule, count) {
     const list = detectionNode('div', null, 'detection-compact-list');
     related.slice(0, 10).forEach(({ alert, key }) => {
       const row = detectionButton('', () => openDetectionAlert(key), 'detection-compact-row');
-      row.append(detectionNode('span', alert.timestamp || 'Unknown time', 'technical-id'), detectionNode('strong', alert.title || rule.title));
+      row.append(presentationTime(alert.timestamp, 'Unknown time'), detectionNode('strong', alert.title || rule.title));
       list.appendChild(row);
     });
     detail.appendChild(list);

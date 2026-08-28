@@ -194,7 +194,7 @@
             <h2>Detection Workspace</h2>
             <p>Review current alerts and the deterministic rules that produced them.</p>
           </div>
-          <div id="detectionAnalysisStatus" class="status-indicator status-available"><span aria-hidden="true"></span>Current analysis</div>
+          <div id="detectionAnalysisStatus" class="status-indicator status-available" role="status" aria-live="polite"><span aria-hidden="true"></span>Current analysis</div>
         </div>
         <div class="detection-tabs" role="tablist" aria-label="Detection workspace">
           <button type="button" role="tab" data-detection-tab="overview">Overview</button>
@@ -217,7 +217,7 @@
             <h2>Security Analysis Workspace</h2>
             <p>Explore patterns, entities, observed ATT&amp;CK activity, relationships, chronology, and Hunt projections without changing source state.</p>
           </div>
-          <div id="analysisMode" class="status-indicator"><span aria-hidden="true"></span>Loading</div>
+          <div id="analysisMode" class="status-indicator" role="status" aria-live="polite"><span aria-hidden="true"></span>Loading</div>
         </div>
         <div class="analysis-tabs" role="tablist" aria-label="Security Analysis workspace">
           <button type="button" role="tab" data-analysis-tab="overview">Overview</button>
@@ -249,7 +249,7 @@
       <section id="reportingView" class="view reporting-workspace">
         <div class="reporting-header">
           <div><div class="eyebrow">Review and delivery</div><h2>Reporting Workspace</h2><p>Review existing reports, present durable Investigation state, and access supported artifacts.</p></div>
-          <div id="reportingMode" class="status-indicator"><span aria-hidden="true"></span>Loading</div>
+          <div id="reportingMode" class="status-indicator" role="status" aria-live="polite"><span aria-hidden="true"></span>Loading</div>
         </div>
         <div class="reporting-notice"><strong>Sensitive content.</strong><span>Reports may contain usernames, hosts, IP addresses, analyst rationales, Findings, annotations, and case metadata. Review before sharing.</span></div>
         <div class="reporting-tabs" role="tablist" aria-label="Reporting workspace">
@@ -270,7 +270,7 @@
       <section id="systemView" class="view system-workspace">
         <div class="system-header">
           <div><div class="eyebrow">Local platform inspection</div><h2>System Workspace</h2><p>Review current runtime, configuration, packaged assets, storage, and environment state.</p></div>
-          <div id="systemOverallStatus" class="status-indicator"><span aria-hidden="true"></span>Loading</div>
+          <div id="systemOverallStatus" class="status-indicator" role="status" aria-live="polite"><span aria-hidden="true"></span>Loading</div>
         </div>
         <div class="system-boundary"><strong>Read-only local inspection.</strong><span>No configuration editing, service control, repository repair, permission changes, or live monitoring.</span></div>
         <div class="system-tabs" role="tablist" aria-label="System workspace">
