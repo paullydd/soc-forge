@@ -1,6 +1,6 @@
 # Analyst Operations Queue
 
-See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+See the [v3.6 product walkthrough](walkthrough.md) for the current end-to-end interface tour.
 
 The Analyst Operations Queue is a deterministic, read-only projection across durable Investigations. It answers which existing analyst work needs attention without creating a second authoritative store.
 

@@ -1,6 +1,6 @@
 # Response Actions
 
-See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+See the [v3.6 product walkthrough](walkthrough.md) for the current end-to-end interface tour.
 
 Response Actions are records of analyst-controlled response work. Creating, approving, advancing, completing, or dismissing an Action records workflow state only; **SOC-Forge does not execute remediation**.
 

@@ -2,8 +2,6 @@
 
 SOC-Forge is an analyst-first security operations platform for detection engineering, investigation, cross-investigation analysis, response-work tracking, and structured handoff and reporting. It combines deterministic telemetry analysis with durable analyst state in a terminal console and supported local web workflows.
 
-![SOC-Forge v3.5 startup readiness](docs/screenshots/v3.5/01-startup-screen.png)
-
 ## What SOC-Forge Does
 
 ```text
@@ -23,69 +21,39 @@ Telemetry -> Rules and detections -> Alerts and cases -> Investigation
 
 ### Command Center
 
-![Command Center with platform and operations summaries](docs/screenshots/v3.5/02-command-center.png)
-
 The Command Center summarizes current analysis and durable operational attention while keeping navigation grouped by workflow owner.
 
 ### Detection Engineering
 
-![Detection Overview showing ruleset and recent detection state](docs/screenshots/v3.5/04-detection-overview.png)
-
 Rule Explainability translates configured logic, fields, aggregation, modifiers, ATT&CK mappings, and output into analyst-readable form.
 
-![Rule Explainability for the password-spray rule](docs/screenshots/v3.5/07-rule-explainability-password-spray.png)
-
 Coverage describes explicit mappings in the loaded ruleset; it is not a claim of complete security visibility or effectiveness.
-
-![Attack Chain Detection Lab result](docs/screenshots/v3.5/14-attack-chain-detection-result.png)
 
 The Detection Lab runs controlled synthetic scenarios through the normal detection pipeline and links triggered rules to their explanations.
 
 ### Investigations
 
-![Offline Investigation Summary preserving durable analyst state](docs/screenshots/v3.5/20-investigation-summary.png)
-
 Investigation workspaces keep analyst reasoning durable even when matching machine analysis is unavailable. Findings are analyst-authored conclusions, not machine certainty.
-
-![Analyst-authored Finding detail](docs/screenshots/v3.5/24-analyst-findings.png)
-
-![Completed Response Action with lifecycle history](docs/screenshots/v3.5/25-response-details.png)
 
 Response Actions record analyst-controlled response work. SOC-Forge does not execute remediation.
 
 ### Security Analysis
 
-![Cross-Investigation Analysis showing shared observations](docs/screenshots/v3.5/30-cross-investigation-analysis.png)
-
 Overlap does not establish the same attacker, campaign, or cause. Temporal views order activity without inferring causality.
 
-![Chronological analyst activity](docs/screenshots/v3.5/31-chronological-activity.png)
-
 ### Analyst Operations
-
-![Deterministic Operations Queue](docs/screenshots/v3.5/33-operations-queue.png)
 
 The queue is a read-only projection of authoritative Investigation state. Membership, order, and reasons are deterministic and explainable; there is no opaque score or queue-owned mutation.
 
 ### Reporting and Platform Health
 
-![Executive Summary](docs/screenshots/v3.5/38-executive-summary.png)
-
 Investigation Reports are human-readable projections; Handoffs are structured, validated durable transfers.
-
-![Read-only Platform Status](docs/screenshots/v3.5/40-platform-status.png)
 
 UNKNOWN means a safe read-only check could not establish a fact; it is not automatically a failure.
 
 ### Web Interface
 
-![Local web Command Center](docs/screenshots/v3.5/45-web-command-center.png)
-
-The local web interface supports dashboard and Investigation workflows, including safe Finding, Response Action, and Operations Queue views. Terminal-only areas remain in the analyst console.
-
-![Web Operations Queue](docs/screenshots/v3.5/49-web-operations-queue.png)
-
-See the [complete v3.5 visual walkthrough](docs/walkthrough.md) for the full terminal and web tour.
+The v3.6 local web interface provides Command Center, Operations, Investigations, Cases, Detection, Security Analysis, Reporting, and System workspaces in one grouped application shell. See the [current product walkthrough](docs/walkthrough.md). Historical v3.5 captures remain available in the [screenshot index](docs/screenshots/README.md) and are not presented as current v3.6 web imagery.
 
 ## Core Capabilities
 
@@ -97,7 +65,7 @@ See the [complete v3.5 visual walkthrough](docs/walkthrough.md) for the full ter
 | Operations | Deterministic priority queue derived from durable Investigation state |
 | Reporting | Report Center, Investigation Report, Executive Summary, validated Handoff |
 | System | Read-only runtime, configuration, storage, environment, and asset inspection |
-| Interfaces | Terminal console plus supported local web Investigation and operations workflows |
+| Interfaces | Terminal console plus consolidated local web analyst workspaces |
 
 ## Design Principles
 
@@ -162,4 +130,4 @@ pytest --collect-only -q
 pytest -q
 ```
 
-Current release: **v3.5.0**. SOC-Forge is a local portfolio and analyst workflow platform, not a production monitoring service, hosted SIEM, or remediation engine.
+Current release: **v3.6.0**. SOC-Forge is a local portfolio and analyst workflow platform, not a production monitoring service, hosted SIEM, or remediation engine.

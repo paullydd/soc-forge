@@ -1,5 +1,41 @@
 # Release Notes
 
+## v3.6.0
+
+**Theme:** One coherent, accessible analyst web application across the established SOC-Forge workspaces.
+
+### Shared Web Experience
+
+- Reorganized the local web interface around one grouped application shell and shared dark analyst-console design system.
+- Redesigned the Command Center to prioritize authoritative operational attention, recent attributed activity, and bounded supporting security context.
+- Added consistent workspace hierarchy, tab behavior, focus treatment, metric presentation, analyst-readable UTC metadata, and desktop-first responsive layouts.
+
+### Investigation, Detection, and Operations
+
+- Consolidated the Investigation Workspace into Summary, Findings, Evidence, Timeline, Response, and Handoff tabs while preserving revisioned durable state and existing mutation boundaries.
+- Consolidated alerts, deterministic rules, observed ATT&CK activity, coverage context, and health into one Detection Workspace without claiming complete ATT&CK coverage.
+- Redesigned Operations as a read-only list/detail prioritization surface over authoritative Findings and Response Actions; it does not add queue-owned state or SOAR behavior.
+
+### Security Analysis
+
+- Added one Security Analysis Workspace for overview, exact entity exploration, observed ATT&CK activity, deterministic relationships, chronology, and Hunt projections.
+- Made authoritative host, user, IP address, and process values discoverable while retaining the existing exact-match exploration semantics and explicit machine/analyst provenance.
+- Preserved the boundaries that chronology is not causality and shared observations do not establish attacker or campaign identity.
+
+### Reporting and System
+
+- Added a Reporting Workspace for existing reports, durable Investigation Reports, deterministic executive context, and supported artifacts.
+- Kept Reporting distinct from the structured, validated Investigation Handoff owned by Investigations.
+- Added a read-only System Workspace for platform status, bounded configuration, asset health, known storage, environment, and release identity.
+
+### State, Safety, and Validation
+
+- OFFLINE remains a valid durable analyst state; unavailable machine context is not converted to zero activity.
+- UNKNOWN means a safe read-only check could not determine a fact and is not treated as failure.
+- Response Actions remain analyst-controlled workflow records. SOC-Forge does not execute remediation, provide live monitoring, integrate a SIEM, or generate AI conclusions.
+- Refreshed current walkthrough and release documentation for the consolidated v3.6 navigation. Historical v3.5 screenshots remain archived; current v3.6 web capture is tracked as a manual documentation follow-up where reliable browser capture is unavailable.
+- The release-preparation suite contains 1,449 tests before metadata and documentation updates, including exact packaged web-asset, rule-count, and isolated-wheel validation.
+
 ## v3.5.0
 
 **Theme:** Deterministic analyst workspaces for detection engineering, security analysis, operations, reporting, and local platform inspection.

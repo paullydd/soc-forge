@@ -1,6 +1,6 @@
 # Security Analysis
 
-See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+See the [v3.6 product walkthrough](walkthrough.md) for the current end-to-end interface tour.
 
 Security Analysis describes patterns and activity across SOC-Forge data.
 Detection owns what can fire and what fired; Investigations own what evidence

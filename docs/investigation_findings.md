@@ -1,6 +1,6 @@
 # Investigation Findings
 
-See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+See the [v3.6 product walkthrough](walkthrough.md) for the current end-to-end interface tour.
 
 ![Investigation Findings workspace separating analyst-authored conclusions from machine certainty](screenshots/v3.5/24-analyst-findings.png)
 

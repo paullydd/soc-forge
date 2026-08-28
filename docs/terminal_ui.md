@@ -1,6 +1,6 @@
 # Terminal UI Foundation
 
-See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+See the [v3.6 product walkthrough](walkthrough.md) for the current end-to-end interface tour. The versioned v3.5 images below are retained as historical terminal captures.
 
 ## Visual Tour
 

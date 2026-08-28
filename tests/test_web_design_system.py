@@ -82,7 +82,7 @@ def test_semantic_statuses_keep_text_labels_and_no_external_assets():
     index = (STATIC / "index.html").read_text()
     styles = (STATIC / "styles.css").read_text()
     assert "Local" in index
-    assert "v3.5.0" in index
+    assert "v3.6.0" in index
     assert "http://" not in index
     assert "https://" not in index
     for label in ("critical", "high", "medium", "low"):

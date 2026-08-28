@@ -1,6 +1,6 @@
 # Console Architecture
 
-SOC-Forge v3.5 keeps the top-level analyst console stable while assigning each area a distinct product responsibility.
+SOC-Forge v3.6 keeps the top-level analyst console stable while assigning each area a distinct product responsibility.
 
 ## Top-level ownership
 

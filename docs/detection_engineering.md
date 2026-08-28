@@ -1,6 +1,6 @@
 # Detection Engineering
 
-See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+See the [v3.6 product walkthrough](walkthrough.md) for the current end-to-end interface tour.
 
 SOC-Forge now includes a small detection engineering workflow around its YAML rules.
 

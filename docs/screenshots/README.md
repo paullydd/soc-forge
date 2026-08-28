@@ -1,6 +1,14 @@
 # SOC-Forge Screenshots
 
-The versioned v3.5 set supports the [README](../../README.md), the [complete visual walkthrough](../walkthrough.md), and focused workflow documentation. The source supplied as “50 screenshots” contains **51 valid, distinct PNG files** because `16.1-alert-explorer-view-alerts.png` is an additional capture. Numbering gaps are intentional; no missing image is inferred.
+## v3.6 Capture Status
+
+The current [v3.6 product walkthrough](../walkthrough.md) intentionally uses no screenshots because reliable browser capture is unavailable in the WSL release-preparation environment. Do not reuse the historical v3.5 web captures as if they showed the redesigned v3.6 shell.
+
+The manual v3.6 capture backlog is: Command Center; Cases list/detail; Operations queue/detail; Investigation Summary, Findings, Evidence, Response, and Handoff; Detection Overview, Alerts, Rules/explainability, ATT&CK, and Health; Security Analysis Overview, exact entity discovery, Relationships, Timeline, and Hunts; Reporting Overview, Reports, Investigation Report, Executive Summary, and Exports; System Status, Configuration, Health, Storage, Environment, and About; one narrow-width view; and one visible keyboard-focus/tab state.
+
+Capture these into a future `docs/screenshots/v3.6/` set, verify each image against the release commit, then add explicit references to the walkthrough. Historical assets below remain unchanged.
+
+The versioned v3.5 set is the historical visual record for the v3.5 release and remains referenced by focused historical workflow documentation. The source supplied as “50 screenshots” contains **51 valid, distinct PNG files** because `16.1-alert-explorer-view-alerts.png` is an additional capture. Numbering gaps are intentional; no missing image is inferred.
 
 ## v3.5 Asset Inventory
 
@@ -58,8 +66,8 @@ The versioned v3.5 set supports the [README](../../README.md), the [complete vis
 | 49 | `49-web-operations-queue.png` | Web | Operations Queue |
 | 50 | `50-web-undercover-finding.png` | Web | Queue-to-Finding navigation |
 
-All 51 files are stored unchanged in `docs/screenshots/v3.5/`. The walkthrough uses 50: screenshot 46 is a valid historical manual-validation capture but displays a superseded “Investigation not found” defect, so it is deliberately excluded from the current product narrative.
+All 51 files are stored unchanged in `docs/screenshots/v3.5/`. Screenshot 46 is a valid historical manual-validation capture but displays a superseded “Investigation not found” defect.
 
 ## Legacy Assets
 
-Unversioned screenshots remain available for historical and specialized documentation. New v3.5 presentation pages should prefer the versioned set where the current interface is represented accurately.
+Unversioned screenshots remain available for historical and specialized documentation. Current v3.6 presentation pages must use only verified v3.6 captures.

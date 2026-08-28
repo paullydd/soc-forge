@@ -1,6 +1,6 @@
 # Investigation Summary
 
-See the [v3.5 visual walkthrough](walkthrough.md) for the current end-to-end interface tour.
+See the [v3.6 product walkthrough](walkthrough.md) for the current end-to-end interface tour.
 
 ![Offline Investigation Summary preserving analyst assessment while source-derived context is unavailable](screenshots/v3.5/20-investigation-summary.png)
 

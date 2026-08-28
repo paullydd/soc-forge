@@ -49,31 +49,32 @@ The switcher refreshes `out/alerts.json`, `out/cases.json`, `out/hunts.json`, `o
 
 ## Guided Demo
 
-Use `Start Demo` to run the selected scenario and step through the current portfolio path:
+Open the collapsed **Demo / Lab controls** on the Command Center and use `Start Guided Demo` to run the selected scenario through the current portfolio path:
 
-- Generate scenario artifacts
-- Review the dashboard
-- Open the highest-risk case
-- Review the investigation graph
-- Review the Detection Engineering Scorecard
-- Open the HTML incident report
+- Generate authoritative scenario artifacts
+- Review Command Center workload and attention
+- Open the selected Case
+- Review its bounded relationship graph
+- Review Detection Health inside the consolidated Detection Workspace
+- Open the existing HTML report
 
 ## What It Shows
 
-- Overview metrics for cases, alerts, correlations, hunts, and case quality
-- Highest-risk case summary
-- Rule activity and MITRE tactic counts
+- Command Center workload, Top Attention, recent activity, and supporting security context
+- Grouped navigation for Operations, Investigations, Cases, Detection, Security Analysis, Reporting, and System
 - Case browser with sorting and search
 - Case quality brief, findings, containment guidance, evidence, and timeline
 - Investigation graph with primary path highlighting, entity nodes, relationship confidence, severity styling, and evidence summaries
-- Detection engineering scorecard with quality, MITRE coverage, evidence context, correlation depth, and demo readiness
-- Alert table
-- Hunt finding review
-- Durable investigation summary with explicit machine-derived and analyst-authored attribution
-- Durable investigation evidence browsing, provenance review, and analyst selection management
-- Links to generated HTML and JSON artifacts
+- Detection Overview, Alerts, Rules, explicit ATT&CK coverage/activity separation, and Health
+- Durable Investigation Summary, Findings, Evidence, Timeline, Response, and Handoff tabs
+- Security Analysis Overview, exact entity discovery, ATT&CK observations, Relationships, Timeline, and Hunts
+- Read-only Operations prioritization with authoritative Investigation destinations
+- Reporting views for reports, Investigation presentations, executive context, and supported artifacts
+- Read-only System status, configuration, health, storage, environment, and release identity
 
-## API Endpoints
+FULL combines current machine analysis with durable analyst state. OFFLINE is valid durable analyst state, not failure. UNKNOWN means a safe read-only check could not determine a fact. Response Actions record analyst-controlled work and do not execute remediation.
+
+## Core API Endpoints
 
 The local server exposes workspace endpoints and one local demo-generation endpoint:
 
@@ -86,6 +87,11 @@ GET /api/alerts
 GET /api/hunts
 GET /api/detection-scorecard
 GET /api/reconstructions
+GET /api/operations-queue
+GET /api/security-analysis
+GET /api/security-analysis/entities
+GET /api/reporting
+GET /api/system
 GET /api/scenarios
 POST /api/scenario
 GET /artifact?file=report.html
@@ -95,6 +101,8 @@ GET /artifact?file=alerts.json
 GET /artifact?file=hunts.json
 GET /artifact?file=reconstructions.json
 ```
+
+Investigation, evidence, reasoning, Finding, Response Action, Handoff, and query-workbench routes are documented in their focused references below. Reporting exposes only the supported artifact allowlist; the former sidebar output links are not primary navigation.
 
 `POST /api/scenario` requires `Content-Type: application/json` and supports `detection_lab` and `attack_chain`.
 

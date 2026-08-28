@@ -1,6 +1,6 @@
 # SOC-Forge Demo In 5 Minutes
 
-This is the quickest portfolio demo path for SOC-Forge. It uses the local web UI because that path runs a scenario through the shared analysis pipeline and shows the dashboard, generated cases, investigation graph, detection engineering scorecard, and HTML report without jumping between tools.
+This is the quickest portfolio demo path for SOC-Forge. It uses the local web UI because that path runs a scenario through the shared analysis pipeline and shows the Command Center, generated Cases, bounded graph, consolidated Detection Health, and existing HTML report without jumping between tools.
 
 ## 1. Activate The Environment
 
@@ -23,27 +23,29 @@ http://127.0.0.1:8765
 
 ## 3. Run The Guided Demo
 
-In the top toolbar:
+On the Command Center, open **Demo / Lab controls**:
 
 ```text
 Scenario: Detection Lab
-Button: Start Demo
+Button: Start Guided Demo
 ```
 
 Step through:
 
 ```text
-Generate -> Dashboard -> Case -> Graph -> Scorecard -> Report
+Generate -> Command Center -> Case -> Graph -> Detection Health -> Report
 ```
 
 What to point out:
 
-- Overview shows cases, alerts, correlations, hunts, and average case quality
-- Highest-risk case summarizes credential-access activity in plain analyst language
+- Command Center shows current workload, authoritative Top Attention, and bounded recent activity
+- Case view summarizes generated activity in analyst-readable form
 - Case view shows key findings, containment guidance, evidence, timeline, and entities
 - Graph view highlights the primary investigation path and relationship confidence
-- Scorecard shows rule quality, MITRE coverage, evidence context, correlation depth, demo readiness, and rule inventory
+- Detection Health preserves the existing rule-quality scorecard while Detection separates configured coverage from observed ATT&CK activity
 - Final report opens the generated HTML incident report
+
+After the guided path, use the grouped sidebar to show Operations, durable Investigations, Security Analysis, Reporting, and read-only System inspection. OFFLINE and UNKNOWN remain valid non-failure states, and Response Actions never execute remediation.
 
 ## 4. Optional Attack-Chain Story
 

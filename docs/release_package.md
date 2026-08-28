@@ -1,192 +1,99 @@
-# SOC-Forge Portfolio Release Package
-
-This package is the recommended way to present SOC-Forge to reviewers, recruiters, mentors, or interview panels. It is designed to show both engineering depth and analyst workflow judgment.
+# SOC-Forge v3.6.0 Release Package
 
 ## Release Snapshot
 
 ```text
 Project: SOC-Forge
-Version: 3.5.0
-Primary demo: Local analyst web UI guided demo
-Secondary demo: Terminal analyst console investigation workflow
-Test status: pytest -q
-Sample artifacts: samples/attack_chain_demo/
-Screenshots: docs/screenshots/
+Version: 3.6.0
+Primary demo: Local analyst web application
+Secondary demo: Terminal analyst console
+Rules: 21 packaged YAML rules
+Validation: Full suite, clean distributions, isolated installed-wheel smoke
 ```
 
-## What To Show First
+SOC-Forge is a local, analyst-centric security investigation platform and detection-engineering portfolio project. It is not a hosted SIEM, production monitoring service, SOAR platform, or remediation engine.
 
-Start with the web UI. It is the cleanest visual demo and tells the story quickly:
+## Primary Demonstration
 
 ```bash
-cd soc-forge
 source .venv/bin/activate
-python -m soc_forge.web.app --port 8765
+soc-forge-web --port 8765
 ```
 
-Open:
+Open `http://127.0.0.1:8765`. The current sidebar is:
 
 ```text
-http://127.0.0.1:8765
+Workspace   Command Center
+Operations  Operations / Investigations / Cases
+Engineering Detection
+Analysis    Security Analysis
+Information Reporting / System
 ```
 
-Then use:
+For a short generated-data path, open **Demo / Lab controls** on Command Center and choose **Start Guided Demo**:
 
 ```text
-Detection Lab -> Start Demo
+Generate -> Command Center -> Case -> Graph -> Detection Health -> Report
 ```
 
-The guided path walks through:
+Then show the consolidated product flow:
 
-```text
-Generate -> Dashboard -> Case -> Graph -> Scorecard -> Report
-```
+1. Command Center operational attention
+2. Detection Overview, Alerts, Rules, ATT&CK, and Health
+3. Operations queue reason and authoritative destination
+4. Investigation Summary, Findings, Evidence, Timeline, Response, and Handoff
+5. Security Analysis exact entities, explicit ATT&CK observations, relationships, chronology, and Hunts
+6. Reporting reports, Investigation presentation, executive context, and exports
+7. System read-only status, configuration, health, storage, environment, and About
 
-For the v3 investigation lifecycle, continue with one selected case:
+## Interpretation Boundaries
 
-```text
-Generate Analysis
-  -> Open Case
-  -> Create Investigation
-  -> Select Evidence
-  -> Create and Assess Hypothesis
-  -> Open Timeline and Pivot Workbench
-  -> Export and Validate Handoff
-```
-
-This focused path demonstrates the durable analyst workflow in roughly 5-10 minutes without requiring every investigation feature.
-
-## Reviewer Checklist
-
-A reviewer should be able to confirm:
-
-- The project runs locally from a Python virtual environment
-- Demo scenarios can generate repeatable security events
-- YAML rules produce alerts with MITRE ATT&CK context
-- Correlation turns related alerts into cases
-- Cases include risk, quality, findings, evidence, containment guidance, entities, and timelines
-- The graph highlights the primary investigation path and relationship evidence
-- The scorecard makes detection engineering quality visible
-- HTML and JSON artifacts are generated for review
-- Tests cover the major workflows
-- Durable workspaces preserve revision-aware analyst state
-- Evidence, hypotheses, decisions, timeline, pivots, and handoff use shared domain services
-- Handoff validation detects changed or missing exported files without changing source analysis
-
-## Screenshots To Include
-
-The current screenshot folder contains:
-
-```text
-docs/screenshots/web-overview.png
-docs/screenshots/case-detail.png
-docs/screenshots/entity-relationship-explorer.png
-docs/screenshots/html-report.png
-```
-
-Recommended next screenshots after this release:
-
-```text
-docs/screenshots/web-graph.png
-docs/screenshots/detection-scorecard.png
-docs/screenshots/guided-demo.png
-```
-
-## Strong Demo Script
-
-Use this concise narrative:
-
-```text
-SOC-Forge starts with raw security events or a guided demo scenario, runs them through one shared analysis pipeline, applies MITRE-mapped YAML detections plus legacy compatibility detection, correlates related alerts into cases, reconstructs the activity path, scores the case, and produces analyst-ready web, terminal, JSON, and HTML outputs.
-```
-
-Then show:
-
-1. `Start Demo` in the web UI
-2. Dashboard triage summary
-3. Highest-risk case and case quality brief
-4. Graph primary path and relationship evidence
-5. Detection Engineering Scorecard
-6. HTML report
-7. `pytest -q` test result
+- Detection Coverage describes explicit loaded-rule mappings; it is not observed activity or complete security visibility.
+- Shared observations do not establish the same attacker, incident, or campaign.
+- Chronology does not establish causality.
+- Finding confidence is analyst assessment, not machine certainty.
+- Response Actions record analyst-controlled work and do not execute remediation.
+- Operations is read-only prioritization, not SOAR.
+- Investigation Report is a presentation; Investigation Handoff is the structured validated transfer.
+- OFFLINE is valid durable analyst state, UNKNOWN is not automatically failure, and unavailable machine context is not zero.
 
 ## Files That Matter Most
 
 ```text
-soc_forge/pipeline.py            Shared analysis pipeline used by CLI and web demos
-soc_forge/rules/                 Detection content
-soc_forge/rules/quality.py       Rule quality gate
-soc_forge/correlate/rules.py     Correlation logic
-soc_forge/cases/builder.py       Case construction
-soc_forge/report/html_report.py  HTML report generation
-soc_forge/web/app.py             Local web API and scenario runner
-soc_forge/web/static/            Web UI
-soc_forge/core/investigation_graph.py  Graph model
-soc_forge/investigations/        Durable workspace, evidence, reasoning, query, and handoff services
-samples/attack_chain_demo/       Reviewable sample output
+soc_forge/pipeline.py             Shared deterministic analysis pipeline
+soc_forge/rules/                  Packaged detection content
+soc_forge/investigations/         Durable analyst domain and services
+soc_forge/detection_engineering.py Rule catalog and health authority
+soc_forge/reporting.py            Reporting projections
+soc_forge/system_workspace.py     Read-only local system projection
+soc_forge/web/app.py              Local web API and scenario runner
+soc_forge/web/static/             Consolidated v3.6 web application
+samples/attack_chain_demo/        Reviewable sample artifacts
 ```
 
-## Release Commands
+## Release Validation
 
-Run the main checks before sharing:
-
-```bash
-source .venv/bin/activate
-python -m soc_forge.cli --rule-quality
-pytest -q
-```
-
-Generate fresh demo output:
+Build from a clean repository root after source validation:
 
 ```bash
-python -m soc_forge.cli --simulate detection_lab --sim-output out/detection_lab_events.jsonl
-python -m soc_forge.cli --input out/detection_lab_events.jsonl --out out/alerts.json --html out/report.html
-```
-
-Start the web UI:
-
-```bash
-python -m soc_forge.web.app --port 8765
-```
-
-## Positioning
-
-SOC-Forge is best described as a local, analyst-centric security investigation platform and detection engineering portfolio project. It is not trying to replace a SIEM or operate as a hosted multi-user product. The guided web demo is the primary portfolio experience, the terminal analyst console is an optional deep-dive interface, and the CLI is the automation, simulation, coverage, and detection-engineering interface.
-
-## Local Safety
-
-The web server binds to `127.0.0.1` by default and does not include authentication. If it is explicitly bound to a non-loopback host, SOC-Forge prints a warning because the local API and generated artifacts may expose investigation data. Review and redact generated HTML and JSON artifacts before sharing them.
-
-## Future Work
-
-These ideas are postponed future work, not current release capability:
-
-- Custom JSONL and CSV dataset loading in the web UI
-- Saved notes and closure workflow in the web UI
-- Exportable graph images and additional case bundle formats
-- Cloud identity and SaaS audit-log detection packs
-- Per-rule false-positive notes, severity rationale, and data-source requirements
-
-## Distribution Validation
-
-SOC-Forge v3.5.0 packages 21 built-in YAML rules. Installed CLI, pipeline, and web scorecard paths discover those rules from the installed `soc_forge.rules` package rather than the current working directory.
-
-Build and validate from a clean repository root:
-
-```bash
-rm -rf dist build
 python -m build
 python -m twine check dist/*
 pytest -q tests/test_packaging_release.py
 ```
 
-Expected release artifacts:
+Expected artifacts:
 
 ```text
-dist/soc_forge-3.5.0-py3-none-any.whl
-dist/soc_forge-3.5.0.tar.gz
+dist/soc_forge-3.6.0-py3-none-any.whl
+dist/soc_forge-3.6.0.tar.gz
 ```
 
-The packaging contract verifies that the wheel contains all 21 YAML rules and the web static assets, both distributions exclude test fixtures and test modules, and the wheel installs into an isolated environment, discovers built-in rules outside the source checkout, reports the installed package version, and triggers SOCF-021 from a known Security Event ID 4688 event.
+The packaging contract verifies the 21 YAML rules, exact web static-asset allowlist, metadata version, excluded tests/caches/generated output, isolated installation outside the checkout, representative rule execution, and authoritative service imports. CI repeats the build, `twine` validation, installed version/rule checks, and Python 3.10–3.12 test matrix.
 
-Known limitations: command-line detections are not bypass-proof and may alert on legitimate administration, backup maintenance, or disaster-recovery testing. Sysmon Event ID 1 paths require the `Microsoft-Windows-Sysmon` provider. Generated evidence may retain sensitive command-line arguments and should be reviewed before sharing.
+## Visual Documentation
+
+The [v3.6 walkthrough](walkthrough.md) reflects current navigation without using unverified images. The [screenshot index](screenshots/README.md) preserves the historical v3.5 set and records the outstanding manual v3.6 capture list.
+
+## Local Safety
+
+The local server binds to `127.0.0.1` by default and has no authentication. Generated artifacts and durable analyst records may contain sensitive telemetry, identities, command lines, evidence, rationales, and annotations; review and redact them before sharing.
