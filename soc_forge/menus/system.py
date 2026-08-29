@@ -92,7 +92,7 @@ def show_about():
     print(render_about())
 
 
-def system_menu(clear_screen, pause, create_demo_case=None, controller=None):
+def system_menu(pause, controller=None):
     while True:
         begin_screen("SYSTEM")
         print(render_breadcrumb(("SOC-FORGE", "SYSTEM")))

@@ -65,7 +65,7 @@ System owns read-only local platform inspection through Platform Status, Configu
 
 System performs bounded current-process and known-path inspection only. It does not duplicate Detection Coverage, persist health state, modify configuration or environment, create write probes, monitor live services, control processes, install packages, or provide developer tools.
 
-Create Demo Case is removed from primary analyst navigation. Its helper remains in analyst_console.py for developer and test use, but the System controller no longer receives or invokes it.
+Create Demo Case has been removed entirely: it was already unreachable from primary analyst navigation and had no remaining developer or test usage, so the dead helper and the unused `create_demo_case` parameter on `system_menu` were deleted.
 
 ## Persistence boundaries
 

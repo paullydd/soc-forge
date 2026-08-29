@@ -203,7 +203,7 @@ def test_analysis_option_six_dispatches_controller(monkeypatch):
     monkeypatch.setattr(menu, "menu_group", lambda _title: None)
     monkeypatch.setattr(menu, "menu_option", lambda *_args: None)
     menu.analysis_menu(
-        lambda: None, lambda: None, lambda: None,
+        lambda: None,
         None, None, None, None, None, controller,
     )
     assert calls == ["hunt"]

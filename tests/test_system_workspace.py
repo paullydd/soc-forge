@@ -210,7 +210,7 @@ def test_system_menu_structure_dispatch_and_back(monkeypatch):
         "environment_run": lambda self: calls.append("environment"),
         "about_run": lambda self: calls.append("about"),
     })()
-    system_menu(lambda: None, lambda: calls.append("pause"), controller=controller)
+    system_menu(lambda: calls.append("pause"), controller=controller)
     assert calls == ["status", "config", "assets", "storage", "environment", "about"]
     assert entries[:7] == [("1", "Platform Status"), ("2", "Configuration"), ("3", "Rule / Asset Health"), ("4", "Repository & Storage"), ("5", "Environment"), ("6", "About SOC-Forge"), ("0", "Back")]
     assert groups[:2] == ["PLATFORM", "INFORMATION"]

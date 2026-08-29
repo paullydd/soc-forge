@@ -616,11 +616,6 @@ def assign_owner(case: Dict[str, Any]) -> None:
     print(f"Owner updated to: {case['owner']}")
 
 
-def export_placeholder(case: Dict[str, Any]) -> None:
-    print("\nExport Investigation")
-    print("-" * 60)
-    print("Export bundle will be added in Phase 18.6.")
-
 def persist_case(case: Dict[str, Any], save_case=None) -> None:
     ensure_case_lifecycle(case)
     if save_case:

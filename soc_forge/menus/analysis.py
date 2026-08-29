@@ -10,7 +10,7 @@ ANALYSIS_DESTINATIONS = {
 }
 
 
-def analysis_menu(pause, attack_stories, attack_graph_viewer,
+def analysis_menu(pause,
                   threat_activity_controller=None, entity_explorer_controller=None,
                   attack_activity_controller=None,
                   cross_investigation_controller=None,

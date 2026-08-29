@@ -271,6 +271,6 @@ def test_analysis_option_three_dispatches_real_controller(monkeypatch):
     monkeypatch.setattr(analysis, "menu_group", lambda _title: None)
     monkeypatch.setattr(analysis, "menu_option", lambda *_args: None)
     analysis.analysis_menu(
-        lambda: None, lambda: None, lambda: None, None, None, controller
+        lambda: None, None, None, controller
     )
     assert calls == ["attack"]

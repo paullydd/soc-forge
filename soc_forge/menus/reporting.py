@@ -254,8 +254,7 @@ class ReportingConsoleController:
             self.report_center_run()
 
 
-def reporting_menu(clear_screen, pause, open_report, view_mitre_coverage=None,
-                   controller=None):
+def reporting_menu(pause, controller=None):
     while True:
         begin_screen("REPORTING")
         print(render_breadcrumb(("SOC-FORGE", "REPORTING")))

@@ -35,7 +35,6 @@ def test_detection_legacy_capabilities_remain_reachable(monkeypatch, inputs, exp
     monkeypatch.setattr(detection, "menu_option", lambda *_args: None)
 
     detection.detection_menu(
-        lambda: None,
         lambda: calls.append("pause"),
         handlers["analyze"],
         handlers["simulate"],
@@ -57,7 +56,7 @@ def test_detection_menu_has_target_architecture_and_no_stale_labels(monkeypatch)
     monkeypatch.setattr(
         detection, "menu_option", lambda number, label: entries.append((number, label))
     )
-    detection.detection_menu(*(lambda: None for _ in range(7)))
+    detection.detection_menu(*(lambda: None for _ in range(6)))
 
     assert ("group", "DETECTION ENGINEERING") in entries
     assert ("group", "DETECTION RESULTS") in entries
@@ -80,8 +79,6 @@ def test_analysis_menu_is_honest_and_legacy_reconstruction_remains_in_investigat
     )
     analysis.analysis_menu(
         lambda: calls.append("pause"),
-        lambda: calls.append("stories"),
-        lambda: calls.append("graph"),
     )
 
     labels = {label for _, label in entries}
@@ -115,10 +112,7 @@ def test_reporting_preserves_handlers_without_duplicate_handoff(monkeypatch):
         "export_run": lambda self: calls.append("export_center"),
     })()
     reporting.reporting_menu(
-        lambda: None,
         lambda: calls.append("pause"),
-        lambda: calls.append("legacy_report"),
-        lambda: calls.append("legacy_coverage"),
         controller,
     )
 
@@ -148,9 +142,7 @@ def test_system_removes_demo_from_primary_navigation_and_preserves_about(monkeyp
     )
     monkeypatch.setattr(system, "show_about", lambda: calls.append("about"))
     system.system_menu(
-        lambda: None,
         lambda: calls.append("pause"),
-        lambda: calls.append("demo"),
     )
 
     assert calls == ["about", "pause"]

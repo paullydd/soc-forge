@@ -299,74 +299,6 @@ Security Operations Platform
 ==================================================
 """ + Style.RESET_ALL
 
-def create_demo_case():
-    os.makedirs("out", exist_ok=True)
-
-    demo_case = {
-        "case_id": 1,
-        "title": "Password Spray Suspected",
-        "status": "Investigating",
-        "risk_score": 320,
-        "created_at": "2026-06-25 15:44",
-        "mitre": ["T1110 - Brute Force", "Credential Access"],
-        "alerts": [
-            "SOCF-010 Password Spray",
-            "SOCF-001 Brute Force",
-            "SOCF-002 Account Lockout"
-        ],
-        "indicators": {
-            "IP Addresses": ["203.0.113.10"],
-            "Users": ["alice", "bob"],
-            "Hosts": ["DC1"],
-            "Services": ["Spooler"],
-            "Scheduled Tasks": ["Windows Update"]
-        },
-        "timeline": [
-            {
-                "timestamp": "15:42",
-                "description": "Multiple failed logins detected"
-            },
-            {
-                "timestamp": "15:43",
-                "description": "Failed logins observed across multiple users"
-            },
-            {
-                "timestamp": "15:44",
-                "description": "Password Spray rule SOCF-010 triggered"
-            },
-            {
-                "timestamp": "15:45",
-                "description": "Account lockout detected"
-            },
-            {
-                "timestamp": "15:46",
-                "description": "Case created for analyst review"
-            }
-        ],
-        "story": "A suspected password spraying attack targeted multiple user accounts from external IP 203.0.113.10. The activity generated repeated failed authentication events and resulted in at least one account lockout.",
-        "attack_graph": [
-            "203.0.113.10",
-            "   |",
-            "   v",
-            "alice / bob",
-            "   |",
-            "   v",
-            "DC1",
-            "   |",
-            "   v",
-            "Password Spray"
-        ],
-        "notes": [
-            "Initial investigation opened.",
-            "Source IP should be reviewed and blocked if malicious."
-        ]
-    }
-
-    with open("out/cases.json", "w", encoding="utf-8") as file:
-        json.dump([demo_case], file, indent=4)
-
-    print("Demo case created.")
-
 def load_cases():
     return load_cases_file("out/cases.json")
 
@@ -599,16 +531,6 @@ def run_attack_simulation():
         f"{len(_current_analysis_result.alerts)} alerts, "
         f"{len(_current_analysis_result.cases)} cases."
     )
-    pause()
-
-
-def view_mitre_coverage():
-    clear_screen()
-    print("MITRE COVERAGE")
-    print("-" * 50)
-
-    command = [sys.executable, "-m", "soc_forge.cli", "--coverage"]
-    run_command(command)
     pause()
 
 
@@ -934,93 +856,6 @@ def load_attack_stories():
 
     return []
 
-def attack_stories():
-    clear_screen()
-    section_title("Attack Stories")
-
-    stories = load_attack_stories()
-
-    if not stories:
-        warning("No attack stories found yet.")
-        pause()
-        return
-
-    for index, story in enumerate(stories, start=1):
-        header = story.get("header", {})
-        details = header.get("details", {})
-
-        title = header.get("title", story.get("title", f"Attack Story {index}"))
-        severity = header.get("severity", story.get("severity", "unknown"))
-
-        notes_badge = " 📝" if case_has_notes(story, index) else ""
-
-        print(f"[{index}] {color_severity(severity)} | {title}{notes_badge}")
-
-    choice = input("\nOpen story number, or press Enter to return: ").strip()
-
-    if not choice:
-        return
-
-    if not choice.isdigit() or int(choice) < 1 or int(choice) > len(stories):
-        error("Invalid story number.")
-        pause()
-        return
-
-    open_attack_story(stories[int(choice) - 1])
-
-def open_attack_story(story):
-    clear_screen()
-    section_title("Attack Story")
-
-    header = story.get("header", {})
-    details = header.get("details", {})
-
-    title = header.get("title", story.get("title", "Unknown Attack Story"))
-    severity = header.get("severity", story.get("severity", "unknown"))
-    score = header.get("score", story.get("score", "N/A"))
-    timestamp = header.get("timestamp", story.get("timestamp", "N/A"))
-
-    print(f"Title:      {title}")
-    print(f"Severity:   {color_severity(severity)}")
-    print(f"Score:      {score}")
-    print(f"Timestamp:  {timestamp}")
-
-    case_risk = details.get("case_risk", {})
-
-    if case_risk:
-        print("\nRisk Summary")
-        print("-" * 50)
-        print(f"Threat Level: {color_severity(case_risk.get('case_threat_level', severity))}")
-        print(f"Case Score:   {case_risk.get('case_score', 'N/A')}")
-        print(f"Alert Count:  {case_risk.get('alert_count', 'N/A')}")
-
-    attack_flow = details.get("attack_flow", [])
-
-    if attack_flow:
-        print("\nAttack Flow")
-        print("-" * 50)
-
-        for step in attack_flow:
-            timestamp = step.get("timestamp", "N/A")
-            label = step.get("label", "Unknown Step")
-            rule_id = step.get("rule_id", "N/A")
-            step_severity = color_severity(step.get("severity", "unknown"))
-
-            print(f"{timestamp}")
-            print(f"  {step_severity} {rule_id} - {label}")
-            print("  ↓")
-
-    recommendations = details.get("recommended_actions", [])
-
-    if recommendations:
-        print("\nRecommended Actions")
-        print("-" * 50)
-
-        for action in recommendations:
-            print(f"- {action}")
-
-    pause()
-
 def manage_case_status():
     clear_screen()
     section_title("Case Status")
@@ -1158,76 +993,6 @@ def open_report(selected_report=None):
 
     print("\nOr open this folder in Windows Explorer:")
     print("explorer.exe .")
-
-    pause()
-
-def attack_graph_viewer():
-    clear_screen()
-    section_title("Attack Graph Viewer")
-
-    stories = load_attack_stories()
-
-    if not stories:
-        warning("No attack stories found yet.")
-        pause()
-        return
-
-    for index, story in enumerate(stories, start=1):
-        header = story.get("header", {})
-        title = header.get("title", story.get("title", f"Attack Story {index}"))
-        severity = header.get("severity", story.get("severity", "unknown"))
-
-        print(f"[{index}] {color_severity(severity)} | {title}")
-
-    choice = input("\nSelect story for graph, or press Enter to return: ").strip()
-
-    if not choice:
-        return
-
-    if not choice.isdigit() or int(choice) < 1 or int(choice) > len(stories):
-        error("Invalid story number.")
-        pause()
-        return
-
-    story = stories[int(choice) - 1]
-    header = story.get("header", {})
-    details = header.get("details", {})
-
-    title = header.get("title", story.get("title", "Unknown Attack Story"))
-    severity = header.get("severity", story.get("severity", "unknown"))
-    attack_flow = details.get("attack_flow", [])
-
-    clear_screen()
-    section_title("Attack Graph")
-
-    print(f"Title:    {title}")
-    print(f"Severity: {color_severity(severity)}")
-    print()
-
-    print(Fore.CYAN + "        ┌──────────────────────┐")
-    print("        │   External Source    │")
-    print("        └──────────┬───────────┘" + Style.RESET_ALL)
-
-    if attack_flow:
-        for step in attack_flow:
-            label = step.get("label", "Unknown Step")
-            rule_id = step.get("rule_id", "N/A")
-            step_severity = color_severity(step.get("severity", severity))
-
-            print(Fore.CYAN + "                   │" + Style.RESET_ALL)
-            print(Fore.CYAN + "                   ▼" + Style.RESET_ALL)
-            print("        ┌──────────────────────┐")
-            print(f"        │ {label[:20].center(20)} │")
-            print("        └──────────┬───────────┘")
-            print(f"          {step_severity} | {rule_id}")
-    else:
-        warning("No attack flow data available.")
-
-    print(Fore.CYAN + "                   │")
-    print("                   ▼")
-    print("        ┌──────────────────────┐")
-    print("        │   Investigation      │")
-    print("        └──────────────────────┘" + Style.RESET_ALL)
 
     pause()
 
@@ -1381,7 +1146,6 @@ def main_menu():
 
         if choice == "1":
             detection_menu(
-                clear_screen,
                 pause,
                 analyze_log_file,
                 run_attack_simulation,
@@ -1411,8 +1175,6 @@ def main_menu():
         elif choice == "3":
             analysis_menu(
                 pause,
-                attack_stories,
-                attack_graph_viewer,
                 build_threat_activity_controller(workspace_controller),
                 build_entity_explorer_controller(workspace_controller),
                 build_attack_activity_controller(workspace_controller),
@@ -1423,16 +1185,12 @@ def main_menu():
 
         elif choice == "4":
             reporting_menu(
-                clear_screen,
                 pause,
-                open_report,
-                view_mitre_coverage,
                 build_reporting_controller(workspace_controller),
             )
 
         elif choice == "5":
             system_menu(
-                clear_screen,
                 pause,
                 controller=build_system_controller(workspace_controller),
             )

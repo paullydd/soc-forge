@@ -740,7 +740,7 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
     monkeypatch.setattr(
         analyst_console,
         "analysis_menu",
-        lambda pause, stories, graph, overview, entity, attack, cross, temporal, hunt: calls.append((pause, stories, graph, overview, entity, attack, cross, temporal, hunt)),
+        lambda pause, overview, entity, attack, cross, temporal, hunt: calls.append((pause, overview, entity, attack, cross, temporal, hunt)),
     )
 
     with pytest.raises(SystemExit):
@@ -749,8 +749,6 @@ def test_main_menu_analysis_dispatch_uses_current_contract(monkeypatch):
     assert calls == [
         (
             analyst_console.pause,
-            analyst_console.attack_stories,
-            analyst_console.attack_graph_viewer,
             overview,
             entity,
             attack,
@@ -771,8 +769,6 @@ def test_analysis_menu_back_returns_without_dispatch(monkeypatch):
 
     menu_module.analysis_menu(
         lambda: calls.append("pause"),
-        lambda: calls.append("stories"),
-        lambda: calls.append("graph"),
     )
 
     assert calls == []

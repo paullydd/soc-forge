@@ -355,7 +355,7 @@ def test_detection_menu_dispatches_rule_explainability(monkeypatch):
     monkeypatch.setattr(detection, "menu_group", lambda _title: None)
     monkeypatch.setattr(detection, "menu_option", lambda *_args: None)
     detection.detection_menu(
-        *(lambda: None for _ in range(7)),
+        *(lambda: None for _ in range(6)),
         lambda: None,
         lambda: None,
         lambda: calls.append("explainability"),

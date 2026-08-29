@@ -5,7 +5,6 @@ from soc_forge.ui.terminal import render_breadcrumb
 
 
 def detection_menu(
-    clear_screen,
     pause,
     analyze_log_file,
     run_attack_simulation,

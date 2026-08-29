@@ -287,5 +287,5 @@ def test_analysis_option_two_dispatches_real_controller(monkeypatch):
     monkeypatch.setattr(analysis, "begin_screen", lambda _title: None)
     monkeypatch.setattr(analysis, "menu_group", lambda _title: None)
     monkeypatch.setattr(analysis, "menu_option", lambda *_args: None)
-    analysis.analysis_menu(lambda: None, lambda: None, lambda: None, None, controller)
+    analysis.analysis_menu(lambda: None, None, controller)
     assert calls == ["entity"]
