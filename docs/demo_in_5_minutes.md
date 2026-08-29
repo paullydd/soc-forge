@@ -71,10 +71,10 @@ python analyst_console.py
 Recommended path:
 
 ```text
-Investigations -> Investigation Workspace
+Investigations -> Investigation Workspaces -> Open investigation
 ```
 
-Use this if you want to show replay, entity profiles, relationship explorer, attack path, next actions, closure, and investigation bundle export from the terminal workflow.
+Use this if you want to show replay, entity profiles, relationship explorer, attack path, Response Actions, status closure, and Investigation Handoff export from the terminal workflow.
 
 ## 6. Checked-In Artifacts
 

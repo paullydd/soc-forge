@@ -2,34 +2,6 @@ import json
 import os
 from typing import Any, Dict
 
-from soc_forge.ui.panels import header, success, warning
-from soc_forge.cases.lifecycle import ensure_case_lifecycle
-
-
-def export_investigation_bundle(case: Dict[str, Any]) -> None:
-    ensure_case_lifecycle(case)
-    case_id = case.get("case_id", case.get("id", "unknown"))
-    safe_case_id = str(case_id).replace(" ", "_")
-
-    output_dir = f"out/investigation_bundle_case_{safe_case_id}"
-    os.makedirs(output_dir, exist_ok=True)
-
-    write_text(output_dir, "case_summary.txt", build_case_summary(case))
-    write_text(output_dir, "case_brief.txt", build_case_brief(case))
-    write_text(output_dir, "closure_report.txt", build_closure_report(case))
-    write_json(output_dir, "timeline.json", case.get("timeline", []))
-    write_json(output_dir, "indicators.json", case.get("indicators", case.get("iocs", {})))
-    write_text(output_dir, "notes.txt", build_notes(case))
-    write_json(output_dir, "lifecycle.json", build_lifecycle(case))
-    write_json(output_dir, "evidence.json", case.get("evidence", []))
-    write_text(output_dir, "attack_graph.txt", build_attack_graph(case))
-    write_text(output_dir, "story.txt", case.get("story", case.get("analyst_summary", "")))
-
-    header("INVESTIGATION BUNDLE EXPORTED")
-    success(f"Bundle created at: {output_dir}")
-
-    input("\nPress Enter to return...")
-
 
 def build_case_summary(case: Dict[str, Any]) -> str:
     return "\n".join(

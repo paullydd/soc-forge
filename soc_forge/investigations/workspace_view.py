@@ -22,6 +22,8 @@ INVESTIGATION_WORKSPACE_GROUPS = (
             ("11", "Hypotheses and Decisions"),
             ("12", "Investigation Findings"),
             ("13", "Timeline and Pivot Workbench (Read Only)"),
+            ("17", "Investigation Replay (Read Only)"),
+            ("18", "Entity Relationship Explorer (Read Only)"),
         ),
     ),
     (

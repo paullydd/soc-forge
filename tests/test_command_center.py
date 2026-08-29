@@ -160,7 +160,7 @@ def test_dashboard_reads_each_existing_projection_once_without_mutation(capsys):
     ("module_name", "function_name", "title", "inputs", "expected_numbers"),
     [
         ("detection", "detection_menu", "DETECTION", (None,) * 6, ("1", "2", "3", "4", "5", "6", "7", "0")),
-        ("investigations", "investigations_menu", "INVESTIGATIONS", (None,) * 8, ("1", "2", "3", "4", "5", "6", "0")),
+        ("investigations", "investigations_menu", "INVESTIGATIONS", (None,) * 5, ("1", "2", "3", "4", "5", "0")),
         ("analysis", "analysis_menu", "ANALYSIS", (None,) * 1, ("1", "2", "3", "4", "5", "6", "0")),
         ("reporting", "reporting_menu", "REPORTING", (None,) * 1, ("1", "2", "3", "4", "0")),
         ("system", "system_menu", "SYSTEM", (None,) * 1, ("1", "2", "3", "4", "5", "6", "0")),

@@ -110,7 +110,7 @@ def test_workspace_narrow_state_keeps_each_count_meaningful(tmp_path):
 
 def test_workspace_grouped_navigation_preserves_locked_numbers():
     assert INVESTIGATION_WORKSPACE_GROUPS == (
-        ("ANALYSIS", (("1", "Investigation Summary"), ("10", "Evidence Workspace"), ("11", "Hypotheses and Decisions"), ("12", "Investigation Findings"), ("13", "Timeline and Pivot Workbench (Read Only)"))),
+        ("ANALYSIS", (("1", "Investigation Summary"), ("10", "Evidence Workspace"), ("11", "Hypotheses and Decisions"), ("12", "Investigation Findings"), ("13", "Timeline and Pivot Workbench (Read Only)"), ("17", "Investigation Replay (Read Only)"), ("18", "Entity Relationship Explorer (Read Only)"))),
         ("RESPONSE", (("16", "Response Actions"),)),
         ("CASE MANAGEMENT", (("2", "Assign or Clear Owner"), ("3", "Change Status"), ("4", "Reopen Investigation"))),
         ("ANNOTATIONS & DECISIONS", (("5", "View Annotations"), ("6", "Add Annotation"), ("7", "Edit Annotation"), ("8", "Remove Annotation"), ("9", "View Decisions"))),
@@ -138,6 +138,8 @@ def test_workspace_grouped_navigation_preserves_locked_numbers():
         "14": "Investigation Handoff (Read Only)",
         "15": "Load Source Analysis Snapshot",
         "16": "Response Actions",
+        "17": "Investigation Replay (Read Only)",
+        "18": "Entity Relationship Explorer (Read Only)",
     }
 
 

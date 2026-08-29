@@ -33,8 +33,6 @@ from soc_forge.menus.detection_lab import DetectionLabConsoleController
 from soc_forge.menus.detection_engineering import (
     DetectionEngineeringConsoleController,
 )
-from soc_forge.investigations.workspace import launch_case_workspace
-from soc_forge.investigations.ioc_explorer import build_ioc_index, list_iocs
 from soc_forge.ui.loading import startup_screen as ui_startup_screen
 from soc_forge.ui.panels import menu_group, menu_option
 from soc_forge.menus.investigations import investigations_menu
@@ -47,7 +45,7 @@ from soc_forge.menus.system import SystemConsoleController, system_menu
 from soc_forge.system_workspace import SystemWorkspaceService
 from soc_forge.dashboard.dashboard import show_dashboard
 from soc_forge.ui.screen import begin_screen, set_clear_screen
-from soc_forge.cases.store import load_cases_file, save_cases_file
+from soc_forge.cases.store import load_cases_file
 from soc_forge.pipeline import AnalysisOptions, run_analysis
 from soc_forge.investigations.bootstrap import InvestigationBootstrapAdapter
 from soc_forge.investigations.console import InvestigationConsoleController
@@ -301,10 +299,6 @@ Security Operations Platform
 
 def load_cases():
     return load_cases_file("out/cases.json")
-
-
-def save_cases(cases):
-    save_cases_file(cases, "out/cases.json")
 
 
 def view_cases():
@@ -1162,13 +1156,11 @@ def main_menu():
 
         elif choice == "2":
             investigations_menu(
-                clear_screen,
                 pause,
                 load_cases,
                 view_cases,
                 view_or_add_notes,
                 manage_case_status,
-                save_cases,
                 workspace_controller,
             )
 

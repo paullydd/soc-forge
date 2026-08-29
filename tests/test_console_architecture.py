@@ -87,11 +87,11 @@ def test_analysis_menu_is_honest_and_legacy_reconstruction_remains_in_investigat
     assert "Timeline Viewer Coming Soon" not in labels
     assert "SOC Statistics Coming Soon" not in labels
     assert calls == []
-    workspace = (
-        Path(__file__).parents[1] / "soc_forge/investigations/workspace.py"
+    workspace_view = (
+        Path(__file__).parents[1] / "soc_forge/investigations/workspace_view.py"
     ).read_text()
-    assert 'menu_option("3", "Investigation Narrative")' in workspace
-    assert 'menu_option("4", "Attack Graph")' in workspace
+    assert '"Investigation Replay (Read Only)"' in workspace_view
+    assert '"Entity Relationship Explorer (Read Only)"' in workspace_view
 
 
 def test_reporting_preserves_handlers_without_duplicate_handoff(monkeypatch):

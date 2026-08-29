@@ -45,6 +45,15 @@ from soc_forge.investigations.workspace_service import (
     WorkspaceResult,
 )
 from soc_forge.investigations.workspace_view import render_investigation_workspace
+from soc_forge.investigations.replay import replay_case
+from soc_forge.core.investigation_graph import build_investigation_graph, summarize_graph
+from soc_forge.core.entity_intelligence import build_entity_profile
+from soc_forge.ui.investigation.graph import graph_overview_panel
+from soc_forge.ui.investigation.navigation import investigation_graph_menu
+from soc_forge.ui.investigation.entity_browser import entity_browser_panel
+from soc_forge.ui.investigation.entity_profile import entity_profile_panel
+from soc_forge.ui.investigation.relationships import relationships_panel
+from soc_forge.ui.investigation.attack_path import attack_path_panel
 from soc_forge.ui.screen import begin_screen
 
 
@@ -236,6 +245,13 @@ class InvestigationConsoleController:
         self.output(f"Storage: {self.workspace_root}")
         return result
 
+    _LIST_SORTS = {
+        "1": ("Status", lambda summary: (summary.status or "")),
+        "2": ("Owner", lambda summary: (summary.owner or "Unassigned")),
+        "3": ("Title", lambda summary: (summary.title or "")),
+        "4": ("Recently updated", lambda summary: (summary.updated_at or ""), True),
+    }
+
     def list_screen(self) -> list:
         self.screen("INVESTIGATION WORKSPACES")
         try:
@@ -247,6 +263,13 @@ class InvestigationConsoleController:
         if not summaries:
             self.output("No durable investigations found.")
             return []
+
+        self.output("Sort: [1] Status  [2] Owner  [3] Title  [4] Recently updated  [Enter] Skip")
+        sort_choice = self.input("Select sort, or press Enter to skip: ").strip()
+        sort_entry = self._LIST_SORTS.get(sort_choice)
+        if sort_entry is not None:
+            _label, key, *reverse = sort_entry
+            summaries = sorted(summaries, key=key, reverse=bool(reverse and reverse[0]))
 
         for summary in summaries:
             owner = summary.owner or "Unassigned"
@@ -306,9 +329,94 @@ class InvestigationConsoleController:
                 self.load_source_analysis(current)
             elif choice == "16":
                 current = self.response_action_controller.run(current)
+            elif choice == "17":
+                self._investigation_replay(current)
+            elif choice == "18":
+                self._entity_relationship_explorer(current)
             else:
                 self.output("Invalid option.")
             if choice in {"2", "3", "4", "5", "6", "7", "8", "9", "15"}:
+                self.pause()
+
+    def _resolve_active_case(self, current: WorkspaceResult) -> dict | None:
+        """Resolve the current machine-generated case backing this investigation.
+
+        Returns None (with an honest, printed reason) when the source
+        analysis is unavailable or does not match this investigation's
+        provenance - this is an OFFLINE-safe read, never a failure.
+        """
+        analysis = self.analysis_provider()
+        if analysis is None:
+            self.output(
+                "No active analysis is loaded. This feature requires the "
+                "matching source analysis to be available in this session."
+            )
+            return None
+        try:
+            context = InvestigationQueryContext(analysis, current.investigation)
+        except (InvestigationQueryError, ValueError, TypeError) as exc:
+            self.output(f"Unable to resolve the source case: {exc}")
+            return None
+        if not context.selected_case_ids:
+            self.output("This investigation has no scoped case to explore.")
+            return None
+        case_id = context.selected_case_ids[0]
+        for case in analysis.cases:
+            if not isinstance(case, dict):
+                continue
+            header = case.get("header") if isinstance(case.get("header"), dict) else {}
+            if str(case.get("case_id") or header.get("case_id") or "") == case_id:
+                return case
+        self.output(f"Scoped case {case_id!r} was not found in the active analysis.")
+        return None
+
+    def _investigation_replay(self, current: WorkspaceResult) -> None:
+        case = self._resolve_active_case(current)
+        if case is None:
+            self.pause()
+            return
+        replay_case(case)
+
+    def _entity_relationship_explorer(self, current: WorkspaceResult) -> None:
+        case = self._resolve_active_case(current)
+        if case is None:
+            self.pause()
+            return
+        while True:
+            self.screen("Entity Relationship Explorer")
+            graph = build_investigation_graph(case)
+            graph["summary"] = summarize_graph(graph)
+            graph_overview_panel(graph, case)
+            graph_choice = investigation_graph_menu()
+            if graph_choice == "0":
+                return
+            elif graph_choice == "1":
+                self.screen("Entity Browser")
+                selected_entity = entity_browser_panel(graph)
+                if selected_entity:
+                    self.screen("Entity Profile")
+                    profile = build_entity_profile(graph, case, selected_entity)
+                    related = entity_profile_panel(profile)
+                    if related:
+                        pivot = self.input(
+                            "\nSelect related entity number to pivot, or Enter to return: "
+                        ).strip()
+                        if pivot.isdigit():
+                            index = int(pivot) - 1
+                            if 0 <= index < len(related):
+                                self.screen("Entity Profile")
+                                pivot_profile = build_entity_profile(graph, case, related[index])
+                                entity_profile_panel(pivot_profile)
+                                self.pause()
+                    else:
+                        self.pause()
+            elif graph_choice == "2":
+                self.screen("Relationship Explorer")
+                relationships_panel(graph)
+                self.pause()
+            elif graph_choice == "3":
+                self.screen("Attack Path")
+                attack_path_panel(case)
                 self.pause()
 
     def load_source_analysis(self, current: WorkspaceResult) -> object | None:

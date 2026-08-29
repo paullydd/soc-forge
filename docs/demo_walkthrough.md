@@ -49,21 +49,20 @@ python analyst_console.py
 Then navigate:
 
 ```text
-Investigations -> Investigation Workspace
+Investigations -> Investigation Workspaces
 ```
 
 Recommended demo flow:
 
-1. Press `S` and sort by risk.
-2. Open `New privileged account followed by log clearing`.
-3. Open `Investigation Replay` and use Auto Play.
-4. Open `Timeline` and confirm readable event names.
-5. Open `View Investigation Graph`.
-6. Open `View Entity Profiles` and inspect `198.51.100.77`, `svc-backup-admin`, or `WS-ENG-01`.
-7. Open `Relationship Explorer` and inspect relationship evidence.
-8. Open `View Attack Path`.
-9. Use `Next Actions`.
-10. Use `Close Case`, then `Export`.
+1. Create an investigation from `New privileged account followed by log clearing`.
+2. Open the investigation, then `Investigation Replay` and use Auto Play.
+3. Open `Timeline and Pivot Workbench (Read Only)` and confirm readable event names.
+4. Open `Entity Relationship Explorer (Read Only)`.
+5. Choose `View Entity Profiles` and inspect `198.51.100.77`, `svc-backup-admin`, or `WS-ENG-01`.
+6. Choose `Relationship Explorer` and inspect relationship evidence.
+7. Choose `View Attack Path`.
+8. Use `Response Actions` for recommended next steps.
+9. Use `Change Status` to close, then `Investigation Handoff (Read Only)` to export.
 
 ## 5. Expected Detection Output
 

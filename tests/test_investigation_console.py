@@ -192,6 +192,61 @@ def test_workspace_evidence_and_reasoning_options_still_dispatch(tmp_path):
     assert calls == ["evidence", "reasoning"]
 
 
+def test_investigation_replay_reports_offline_state_without_active_analysis(tmp_path):
+    controller, service, messages = build_controller(tmp_path, analysis=None)
+    current = service.create_investigation(
+        investigation_id="INV-OFFLINE-REPLAY",
+        title="Offline replay",
+        analysis_id="ANALYSIS-OFFLINE",
+    )
+    controller.input = ScriptedInput(["17", "0"])
+
+    assert controller.workspace_loop(current) == current
+    assert any("No active analysis is loaded" in line for line in messages)
+
+
+def test_investigation_replay_dispatches_resolved_case(monkeypatch, tmp_path):
+    import soc_forge.investigations.console as console_module
+
+    analysis = build_analysis(tmp_path)
+    controller, _, _ = build_controller(
+        tmp_path, ["2", "INV-REPLAY", "", "", "y"], analysis,
+    )
+    current = create_workspace(controller)
+
+    calls = []
+    monkeypatch.setattr(console_module, "replay_case", lambda case: calls.append(case))
+    controller.input = ScriptedInput(["17", "0"])
+
+    assert controller.workspace_loop(current) == current
+    assert len(calls) == 1
+    assert calls[0]["case_id"] == "CASE-B"
+
+
+def test_entity_relationship_explorer_dispatches_resolved_case(monkeypatch, tmp_path):
+    import soc_forge.investigations.console as console_module
+
+    analysis = build_analysis(tmp_path)
+    controller, _, _ = build_controller(
+        tmp_path, ["2", "INV-GRAPH", "", "", "y"], analysis,
+    )
+    current = create_workspace(controller)
+
+    calls = []
+    monkeypatch.setattr(
+        console_module, "build_investigation_graph",
+        lambda case: calls.append(case) or {"nodes": {}, "edges": []},
+    )
+    monkeypatch.setattr(console_module, "summarize_graph", lambda _graph: {})
+    monkeypatch.setattr(console_module, "graph_overview_panel", lambda *_args: None)
+    monkeypatch.setattr(console_module, "investigation_graph_menu", lambda: "0")
+    controller.input = ScriptedInput(["18", "0"])
+
+    assert controller.workspace_loop(current) == current
+    assert len(calls) == 1
+    assert calls[0]["case_id"] == "CASE-B"
+
+
 def test_workspace_timeline_and_pivot_option_dispatches_read_only_controller(tmp_path):
     analysis = build_analysis(tmp_path)
     controller, _, _ = build_controller(
@@ -251,6 +306,7 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     assert result.investigation.evidence_references[0].source_id == "CASE-B"
     assert service.get_investigation("INV-001") == result
 
+    controller.input = ScriptedInput([""])
     summaries = controller.list_screen()
     assert summaries[0].investigation_id == "INV-001"
     assert any("INV-001 | Collection activity | open | alice" in line for line in messages)
@@ -269,6 +325,34 @@ def test_create_list_and_open_completed_analysis_workspace(tmp_path):
     assert any("Timeline and Pivot Workbench (Read Only)" in line for line in messages)
     assert any("Investigation Handoff (Read Only)" in line for line in messages)
     assert "[9] Record decision" not in messages
+
+
+def test_list_screen_sorts_by_selected_field(tmp_path):
+    analysis = build_analysis(tmp_path)
+    controller, _, messages = build_controller(
+        tmp_path,
+        ["1", "INV-ZEBRA", "", "carol", "y", "2", "INV-ALPHA", "", "alice", "y"],
+        analysis,
+    )
+
+    controller.create_flow()
+    controller.create_flow()
+
+    controller.input = ScriptedInput(["3"])
+    summaries = controller.list_screen()
+    assert [summary.investigation_id for summary in summaries] == [
+        "INV-ALPHA", "INV-ZEBRA",
+    ]
+
+    controller.input = ScriptedInput(["2"])
+    summaries = controller.list_screen()
+    assert [summary.owner for summary in summaries] == ["alice", "carol"]
+
+    controller.input = ScriptedInput([""])
+    summaries = controller.list_screen()
+    assert {summary.investigation_id for summary in summaries} == {
+        "INV-ALPHA", "INV-ZEBRA",
+    }
 
 
 def test_create_override_cancel_and_missing_analysis_paths(tmp_path):
@@ -445,12 +529,11 @@ def test_investigations_menu_delegates_workspace_and_preserves_back(monkeypatch)
             self.calls += 1
 
     controller = RecordingController()
-    values = iter(["6", "0"])
+    values = iter(["5", "0"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
     monkeypatch.setattr(menu_module, "begin_screen", lambda _title: None)
     monkeypatch.setattr(menu_module, "menu_option", lambda *_args: None)
     menu_module.investigations_menu(
-        lambda: None,
         lambda: None,
         lambda: [],
         lambda: None,
@@ -581,7 +664,7 @@ def test_main_runtime_opens_durable_workbench_with_live_analysis(
     analysis_id = AnalysisEvidenceCatalog().source_analysis_id(analysis)
     prompts = ScriptedInput(
         [
-            "2", "6", "3", "INV-RUNTIME", "13",
+            "2", "5", "3", "INV-RUNTIME", "13",
             "0", "0", "", "0", "0", "0",
         ]
     )

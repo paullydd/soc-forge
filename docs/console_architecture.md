@@ -39,9 +39,9 @@ availability without a global baseline or completeness score.
 
 Investigations owns durable issue-specific evidence, hypotheses, decisions, Findings, Response Actions, summaries, timelines, reconstruction, and Handoff.
 
-Legacy Attack Stories are preserved as Investigation Narrative in the existing Investigation Workspace. Attack Graph remains in that same reconstruction workflow. They are no longer duplicated as top-level Analysis concepts.
-
 Investigation Handoff is a structured durable investigation export. It remains under Investigations and is not duplicated under Reporting.
+
+The Investigations menu's legacy ephemeral case workspace (filter/sort case browsing, flat-file notes, flat-file status) has been removed: everything it did maps onto durable Investigation state (Annotations, validated status transitions, Assign Owner, Response Actions) except two genuinely unique features, which were ported into the durable Investigation Workspace itself as read-only options: Investigation Replay (a step-through/auto-play walkthrough of a case's timeline) and the Entity Relationship Explorer (interactive entity browser, entity profile, relationship, and attack-path views). Both resolve the underlying machine-generated case from the investigation's scoped evidence reference and the active analysis; if no matching analysis is loaded, they report that honestly rather than duplicating or fabricating case data.
 
 ## Analysis
 
