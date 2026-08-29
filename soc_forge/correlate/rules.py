@@ -779,6 +779,60 @@ def correlate_alerts(
             })
             break
 
+    # -------------------------
+    # SOCF-CORR-014: External initial access -> discovery activity
+    # -------------------------
+    external_access = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-023"]
+    discovery = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-024"]
+    seen_corr_014 = set()
+
+    for access in external_access:
+        access_ts = _parse_ts(access["timestamp"])
+        access_host = _field(access, "host")
+        access_user = _field(access, "username", "actor")
+
+        for disco in discovery:
+            disco_ts = _parse_ts(disco["timestamp"])
+            disco_host = _field(disco, "host")
+            disco_user = _field(disco, "username", "actor")
+
+            if access_host != disco_host:
+                continue
+            if access_user != "unknown" and disco_user != "unknown" and access_user != disco_user:
+                continue
+            if not (timedelta(0) <= (disco_ts - access_ts) <= window):
+                continue
+
+            corr_id = _cid("SOCF-CORR-014", access_host, access_user)
+            if corr_id in seen_corr_014:
+                continue
+            seen_corr_014.add(corr_id)
+
+            correlated.append({
+                "rule_id": "SOCF-CORR-014",
+                "severity": "high",
+                "title": "External initial access followed by discovery activity",
+                "timestamp": disco["timestamp"],
+                "details": {
+                    "host": access_host,
+                    "username": access_user,
+                    "window_minutes": window_minutes,
+                    "evidence": [
+                        {"rule_id": access["rule_id"], "timestamp": access["timestamp"]},
+                        {"rule_id": disco["rule_id"], "timestamp": disco["timestamp"]},
+                    ],
+                    "source_rule_ids": ["SOCF-023", "SOCF-024"],
+                },
+                "mitre": [
+                    {"tactic": "Initial Access", "technique": "External Remote Services", "id": "T1133"},
+                    {"tactic": "Discovery", "technique": "Account Discovery", "id": "T1087"},
+                ],
+                "score": 150,
+                "status": "new",
+                "correlation_id": corr_id,
+            })
+            break
+
     # De-duplicate correlated alerts by correlation_id
     seen = set()
     uniq_corr = []
@@ -896,7 +950,7 @@ def correlate_alerts(
                     if username in {None, "unknown"} or d.get("username") in {None, username}:
                         a["correlation_id"] = cid
 
-        elif rule_id in {"SOCF-CORR-009", "SOCF-CORR-010", "SOCF-CORR-011", "SOCF-CORR-012", "SOCF-CORR-013"}:
+        elif rule_id in {"SOCF-CORR-009", "SOCF-CORR-010", "SOCF-CORR-011", "SOCF-CORR-012", "SOCF-CORR-013", "SOCF-CORR-014"}:
             host = details.get("host")
             username = details.get("username")
             source_rule_ids = set(details.get("source_rule_ids", []) or [])

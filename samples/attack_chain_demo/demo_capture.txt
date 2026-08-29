@@ -5,16 +5,17 @@ Command:
   python -m soc_forge.cli --simulate attack_chain --sim-output samples/attack_chain_demo/attack_chain_events.jsonl
 
 Result:
-  Generated attack-chain event data containing RDP, scheduled task, account creation,
-  privileged group assignment, and audit log clearing activity.
+  Generated attack-chain event data containing an external RDP logon, discovery
+  commands, scheduled task, account creation, privileged group assignment, and
+  audit log clearing activity.
 
 Command:
   python -m soc_forge.cli --input samples/attack_chain_demo/attack_chain_events.jsonl --out samples/attack_chain_demo/alerts.json --html samples/attack_chain_demo/report.html
 
 Expected Summary:
-  Alerts: 9
-  Correlated Alerts: 4
-  Cases: 4
+  Alerts: 14
+  Correlated Alerts: 5
+  Cases: 6
 
 Rules Triggered:
   SOCF-005       Scheduled task created
@@ -22,10 +23,14 @@ Rules Triggered:
   SOCF-007       New user account created
   SOCF-008       User added to privileged group
   SOCF-009       Audit logs cleared
+  SOCF-011       Suspicious PowerShell execution
+  SOCF-023       RDP logon from external source address (possible initial access)
+  SOCF-024       Account or group discovery command executed (x2)
   SOCF-CORR-002  RDP logon followed by scheduled task creation
   SOCF-CORR-003  RDP logon followed by privileged group change
   SOCF-CORR-004  New account followed by privileged group assignment
   SOCF-CORR-005  New privileged account followed by log clearing
+  SOCF-CORR-014  External initial access followed by discovery activity
 
 Best Demo Case:
   CASE-18FA7129

@@ -3,11 +3,12 @@
     "rule_id": "SOCF-006",
     "severity": "medium",
     "title": "RDP logon detected (LogonType 10)",
-    "timestamp": "2026-07-16T17:22:56Z",
+    "timestamp": "2026-08-29T16:45:18Z",
     "details": {
-      "username": "alice",
-      "ip": "198.51.100.77",
       "host": "WS-ENG-01",
+      "ip": "198.51.100.77",
+      "username": "alice",
+      "logon_type": 10,
       "message": "An account was successfully logged on. User: alice. Source Network Address: 198.51.100.77. Logon Type: 10."
     },
     "mitre": [
@@ -21,18 +22,129 @@
     "status": "new",
     "correlation_id": "3221f258a60b",
     "rule": {
-      "description": "",
-      "author": "",
-      "created": "",
-      "logsource": "",
-      "tags": []
+      "description": "Detects successful RDP logons by matching LogonType 10 activity.",
+      "author": "SOC-Forge",
+      "created": "2026-07-17",
+      "logsource": "windows-security",
+      "tags": [
+        "windows",
+        "rdp",
+        "lateral-movement"
+      ]
+    }
+  },
+  {
+    "rule_id": "SOCF-023",
+    "severity": "high",
+    "title": "RDP logon from external source address (possible initial access)",
+    "timestamp": "2026-08-29T16:45:18Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "ip": "198.51.100.77",
+      "username": "alice",
+      "logon_type": 10,
+      "message": "An account was successfully logged on. User: alice. Source Network Address: 198.51.100.77. Logon Type: 10."
+    },
+    "mitre": [
+      {
+        "tactic": "Initial Access",
+        "technique": "External Remote Services",
+        "id": "T1133"
+      }
+    ],
+    "score": 70,
+    "status": "new",
+    "correlation_id": "dd9348fbb1df",
+    "rule": {
+      "description": "Detects a successful interactive RDP logon (LogonType 10) originating from a source address outside common private/loopback/link-local ranges. This is a heuristic on the address prefix, not full IP validation, and does not confirm the address is actually internet-routable.",
+      "author": "SOC-Forge",
+      "created": "2026-08-29",
+      "logsource": "windows-security",
+      "tags": [
+        "windows",
+        "rdp",
+        "initial-access",
+        "external"
+      ]
+    }
+  },
+  {
+    "rule_id": "SOCF-024",
+    "severity": "low",
+    "title": "Account or group discovery command executed",
+    "timestamp": "2026-08-29T16:46:18Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "process_name": "whoami.exe",
+      "command_line": "whoami.exe /all",
+      "message": "A new process has been created. New Process Name: whoami.exe. Command Line: whoami.exe /all."
+    },
+    "mitre": [
+      {
+        "tactic": "Discovery",
+        "technique": "Account Discovery",
+        "id": "T1087"
+      }
+    ],
+    "score": 25,
+    "status": "new",
+    "correlation_id": "dd9348fbb1df",
+    "rule": {
+      "description": "Detects local account and group enumeration commands such as whoami, net user, net group, and net localgroup that are commonly used for discovery after initial access.",
+      "author": "SOC-Forge",
+      "created": "2026-08-29",
+      "logsource": "windows-process",
+      "tags": [
+        "windows",
+        "process",
+        "discovery",
+        "recon"
+      ]
+    }
+  },
+  {
+    "rule_id": "SOCF-024",
+    "severity": "low",
+    "title": "Account or group discovery command executed",
+    "timestamp": "2026-08-29T16:46:48Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "process_name": "net.exe",
+      "command_line": "net.exe localgroup administrators",
+      "message": "A new process has been created. New Process Name: net.exe. Command Line: net.exe localgroup administrators."
+    },
+    "mitre": [
+      {
+        "tactic": "Discovery",
+        "technique": "Account Discovery",
+        "id": "T1087"
+      }
+    ],
+    "score": 25,
+    "status": "new",
+    "correlation_id": "dd9348fbb1df",
+    "rule": {
+      "description": "Detects local account and group enumeration commands such as whoami, net user, net group, and net localgroup that are commonly used for discovery after initial access.",
+      "author": "SOC-Forge",
+      "created": "2026-08-29",
+      "logsource": "windows-process",
+      "tags": [
+        "windows",
+        "process",
+        "discovery",
+        "recon"
+      ]
     }
   },
   {
     "rule_id": "SOCF-005",
     "severity": "critical",
     "title": "Scheduled task created",
-    "timestamp": "2026-07-16T17:24:56Z",
+    "timestamp": "2026-08-29T16:47:18Z",
     "details": {
       "host": "WS-ENG-01",
       "actor": "alice",
@@ -55,18 +167,64 @@
     "status": "new",
     "correlation_id": "044596ac3ae5",
     "rule": {
-      "description": "",
-      "author": "",
-      "created": "",
-      "logsource": "",
-      "tags": []
+      "description": "Detects scheduled task creation, including suspicious task commands used for persistence or execution.",
+      "author": "SOC-Forge",
+      "created": "2026-07-17",
+      "logsource": "windows-security",
+      "tags": [
+        "windows",
+        "persistence",
+        "scheduled-task"
+      ]
+    }
+  },
+  {
+    "rule_id": "SOCF-011",
+    "severity": "high",
+    "title": "Suspicious PowerShell execution",
+    "timestamp": "2026-08-29T16:47:18Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "process_name": "",
+      "parent_process": "",
+      "command_line": "",
+      "message": "A scheduled task was created. Task Name: WindowsUpdateCheck. Author: alice. Command: powershell -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAKQA=.",
+      "suspicious": true
+    },
+    "mitre": [
+      {
+        "tactic": "Execution",
+        "technique": "Command and Scripting Interpreter: PowerShell",
+        "id": "T1059.001"
+      },
+      {
+        "tactic": "Defense Evasion",
+        "technique": "Obfuscated Files or Information",
+        "id": "T1027"
+      }
+    ],
+    "score": 85,
+    "status": "new",
+    "correlation_id": null,
+    "rule": {
+      "description": "Detects PowerShell command lines with encoded commands, download cradles, or hidden execution flags.",
+      "author": "SOC-Forge",
+      "created": "2026-07-17",
+      "logsource": "windows-process",
+      "tags": [
+        "windows",
+        "powershell",
+        "execution"
+      ]
     }
   },
   {
     "rule_id": "SOCF-007",
     "severity": "high",
     "title": "New user account created",
-    "timestamp": "2026-07-16T17:26:56Z",
+    "timestamp": "2026-08-29T16:49:18Z",
     "details": {
       "host": "WS-ENG-01",
       "ip": "198.51.100.77",
@@ -94,18 +252,22 @@
     "status": "new",
     "correlation_id": "e353a2e912eb",
     "rule": {
-      "description": "",
-      "author": "",
-      "created": "",
-      "logsource": "",
-      "tags": []
+      "description": "Detects new Windows user account creation and highlights suspicious service-style account names.",
+      "author": "SOC-Forge",
+      "created": "2026-07-17",
+      "logsource": "windows-security",
+      "tags": [
+        "windows",
+        "identity",
+        "account-creation"
+      ]
     }
   },
   {
     "rule_id": "SOCF-008",
     "severity": "high",
     "title": "User added to privileged group",
-    "timestamp": "2026-07-16T17:27:56Z",
+    "timestamp": "2026-08-29T16:50:18Z",
     "details": {
       "host": "WS-ENG-01",
       "ip": "198.51.100.77",
@@ -131,18 +293,22 @@
     "status": "new",
     "correlation_id": "e353a2e912eb",
     "rule": {
-      "description": "",
-      "author": "",
-      "created": "",
-      "logsource": "",
-      "tags": []
+      "description": "Detects additions to privileged local or universal Windows groups using structured group-change events.",
+      "author": "SOC-Forge",
+      "created": "2026-07-17",
+      "logsource": "windows-security",
+      "tags": [
+        "windows",
+        "identity",
+        "privileged-group"
+      ]
     }
   },
   {
     "rule_id": "SOCF-009",
     "severity": "high",
     "title": "Audit logs cleared",
-    "timestamp": "2026-07-16T17:29:56Z",
+    "timestamp": "2026-08-29T16:52:18Z",
     "details": {
       "host": "WS-ENG-01",
       "ip": "198.51.100.77",
@@ -161,18 +327,22 @@
     "status": "new",
     "correlation_id": "e353a2e912eb",
     "rule": {
-      "description": "",
-      "author": "",
-      "created": "",
-      "logsource": "",
-      "tags": []
+      "description": "Detects Windows audit log clearing, which can indicate attempted evidence removal.",
+      "author": "SOC-Forge",
+      "created": "2026-07-17",
+      "logsource": "windows-security",
+      "tags": [
+        "windows",
+        "defense-evasion",
+        "log-clearing"
+      ]
     }
   },
   {
     "rule_id": "SOCF-CORR-002",
     "severity": "high",
     "title": "RDP logon followed by scheduled task creation (possible persistence)",
-    "timestamp": "2026-07-16T17:24:56Z",
+    "timestamp": "2026-08-29T16:47:18Z",
     "details": {
       "host": "WS-ENG-01",
       "username": "alice",
@@ -181,11 +351,11 @@
       "evidence": [
         {
           "rule_id": "SOCF-006",
-          "timestamp": "2026-07-16T17:22:56Z"
+          "timestamp": "2026-08-29T16:45:18Z"
         },
         {
           "rule_id": "SOCF-005",
-          "timestamp": "2026-07-16T17:24:56Z"
+          "timestamp": "2026-08-29T16:47:18Z"
         }
       ]
     },
@@ -209,7 +379,7 @@
     "rule_id": "SOCF-CORR-003",
     "severity": "critical",
     "title": "RDP logon followed by privileged group change (possible takeover)",
-    "timestamp": "2026-07-16T17:27:56Z",
+    "timestamp": "2026-08-29T16:50:18Z",
     "details": {
       "host": "WS-ENG-01",
       "username": "alice",
@@ -218,11 +388,11 @@
       "evidence": [
         {
           "rule_id": "SOCF-006",
-          "timestamp": "2026-07-16T17:22:56Z"
+          "timestamp": "2026-08-29T16:45:18Z"
         },
         {
           "rule_id": "SOCF-008",
-          "timestamp": "2026-07-16T17:27:56Z"
+          "timestamp": "2026-08-29T16:50:18Z"
         }
       ]
     },
@@ -246,7 +416,7 @@
     "rule_id": "SOCF-CORR-004",
     "severity": "critical",
     "title": "New account followed by privileged group assignment",
-    "timestamp": "2026-07-16T17:27:56Z",
+    "timestamp": "2026-08-29T16:50:18Z",
     "details": {
       "host": "WS-ENG-01",
       "target_user": "svc-backup-admin",
@@ -254,11 +424,11 @@
       "evidence": [
         {
           "rule_id": "SOCF-007",
-          "timestamp": "2026-07-16T17:26:56Z"
+          "timestamp": "2026-08-29T16:49:18Z"
         },
         {
           "rule_id": "SOCF-008",
-          "timestamp": "2026-07-16T17:27:56Z"
+          "timestamp": "2026-08-29T16:50:18Z"
         }
       ],
       "source_rule_ids": [
@@ -286,7 +456,7 @@
     "rule_id": "SOCF-CORR-005",
     "severity": "critical",
     "title": "New privileged account followed by log clearing (possible account abuse)",
-    "timestamp": "2026-07-16T17:29:56Z",
+    "timestamp": "2026-08-29T16:52:18Z",
     "details": {
       "host": "WS-ENG-01",
       "target_user": "svc-backup-admin",
@@ -295,15 +465,15 @@
       "evidence": [
         {
           "rule_id": "SOCF-007",
-          "timestamp": "2026-07-16T17:26:56Z"
+          "timestamp": "2026-08-29T16:49:18Z"
         },
         {
           "rule_id": "SOCF-008",
-          "timestamp": "2026-07-16T17:27:56Z"
+          "timestamp": "2026-08-29T16:50:18Z"
         },
         {
           "rule_id": "SOCF-009",
-          "timestamp": "2026-07-16T17:29:56Z"
+          "timestamp": "2026-08-29T16:52:18Z"
         }
       ],
       "source_rule_ids": [
@@ -332,5 +502,45 @@
     "score": 150,
     "status": "new",
     "correlation_id": "e353a2e912eb"
+  },
+  {
+    "rule_id": "SOCF-CORR-014",
+    "severity": "high",
+    "title": "External initial access followed by discovery activity",
+    "timestamp": "2026-08-29T16:46:18Z",
+    "details": {
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "window_minutes": 15,
+      "evidence": [
+        {
+          "rule_id": "SOCF-023",
+          "timestamp": "2026-08-29T16:45:18Z"
+        },
+        {
+          "rule_id": "SOCF-024",
+          "timestamp": "2026-08-29T16:46:18Z"
+        }
+      ],
+      "source_rule_ids": [
+        "SOCF-023",
+        "SOCF-024"
+      ]
+    },
+    "mitre": [
+      {
+        "tactic": "Initial Access",
+        "technique": "External Remote Services",
+        "id": "T1133"
+      },
+      {
+        "tactic": "Discovery",
+        "technique": "Account Discovery",
+        "id": "T1087"
+      }
+    ],
+    "score": 150,
+    "status": "new",
+    "correlation_id": "dd9348fbb1df"
   }
 ]

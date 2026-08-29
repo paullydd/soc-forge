@@ -5,7 +5,8 @@ This walkthrough demonstrates SOC-Forge as an analyst-facing investigation workf
 The demo scenario simulates this chain:
 
 ```text
-RDP logon
+RDP logon from an external-looking source address (initial access)
+  -> account and group discovery commands (whoami, net localgroup)
   -> suspicious scheduled task
   -> service-style admin account creation
   -> privileged group assignment
@@ -36,7 +37,7 @@ Expected high-level output:
 ```text
 Saved alerts to: out/alerts.json
 Saved HTML report to: out/report.html
-Correlated alerts: 4
+Correlated alerts: 5
 ```
 
 ## 4. Open the Analyst Console
@@ -66,7 +67,7 @@ Recommended demo flow:
 
 ## 5. Expected Detection Output
 
-The attack-chain scenario should produce 9 alerts:
+The attack-chain scenario should produce 14 alerts:
 
 ```text
 SOCF-005       Scheduled task created
@@ -74,10 +75,14 @@ SOCF-006       RDP logon detected (LogonType 10)
 SOCF-007       New user account created
 SOCF-008       User added to privileged group
 SOCF-009       Audit logs cleared
+SOCF-011       Suspicious PowerShell execution (scheduled task command line)
+SOCF-023       RDP logon from external source address (possible initial access)
+SOCF-024       Account or group discovery command executed (x2: whoami, net localgroup)
 SOCF-CORR-002  RDP -> scheduled task
 SOCF-CORR-003  RDP -> privileged group change
 SOCF-CORR-004  new account -> privileged group assignment
 SOCF-CORR-005  new privileged account -> log clearing
+SOCF-CORR-014  external initial access -> discovery
 ```
 
 The richest case is:

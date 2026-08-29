@@ -94,13 +94,18 @@ Detection content now covers:
 - LOLBin proxy execution
 - Remote admin share execution
 - Archive staging for collection or exfiltration preparation
+- RDP logon from an external-looking source address (initial access)
+- Account or group discovery command execution (whoami, net user/group/localgroup)
 - Correlations that connect lateral movement, credential access, and collection into case narratives
+- Correlation that connects external initial access to discovery activity
 
 ## Endpoint Defense And Recovery Rules
 
 - `SOCF-020`: archive staging, reconstructed as Collection (`T1560`)
 - `SOCF-021`: security-control tampering, reconstructed as Defense Evasion (`T1562.001`)
 - `SOCF-022`: recovery or shadow-copy deletion, reconstructed as Impact (`T1490`)
+- `SOCF-023`: RDP logon from an external-looking source address, reconstructed as Initial Access (`T1133`). This is a heuristic on the address prefix (excludes common private/loopback/link-local ranges), not full IP validation or a claim the address is internet-routable.
+- `SOCF-024`: account or group discovery command execution (whoami, net user/group/localgroup), reconstructed as Discovery (`T1087`)
 
 These process rules support native Windows Security Event ID 4688. Event ID 1 is accepted only when the event provider is `Microsoft-Windows-Sysmon`.
 

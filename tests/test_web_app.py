@@ -9,10 +9,10 @@ from soc_forge.web.app import build_detection_rule_catalog, build_detection_scor
 SCENARIO_EXPECTATIONS = {
     "attack_chain": {
         "label": "Attack Chain",
-        "events": 5,
-        "alerts": 10,
-        "correlations": 4,
-        "cases": 5,
+        "events": 7,
+        "alerts": 14,
+        "correlations": 5,
+        "cases": 6,
         "hunts": 1,
     },
     "detection_lab": {

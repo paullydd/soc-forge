@@ -5,7 +5,8 @@ This folder contains a checked-in SOC-Forge demo run for portfolio review. It le
 ## Scenario
 
 ```text
-RDP logon
+RDP logon from an external-looking source address (initial access)
+  -> account and group discovery commands (whoami, net localgroup)
   -> suspicious scheduled task
   -> service-style admin account creation
   -> privileged group assignment
@@ -31,9 +32,9 @@ demo_capture.txt            Demo notes/capture output
 The sample contains:
 
 ```text
-9 alerts
-4 correlated alerts
-4 cases
+14 alerts
+5 correlated alerts
+6 cases
 ```
 
 The richest case is:

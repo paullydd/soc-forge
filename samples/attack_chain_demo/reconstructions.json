@@ -10,7 +10,7 @@
         "title": "Scheduled task created",
         "technique": "T1053.005",
         "tactic": "Persistence",
-        "timestamp": "2026-07-16T17:21:54Z",
+        "timestamp": "2026-08-29T16:47:18Z",
         "confidence": 0.98,
         "entities": {
           "src_ip": null,
@@ -21,7 +21,7 @@
           {
             "kind": "alert",
             "ref": "cand-1",
-            "timestamp": "2026-07-16T17:21:54Z",
+            "timestamp": "2026-08-29T16:47:18Z",
             "rule_id": "SOCF-005",
             "event_id": null,
             "summary": "Scheduled task created"
@@ -69,7 +69,7 @@
         "title": "RDP logon detected (LogonType 10)",
         "technique": "T1021.001",
         "tactic": "Initial Access",
-        "timestamp": "2026-07-16T17:19:54Z",
+        "timestamp": "2026-08-29T16:45:18Z",
         "confidence": 0.8250000000000001,
         "entities": {
           "src_ip": null,
@@ -80,7 +80,7 @@
           {
             "kind": "alert",
             "ref": "cand-1",
-            "timestamp": "2026-07-16T17:19:54Z",
+            "timestamp": "2026-08-29T16:45:18Z",
             "rule_id": "SOCF-006",
             "event_id": null,
             "summary": "RDP logon detected (LogonType 10)"
@@ -99,6 +99,34 @@
       "hosts": [
         "WS-ENG-01"
       ]
+    },
+    "gaps": [],
+    "assumptions": []
+  },
+  {
+    "case_id": "CASE-004",
+    "summary": "No meaningful attack path could be reconstructed.",
+    "confidence": 0.0,
+    "attack_path": [],
+    "relationships": [],
+    "key_entities": {
+      "src_ips": [],
+      "users": [],
+      "hosts": []
+    },
+    "gaps": [],
+    "assumptions": []
+  },
+  {
+    "case_id": "CASE-3013F295",
+    "summary": "No meaningful attack path could be reconstructed.",
+    "confidence": 0.0,
+    "attack_path": [],
+    "relationships": [],
+    "key_entities": {
+      "src_ips": [],
+      "users": [],
+      "hosts": []
     },
     "gaps": [],
     "assumptions": []

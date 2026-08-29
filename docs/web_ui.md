@@ -43,7 +43,7 @@ python -m soc_forge.cli --input out/detection_lab_events.jsonl --out out/alerts.
 Use the top-right scenario selector to generate and load demo artifacts directly from the browser:
 
 - `Detection Lab`: Office -> PowerShell -> credential dumping -> browser credential access
-- `Attack Chain`: RDP -> scheduled task -> new privileged account -> log clearing
+- `Attack Chain`: external RDP logon -> discovery commands -> scheduled task -> new privileged account -> log clearing
 
 The switcher refreshes `out/alerts.json`, `out/cases.json`, `out/hunts.json`, `out/reconstructions.json`, and `out/report.html` using the shared pipeline.
 

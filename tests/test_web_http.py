@@ -10,7 +10,7 @@ from soc_forge.web.app import make_server, warn_if_non_loopback
 
 
 SCENARIO_EXPECTATIONS = {
-    "attack_chain": {"events": 5, "alerts": 10, "correlations": 4, "cases": 5, "hunts": 1},
+    "attack_chain": {"events": 7, "alerts": 14, "correlations": 5, "cases": 6, "hunts": 1},
     "detection_lab": {"events": 6, "alerts": 8, "correlations": 3, "cases": 3, "hunts": 1},
 }
 

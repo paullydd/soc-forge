@@ -54,7 +54,8 @@ For the deeper incident narrative, switch to `Attack Chain` and click `Start Dem
 Expected story:
 
 ```text
-RDP logon
+RDP logon from an external-looking source address (initial access)
+  -> account and group discovery commands (whoami, net localgroup)
   -> suspicious scheduled task
   -> service-style admin account creation
   -> privileged group assignment

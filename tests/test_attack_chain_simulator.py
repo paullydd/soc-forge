@@ -9,7 +9,7 @@ def test_generate_attack_chain_contains_multistage_events():
     events = generate_scenario("attack_chain")
     event_ids = [event.get("event_id") for event in events]
 
-    assert event_ids == [4624, 4698, 4720, 4732, 1102]
+    assert event_ids == [4624, 4688, 4688, 4698, 4720, 4732, 1102]
     assert {event.get("host") for event in events} == {"WS-ENG-01"}
     assert {event.get("src_ip") for event in events} == {"198.51.100.77"}
 
@@ -21,8 +21,14 @@ def test_attack_chain_triggers_rules_and_correlations():
     correlated = correlate_alerts(alerts)
     rule_ids = {alert.get("rule_id") for alert in correlated}
 
-    assert {"SOCF-005", "SOCF-006", "SOCF-007", "SOCF-008", "SOCF-009"}.issubset(rule_ids)
-    assert {"SOCF-CORR-002", "SOCF-CORR-003", "SOCF-CORR-004", "SOCF-CORR-005"}.issubset(rule_ids)
+    assert {
+        "SOCF-005", "SOCF-006", "SOCF-007", "SOCF-008", "SOCF-009",
+        "SOCF-023", "SOCF-024",
+    }.issubset(rule_ids)
+    assert {
+        "SOCF-CORR-002", "SOCF-CORR-003", "SOCF-CORR-004", "SOCF-CORR-005",
+        "SOCF-CORR-014",
+    }.issubset(rule_ids)
 
 
 def test_attack_chain_builds_rich_case_graph():
@@ -31,7 +37,10 @@ def test_attack_chain_builds_rich_case_graph():
     alerts = correlate_alerts(run_rules(events, rules))
     cases = build_cases(alerts, "attack_chain_events.jsonl")
 
-    case = max(cases, key=lambda item: len(item.get("alerts", [])))
+    case = next(
+        item for item in cases
+        if "log clearing" in item.get("header", {}).get("title", "")
+    )
     graph = build_investigation_graph(case)
     summary = summarize_graph(graph)
 

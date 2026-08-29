@@ -242,5 +242,49 @@
       "command_line": "C:\\Windows\\System32\\svchost.exe -k netsvcs",
       "message": "New process from System32."
     }
+  },
+  {
+    "rule_id": "SOCF-023",
+    "rule_file": "SOCF-023.yml",
+    "match": {
+      "timestamp": "2026-08-29T12:00:00Z",
+      "event_id": 4624,
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "ip": "198.51.100.77",
+      "logon_type": 10,
+      "message": "An account was successfully logged on. Logon Type: 10."
+    },
+    "non_match": {
+      "timestamp": "2026-08-29T12:00:00Z",
+      "event_id": 4624,
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "ip": "10.0.5.23",
+      "logon_type": 10,
+      "message": "An account was successfully logged on. Logon Type: 10."
+    }
+  },
+  {
+    "rule_id": "SOCF-024",
+    "rule_file": "SOCF-024.yml",
+    "match": {
+      "timestamp": "2026-08-29T12:01:00Z",
+      "event_id": 4688,
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "process_name": "whoami.exe",
+      "command_line": "whoami.exe /all",
+      "message": "A new process has been created. New Process Name: whoami.exe."
+    },
+    "non_match": {
+      "timestamp": "2026-08-29T12:01:00Z",
+      "event_id": 4688,
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "process_name": "net.exe",
+      "command_line": "net.exe use \\\\host\\share",
+      "message": "A new process has been created. New Process Name: net.exe."
+    }
   }
 ]

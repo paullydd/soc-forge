@@ -1,0 +1,42 @@
+version: 1
+rules:
+- id: SOCF-024
+  enabled: true
+  title: Account or group discovery command executed
+  description: Detects local account and group enumeration commands such as whoami,
+    net user, net group, and net localgroup that are commonly used for discovery
+    after initial access.
+  author: SOC-Forge
+  created: '2026-08-29'
+  logsource: windows-process
+  tags:
+  - windows
+  - process
+  - discovery
+  - recon
+  severity: low
+  score: 25
+  mitre:
+  - tactic: Discovery
+    technique: Account Discovery
+    id: T1087
+  match:
+    all:
+    - field: event_id
+      op: eq
+      value: 4688
+    - any:
+      - field: process_name
+        op: regex
+        value: (?i)whoami\.exe
+      - field: command_line
+        op: regex
+        value: (?i)whoami(\.exe)?(\s|$)|net(1)?(\.exe)?\s+(user|group|localgroup)
+  emit:
+    details:
+      host: ${host}
+      username: ${username}
+      ip: ${ip}
+      process_name: ${process_name}
+      command_line: ${command_line}
+      message: ${message}

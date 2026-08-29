@@ -1,0 +1,45 @@
+version: 1
+rules:
+- id: SOCF-023
+  enabled: true
+  title: RDP logon from external source address (possible initial access)
+  description: Detects a successful interactive RDP logon (LogonType 10) originating
+    from a source address outside common private/loopback/link-local ranges. This
+    is a heuristic on the address prefix, not full IP validation, and does not
+    confirm the address is actually internet-routable.
+  author: SOC-Forge
+  created: '2026-08-29'
+  logsource: windows-security
+  tags:
+  - windows
+  - rdp
+  - initial-access
+  - external
+  severity: high
+  score: 70
+  mitre:
+  - tactic: Initial Access
+    technique: External Remote Services
+    id: T1133
+  match:
+    all:
+    - field: event_id
+      op: eq
+      value: 4624
+    - any:
+      - field: logon_type
+        op: eq
+        value: 10
+      - field: message
+        op: regex
+        value: (?i)logon\s*type:\s*10
+    - field: ip
+      op: regex
+      value: '^(?!(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.|169\.254\.))'
+  emit:
+    details:
+      host: ${host}
+      ip: ${ip}
+      username: ${username}
+      logon_type: ${logon_type}
+      message: ${message}

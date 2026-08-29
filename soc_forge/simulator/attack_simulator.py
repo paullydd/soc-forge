@@ -257,7 +257,8 @@ def generate_mixed_scenario() -> List[Dict[str, Any]]:
 def generate_attack_chain_scenario() -> List[Dict[str, Any]]:
     """
     Generate a graph-friendly multi-stage intrusion:
-    - RDP logon to a workstation
+    - RDP logon to a workstation from an external-looking source address (initial access)
+    - account and group discovery commands (whoami, net localgroup)
     - suspicious scheduled task for persistence
     - new service-style admin account creation
     - privileged group assignment
@@ -289,6 +290,44 @@ def generate_attack_chain_scenario() -> List[Dict[str, Any]]:
                 f"User: {actor}. "
                 f"Source Network Address: {src_ip}. "
                 f"Logon Type: 10."
+            ),
+        }
+    )
+
+    events.append(
+        {
+            "timestamp": _iso_z(base_time + timedelta(minutes=1)),
+            "event_id": 4688,
+            "username": actor,
+            "src_ip": src_ip,
+            "ip": src_ip,
+            "host": host,
+            "computer_name": host,
+            "process_name": "whoami.exe",
+            "command_line": "whoami.exe /all",
+            "message": (
+                f"A new process has been created. "
+                f"New Process Name: whoami.exe. "
+                f"Command Line: whoami.exe /all."
+            ),
+        }
+    )
+
+    events.append(
+        {
+            "timestamp": _iso_z(base_time + timedelta(minutes=1, seconds=30)),
+            "event_id": 4688,
+            "username": actor,
+            "src_ip": src_ip,
+            "ip": src_ip,
+            "host": host,
+            "computer_name": host,
+            "process_name": "net.exe",
+            "command_line": "net.exe localgroup administrators",
+            "message": (
+                f"A new process has been created. "
+                f"New Process Name: net.exe. "
+                f"Command Line: net.exe localgroup administrators."
             ),
         }
     )

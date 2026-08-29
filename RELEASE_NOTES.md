@@ -1,5 +1,25 @@
 # Release Notes
 
+## v3.6.1
+
+**Theme:** Close an Initial Access / Discovery detection gap with two new rules and a fuller Attack Chain demo scenario.
+
+### Detection Engineering
+
+- Added `SOCF-023`: RDP logon from an external-looking source address, mapped to Initial Access (`T1133`, External Remote Services). Heuristic on the address prefix (excludes common private/loopback/link-local ranges); not full IP validation.
+- Added `SOCF-024`: account or group discovery command execution (`whoami`, `net user`/`group`/`localgroup`), mapped to Discovery (`T1087`, Account Discovery).
+- Added `SOCF-CORR-014`: correlates external initial access with subsequent discovery activity on the same host into one case.
+- ATT&CK tactic coverage of the bundled rule set now includes Initial Access and Discovery in addition to the eight tactics already covered.
+
+### Attack Chain Demo Scenario
+
+- Extended the Attack Chain simulator scenario to open with an external RDP logon and discovery commands (`whoami`, `net localgroup administrators`) before the existing persistence, privilege escalation, and defense evasion steps, so the demo now shows a complete kill chain from initial access through impact.
+- Regenerated the checked-in `samples/attack_chain_demo/` artifacts and documentation to match (14 alerts, 5 correlated alerts, 6 cases).
+
+### Security Hardening (carried in this release)
+
+- Closed a shell command-injection path in the analyst console, added optional HTTP Basic Auth and security response headers to the web UI, added a request body size cap, switched EVTX record parsing to `defusedxml`, and added `bandit`/`pip-audit` plus pinned GitHub Actions to CI.
+
 ## v3.6.0
 
 **Theme:** One coherent, accessible analyst web application across the established SOC-Forge workspaces.

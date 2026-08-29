@@ -70,6 +70,6 @@ jobs:
       - name: Validate installed wheel
         run: |
           python -m pip install dist/*.whl
-          python -c "import soc_forge; assert soc_forge.__version__ == '3.6.0'"
-          python -c "from soc_forge.rules import BUILTIN_RULES_PATH; from soc_forge.rules.engine import load_rules; assert len(load_rules([str(BUILTIN_RULES_PATH)])) == 21"
+          python -c "import soc_forge; assert soc_forge.__version__ == '3.6.1'"
+          python -c "from soc_forge.rules import BUILTIN_RULES_PATH; from soc_forge.rules.engine import load_rules; assert len(load_rules([str(BUILTIN_RULES_PATH)])) == 23"
           python -c "from soc_forge.investigations.handoff import InvestigationHandoffService"

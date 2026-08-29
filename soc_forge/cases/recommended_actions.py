@@ -173,6 +173,11 @@ def build_recommended_actions(items_sorted: List[Dict[str, Any]]) -> List[str]:
         actions.append("Review administrative share execution followed by persistence or staging as a likely remote operator sequence.")
         actions.append("Inspect SMB sessions, copied binaries, scheduled tasks/services, and staged archives on the destination host.")
 
+    # SOCF-CORR-014: External initial access -> discovery
+    if _has_rule(items_sorted, "SOCF-CORR-014"):
+        actions.append("Treat external logon followed by discovery commands as likely hands-on-keyboard initial access.")
+        actions.append("Validate whether the source address and account are an approved remote-access path; if not, disable the account and block the address.")
+
     if _has_rule(items_sorted, "SOCF-006") and _has_rule(items_sorted, "SOCF-005", "SOCF-010", "SOCF-011"):
         actions.append("Pull EDR triage: process tree around first RDP logon (parent/child, network, command line)")
         actions.append("Check scheduled task details (name, triggers, command, author) and capture the full XML if available")

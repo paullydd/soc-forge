@@ -313,7 +313,7 @@ def test_run_analysis_file_input_exposes_csv_ingest_diagnostics(tmp_path):
 @pytest.mark.parametrize(
     "scenario,expected",
     [
-        ("attack_chain", {"events": 5, "alerts": 10, "correlations": 4, "cases": 5, "hunts": 1}),
+        ("attack_chain", {"events": 7, "alerts": 14, "correlations": 5, "cases": 6, "hunts": 1}),
         ("detection_lab", {"events": 6, "alerts": 8, "correlations": 3, "cases": 3, "hunts": 1}),
     ],
 )

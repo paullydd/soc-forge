@@ -17,6 +17,7 @@ CORRELATION_RULE_NOTES = {
     "SOCF-CORR-011": "Credential access was followed by archive staging, which can indicate collection or exfiltration preparation.",
     "SOCF-CORR-012": "Lateral movement activity was followed by credential access on the same host or user context.",
     "SOCF-CORR-013": "Administrative share execution was followed by persistence or archive staging behavior.",
+    "SOCF-CORR-014": "External initial access was followed by account or group discovery activity.",
 }
 
 RULE_FINDINGS = {
@@ -41,6 +42,8 @@ RULE_FINDINGS = {
     "SOCF-020": "Archive tooling staged sensitive-looking files, which can indicate collection or exfiltration preparation.",
     "SOCF-021": "Windows security controls were disabled, excluded, or stopped, which can indicate defense evasion.",
     "SOCF-022": "System recovery or shadow copy data was deleted or disabled, which can indicate destructive impact.",
+    "SOCF-023": "An RDP logon originated from an external-looking source address, which can indicate initial access from outside the network.",
+    "SOCF-024": "Account or group discovery commands were executed, which can indicate post-access reconnaissance.",
 }
 
 

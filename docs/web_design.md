@@ -25,7 +25,7 @@ The shell remains framework-free: one packaged HTML entry point, shared CSS, and
 
 Terminal-only Detection Engineering, Security Analysis, Reporting, and System workspaces are not represented as web destinations. There are no “Coming Soon” links.
 
-The compact top bar exposes the current page title, a bounded purpose statement, local-platform state, v3.6.0 release identity, and existing scenario/search/refresh controls. It does not duplicate primary navigation. Active navigation uses both styling and `aria-current="page"`.
+The compact top bar exposes the current page title, a bounded purpose statement, local-platform state, v3.6.1 release identity, and existing scenario/search/refresh controls. It does not duplicate primary navigation. Active navigation uses both styling and `aria-current="page"`.
 
 ## Layout and Hierarchy
 
