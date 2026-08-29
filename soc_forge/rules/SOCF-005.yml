@@ -27,10 +27,10 @@ rules:
       any:
       - field: task_command
         op: regex
-        value: (?i)powershell|\\s-enc\\b|cmd\.exe|rundll32|mshta|wscript
+        value: (?i)powershell|\s-enc\b|cmd\.exe|rundll32|mshta|wscript
       - field: message
         op: regex
-        value: (?i)powershell|\\s-enc\\b|cmd\.exe|rundll32|mshta|wscript
+        value: (?i)powershell|\s-enc\b|cmd\.exe|rundll32|mshta|wscript
     add: 20
     bump_severity: true
     set_details:

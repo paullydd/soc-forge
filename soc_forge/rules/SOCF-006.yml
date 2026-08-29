@@ -20,7 +20,7 @@ rules:
         value: 10
       - field: message
         op: regex
-        value: (?i)logon\\s*type:\\s*10
+        value: (?i)logon\s*type:\s*10
   description: Detects successful RDP logons by matching LogonType 10 activity.
   logsource: windows-security
   tags:

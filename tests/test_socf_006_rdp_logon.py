@@ -1,4 +1,26 @@
+from pathlib import Path
+
 from soc_forge.rules.engine import load_rules, run_rules
+
+
+def test_socf_006_matches_via_message_only_fallback():
+    # Isolates the message-regex fallback branch of the shipped rule: no
+    # logon_type field present, only the free-text message.
+    rules = load_rules([str(Path("soc_forge/rules/SOCF-006.yml"))])
+
+    events = [{
+        "timestamp": "2026-02-27T22:15:00Z",
+        "event_id": 4624,
+        "username": "bob",
+        "ip": "203.0.113.50",
+        "host": "WIN10",
+        "message": "An account was successfully logged on. Logon Type: 10.",
+    }]
+
+    alerts = run_rules(events, rules)
+    assert len(alerts) == 1
+    assert alerts[0]["rule_id"] == "SOCF-006"
+
 
 def test_yaml_rule_rdp_logon_type_10_matches_message(tmp_path):
     rules_yml = tmp_path / "rules.yml"
