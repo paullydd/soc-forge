@@ -23,6 +23,25 @@ SUSPICIOUS_COMMAND_KEYWORDS = [
 ]
 
 
+# Broader recon/discovery commands not tied to a single exact-match rule
+# (SOCF-024 only matches whoami / net user / net group / net localgroup).
+# Each maps to its closest ATT&CK Discovery technique so findings stay
+# explainable even though the match itself is a wider, lower-confidence net.
+DISCOVERY_COMMAND_TECHNIQUES = {
+    "systeminfo": ("T1082", "System Information Discovery"),
+    "tasklist": ("T1057", "Process Discovery"),
+    "nltest": ("T1482", "Domain Trust Discovery"),
+    "quser": ("T1033", "System Owner/User Discovery"),
+    "qwinsta": ("T1033", "System Owner/User Discovery"),
+    "netstat": ("T1049", "System Network Connections Discovery"),
+    "arp -a": ("T1016", "System Network Configuration Discovery"),
+    "ipconfig /all": ("T1016", "System Network Configuration Discovery"),
+    "net view": ("T1135", "Network Share Discovery"),
+    "net share": ("T1135", "Network Share Discovery"),
+    "dsquery": ("T1087.002", "Domain Account Discovery"),
+}
+
+
 def _norm(value: Any) -> str:
     if value is None:
         return ""
@@ -139,6 +158,62 @@ def hunt_suspicious_commands(events: Iterable[Dict[str, Any]]) -> List[HuntFindi
                 first_seen=ts,
                 last_seen=ts,
                 mitre=["T1059", "T1218"],
+            )
+        )
+
+    return findings
+
+
+def hunt_discovery_commands(events: Iterable[Dict[str, Any]]) -> List[HuntFinding]:
+    findings: List[HuntFinding] = []
+
+    for event in events:
+        command = _event_command(event)
+        command_l = command.lower()
+        if not command_l:
+            continue
+
+        matched = [k for k in DISCOVERY_COMMAND_TECHNIQUES if k in command_l]
+        if not matched:
+            continue
+
+        techniques = sorted({DISCOVERY_COMMAND_TECHNIQUES[k][0] for k in matched})
+        technique_names = sorted({DISCOVERY_COMMAND_TECHNIQUES[k][1] for k in matched})
+
+        username = _event_user(event)
+        host = _event_host(event)
+        ts = _event_time(event)
+
+        findings.append(
+            HuntFinding(
+                hunt_id="HUNT-004",
+                title="Discovery Command Execution",
+                severity="low",
+                category="discovery",
+                summary=(
+                    f"Recon command observed on {host or 'unknown-host'} by "
+                    f"{username or 'unknown-user'} ({', '.join(technique_names)})"
+                ),
+                confidence="medium",
+                entities={
+                    "username": username,
+                    "host": host,
+                    "command_line": command,
+                    "matched_terms": matched,
+                },
+                evidence=[
+                    {
+                        "timestamp": ts,
+                        "host": host,
+                        "username": username,
+                        "command_line": command,
+                        "matched_terms": matched,
+                        "event_id": event.get("event_id"),
+                    }
+                ],
+                first_seen=ts,
+                last_seen=ts,
+                mitre=techniques,
             )
         )
 

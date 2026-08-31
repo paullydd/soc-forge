@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List
 
 from .hunts import (
+    hunt_discovery_commands,
     hunt_multi_host_spread,
     hunt_rare_source_ip,
     hunt_suspicious_commands,
@@ -15,6 +16,7 @@ def run_hunts(events: Iterable[Dict[str, Any]]) -> List[HuntFinding]:
 
     findings: List[HuntFinding] = []
     findings.extend(hunt_suspicious_commands(event_list))
+    findings.extend(hunt_discovery_commands(event_list))
     findings.extend(hunt_rare_source_ip(event_list))
     findings.extend(hunt_multi_host_spread(event_list))
 
