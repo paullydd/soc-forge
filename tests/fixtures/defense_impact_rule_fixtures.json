@@ -19,7 +19,24 @@
       "process_name": "powershell.exe",
       "command_line": "powershell.exe Update-MpSignature",
       "message": "PowerShell updated Microsoft Defender signatures."
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 1,
+        "provider": "Microsoft-Windows-Sysmon"
+      },
+      {
+        "command_line": "sc.exe stop WinDefend"
+      },
+      {
+        "command_line": "net.exe stop WinDefend",
+        "message": "Service control command: net stop WinDefend"
+      },
+      {
+        "command_line": "powershell.exe Set-MpPreference -DisableRealtimeMonitoring $true"
+      }
+    ]
   },
   {
     "rule_id": "SOCF-022",
@@ -41,6 +58,29 @@
       "process_name": "vssadmin.exe",
       "command_line": "vssadmin.exe list shadows",
       "message": "Volume shadow copies were listed."
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 1,
+        "provider": "Microsoft-Windows-Sysmon"
+      },
+      {
+        "command_line": "wmic.exe shadowcopy delete"
+      },
+      {
+        "command_line": "wbadmin.exe delete catalog -quiet"
+      },
+      {
+        "command_line": "bcdedit.exe /set {default} recoveryenabled no"
+      },
+      {
+        "command_line": "reagentc.exe /disable"
+      },
+      {
+        "command_line": "wmic.exe shadowcopy delete",
+        "message": "Shadow copy deletion via wmic shadowcopy delete"
+      }
+    ]
   }
 ]

@@ -20,7 +20,16 @@
       "service_name": "SpoolerMonitor",
       "image_path": "C:\\Program Files\\Vendor\\spooler-monitor.exe",
       "message": "A service was installed: SpoolerMonitor"
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 4697
+      },
+      {
+        "command_line": "cmd.exe /c \\\\WS-02\\ADMIN$\\psexesvc.exe"
+      }
+    ]
   },
   {
     "rule_id": "SOCF-017",
@@ -43,7 +52,17 @@
       "process_name": "wmic.exe",
       "command_line": "wmic os get caption",
       "message": "wmic inventory query"
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 1,
+        "provider": "Microsoft-Windows-Sysmon"
+      },
+      {
+        "parent_process": "wmiprvse.exe"
+      }
+    ]
   },
   {
     "rule_id": "SOCF-018",
@@ -65,7 +84,18 @@
       "process_name": "rundll32.exe",
       "command_line": "rundll32.exe printui.dll,PrintUIEntry /?",
       "message": "rundll32 print UI help"
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 1,
+        "provider": "Microsoft-Windows-Sysmon"
+      },
+      {
+        "command_line": "regsvr32.exe /s /n /u /i:C:\\payload.sct scrobj.dll",
+        "message": "regsvr32 remote scriptlet execution via https://198.51.100.44/a.sct"
+      }
+    ]
   },
   {
     "rule_id": "SOCF-019",
@@ -87,7 +117,17 @@
       "process_name": "cmd.exe",
       "command_line": "C:\\Windows\\System32\\whoami.exe",
       "message": "Local process created"
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 1,
+        "provider": "Microsoft-Windows-Sysmon"
+      },
+      {
+        "image_path": "\\\\WS-03\\ADMIN$\\update.exe"
+      }
+    ]
   },
   {
     "rule_id": "SOCF-020",
@@ -109,6 +149,17 @@
       "process_name": "7z.exe",
       "command_line": "7z.exe a C:\\Backups\\logs.zip C:\\ProgramData\\Vendor\\logs",
       "message": "7z archived routine application logs"
-    }
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 1,
+        "provider": "Microsoft-Windows-Sysmon"
+      },
+      {
+        "command_line": "7z.exe a C:\\Forensics\\loot.zip",
+        "message": "7z archived files from \\Users\\alice\\Documents\\ containing credential material."
+      }
+    ]
   }
 ]

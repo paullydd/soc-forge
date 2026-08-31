@@ -19,8 +19,22 @@ def test_rule_positive_and_negative_fixtures(fixture):
         {**fixture["match"], **overrides}
         for overrides in fixture.get("match_overrides", [{}])
     ]
-    positive = run_rules(match_events, rules)
-    assert any(alert.get("rule_id") == fixture["rule_id"] for alert in positive)
+    if rules[0].aggregate:
+        # Aggregate/threshold rules (e.g. password spray) only fire across a
+        # batch of events, not from any single event in isolation - so the
+        # whole set is evaluated together, matching the rule's own semantics.
+        positive = run_rules(match_events, rules)
+        assert any(alert.get("rule_id") == fixture["rule_id"] for alert in positive)
+    else:
+        # Each match_overrides entry must independently trigger the rule, not
+        # just "at least one of them" - otherwise a fixture can grow extra
+        # variants over time while a specific match alternative silently
+        # stops firing.
+        for index, event in enumerate(match_events):
+            positive = run_rules([event], rules)
+            assert any(alert.get("rule_id") == fixture["rule_id"] for alert in positive), (
+                f"{fixture['rule_id']} match_overrides[{index}] did not trigger the rule: {event}"
+            )
 
     negative = run_rules([fixture["non_match"]], rules)
     assert not any(alert.get("rule_id") == fixture["rule_id"] for alert in negative)

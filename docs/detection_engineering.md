@@ -20,6 +20,7 @@ This phase added:
 - `SOCF-020`: Suspicious archive staging of sensitive files
 - Positive and negative fixtures for every YAML rule
 - A fixture test that fails when a rule is added without a matching test fixture
+- A branch-coverage test that fails when any alternative inside a rule's match logic is never independently exercised by a fixture
 - A `detection_lab` simulator scenario for process-chain and credential-access detections
 - Case guidance for the new PowerShell, process-path, Office, LSASS, and browser credential detections
 
@@ -28,7 +29,7 @@ This phase added:
 ```bash
 source .venv/bin/activate
 python -m soc_forge.cli --rule-quality
-pytest -q tests/test_rule_fixtures.py tests/test_detection_engineering_rules.py
+pytest -q tests/test_rule_fixtures.py tests/test_rule_branch_coverage.py tests/test_detection_engineering_rules.py
 ```
 
 ## Run The Detection Lab
@@ -68,8 +69,9 @@ Each built-in YAML rule should have:
 - One positive event that should fire the rule
 - One negative event that should not fire the rule
 - A matching `rule_id` and `rule_file` entry in `tests/fixtures/rule_fixtures.json`
+- A `match_overrides` entry for every additional alternative inside an `any` block in the rule's match logic or score modifiers, so each one is independently proven to work rather than merely assumed
 
-This keeps rule development honest: a new rule must prove both that it detects the intended behavior and that it avoids at least one nearby benign case.
+This keeps rule development honest: a new rule must prove both that it detects the intended behavior and that it avoids at least one nearby benign case. See [Fixture And Branch Coverage](rule_quality.md#fixture-and-branch-coverage) for why the last point matters - it is what caught SOCF-005 and SOCF-006 shipping a dead match branch.
 
 ## Current Rule Coverage
 
