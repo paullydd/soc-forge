@@ -529,14 +529,11 @@ def test_investigations_menu_delegates_workspace_and_preserves_back(monkeypatch)
             self.calls += 1
 
     controller = RecordingController()
-    values = iter(["5", "0"])
+    values = iter(["2", "0"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(values))
     monkeypatch.setattr(menu_module, "begin_screen", lambda _title: None)
     monkeypatch.setattr(menu_module, "menu_option", lambda *_args: None)
     menu_module.investigations_menu(
-        lambda: None,
-        lambda: [],
-        lambda: None,
         lambda: None,
         lambda: None,
         workspace_controller=controller,
@@ -664,7 +661,7 @@ def test_main_runtime_opens_durable_workbench_with_live_analysis(
     analysis_id = AnalysisEvidenceCatalog().source_analysis_id(analysis)
     prompts = ScriptedInput(
         [
-            "2", "5", "3", "INV-RUNTIME", "13",
+            "2", "2", "3", "INV-RUNTIME", "13",
             "0", "0", "", "0", "0", "0",
         ]
     )

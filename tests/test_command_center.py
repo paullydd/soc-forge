@@ -25,7 +25,8 @@ def dashboard_stats():
         "medium": 0,
         "low": 0,
         "open": 0,
-        "investigating": 2,
+        "in_progress": 2,
+        "escalated": 1,
         "closed": 1,
     }
 
@@ -53,8 +54,8 @@ def test_command_center_is_width_safe_and_preserves_authoritative_counts(width):
     assert "PLATFORM OVERVIEW" in rendered
     assert "[ONLINE]" in rendered
     for label, value in (
-        ("Alerts", 19), ("Cases", 3), ("Open Cases", 0),
-        ("Investigating", 2), ("High Severity", 15),
+        ("Alerts", 19), ("Cases", 3), ("Open Inv.", 0),
+        ("In Progress", 2), ("Escalated", 1), ("High Severity", 15),
         ("Medium Severity", 0), ("Low Severity", 0),
     ):
         assert label in rendered
@@ -160,7 +161,7 @@ def test_dashboard_reads_each_existing_projection_once_without_mutation(capsys):
     ("module_name", "function_name", "title", "inputs", "expected_numbers"),
     [
         ("detection", "detection_menu", "DETECTION", (None,) * 6, ("1", "2", "3", "4", "5", "6", "7", "0")),
-        ("investigations", "investigations_menu", "INVESTIGATIONS", (None,) * 5, ("1", "2", "3", "4", "5", "0")),
+        ("investigations", "investigations_menu", "INVESTIGATIONS", (None,) * 2, ("1", "2", "0")),
         ("analysis", "analysis_menu", "ANALYSIS", (None,) * 1, ("1", "2", "3", "4", "5", "6", "0")),
         ("reporting", "reporting_menu", "REPORTING", (None,) * 1, ("1", "2", "3", "4", "0")),
         ("system", "system_menu", "SYSTEM", (None,) * 1, ("1", "2", "3", "4", "5", "6", "0")),

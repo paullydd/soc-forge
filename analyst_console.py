@@ -58,6 +58,7 @@ from soc_forge.investigations.operations_queue_console import (
     OperationsQueueConsoleController,
 )
 from soc_forge.investigations.workspace_service import InvestigationWorkspaceService
+from soc_forge.investigations.repository import InvestigationRepositoryError
 from soc_forge.investigations.snapshots import CompletedAnalysisSnapshotStore
 
 init()
@@ -228,16 +229,6 @@ def warning(message):
 def error(message):
     print(Fore.RED + f"[-] {message}" + Style.RESET_ALL)
 
-def box_row(label, value, color=""):
-    width = 48
-    plain_text = f"{label:<18}: {value}"
-    padding = width - len(plain_text)
-
-    if color:
-        value = color + str(value) + Style.RESET_ALL
-
-    print(f"│ {label:<18}: {value}{' ' * padding}│")
-
 def severity_icon(severity):
     severity = severity.lower()
 
@@ -249,40 +240,6 @@ def severity_icon(severity):
         return "🟢"
 
     return "⚪"
-
-def case_has_notes(story, index):
-    note_id = get_case_note_id(story, index)
-    note_path = f"out/notes/{note_id}.txt"
-
-    return os.path.exists(note_path) and os.path.getsize(note_path) > 0
-
-def load_case_statuses():
-    path = "out/case_status.json"
-
-    if not os.path.exists(path):
-        return {}
-
-    with open(path, "r", encoding="utf-8") as file:
-        return json.load(file)
-
-
-def save_case_statuses(statuses):
-    with open("out/case_status.json", "w", encoding="utf-8") as file:
-        json.dump(statuses, file, indent=2)
-
-def color_status(status):
-    status = status.lower()
-
-    if status == "open":
-        return Fore.RED + "OPEN" + Style.RESET_ALL
-
-    if status == "investigating":
-        return Fore.YELLOW + "INVESTIGATING" + Style.RESET_ALL
-
-    if status == "closed":
-        return Fore.GREEN + "CLOSED" + Style.RESET_ALL
-
-    return status.upper()
 
 def section_title(title):
     print()
@@ -766,7 +723,7 @@ def get_recent_activity(limit=5):
     activities.sort(key=lambda item: item["timestamp"], reverse=True)
     return activities[:limit]
 
-def get_dashboard_stats():
+def get_dashboard_stats(workspace_service=None):
     stats = {
         "alerts": 0,
         "cases": 0,
@@ -774,7 +731,8 @@ def get_dashboard_stats():
         "medium": 0,
         "low": 0,
         "open": 0,
-        "investigating": 0,
+        "in_progress": 0,
+        "escalated": 0,
         "closed": 0,
     }
 
@@ -811,129 +769,19 @@ def get_dashboard_stats():
         if isinstance(cases, list):
             stats["cases"] = len(cases)
 
-    statuses = load_case_statuses()
+    if workspace_service is not None:
+        try:
+            summaries = workspace_service.list_investigations()
+        except InvestigationRepositoryError:
+            summaries = []
 
-    for status in statuses.values():
-        status = status.lower()
+        for summary in summaries:
+            status = (summary.status or "").lower()
 
-        if status == "open":
-            stats["open"] += 1
-        elif status == "investigating":
-            stats["investigating"] += 1
-        elif status == "closed":
-            stats["closed"] += 1
+            if status in {"open", "in_progress", "escalated", "closed"}:
+                stats[status] += 1
 
     return stats
-
-def load_attack_stories():
-    story_files = [
-        "out/reconstructions.json",
-        "out/cases.json",
-    ]
-
-    for file_path in story_files:
-        if not os.path.exists(file_path):
-            continue
-
-        with open(file_path, "r", encoding="utf-8") as file:
-            data = json.load(file)
-
-        if isinstance(data, list):
-            return data
-
-        if isinstance(data, dict):
-            for key in ["reconstructions", "stories", "cases", "items"]:
-                if key in data and isinstance(data[key], list):
-                    return data[key]
-
-            return [data]
-
-    return []
-
-def manage_case_status():
-    clear_screen()
-    section_title("Case Status")
-
-    stories = load_attack_stories()
-
-    if not stories:
-        warning("No cases found.")
-        pause()
-        return
-
-    statuses = load_case_statuses()
-
-    for index, story in enumerate(stories, start=1):
-        note_id = get_case_note_id(story, index)
-
-        status = statuses.get(note_id, "Open")
-
-        header = story.get("header", {})
-        title = header.get(
-            "title",
-            story.get("title", f"Case {index}")
-        )
-
-        notes_badge = " 📝" if case_has_notes(story, index) else ""
-
-        print(
-            f"[{index}] "
-            f"{title} "
-            f"({color_status(status)})"
-            f"{notes_badge}"
-        )
-
-    choice = input(
-        "\nSelect case or press Enter to return: "
-    ).strip()
-
-    if not choice:
-        return
-
-    if not choice.isdigit():
-        error("Invalid selection.")
-        pause()
-        return
-
-    index = int(choice)
-
-    if index < 1 or index > len(stories):
-        error("Invalid selection.")
-        pause()
-        return
-
-    story = stories[index - 1]
-
-    case_id = get_case_note_id(story, index)
-
-    print("\n[1] Open")
-    print("[2] Investigating")
-    print("[3] Closed")
-
-    status_choice = input(
-        "\nSelect status: "
-    ).strip()
-
-    mapping = {
-        "1": "Open",
-        "2": "Investigating",
-        "3": "Closed",
-    }
-
-    if status_choice not in mapping:
-        error("Invalid status.")
-        pause()
-        return
-
-    statuses[case_id] = mapping[status_choice]
-
-    save_case_statuses(statuses)
-
-    success(
-        f"Status updated to {mapping[status_choice]}"
-    )
-
-    pause()
 
 def open_report(selected_report=None):
     clear_screen()
@@ -990,96 +838,6 @@ def open_report(selected_report=None):
 
     pause()
 
-def get_case_note_id(story, index=1):
-    header = story.get("header", {})
-    title = header.get("title", story.get("title", f"case_{index}"))
-
-    safe_title = (
-        title.lower()
-        .replace(" ", "_")
-        .replace("/", "_")
-        .replace("\\", "_")
-        .replace(":", "")
-    )
-
-    return safe_title
-
-
-def view_or_add_notes():
-    clear_screen()
-    section_title("Analyst Notes")
-
-    stories = load_attack_stories()
-
-    if not stories:
-        warning("No cases/stories found yet.")
-        pause()
-        return
-
-    for index, story in enumerate(stories, start=1):
-        header = story.get("header", {})
-        title = header.get("title", story.get("title", f"Attack Story {index}"))
-        severity = header.get("severity", story.get("severity", "unknown"))
-
-        print(f"[{index}] {color_severity(severity)} | {title}")
-
-    choice = input("\nSelect case/story for notes, or press Enter to return: ").strip()
-
-    if not choice:
-        return
-
-    if not choice.isdigit() or int(choice) < 1 or int(choice) > len(stories):
-        error("Invalid selection.")
-        pause()
-        return
-
-    selected_index = int(choice)
-    story = stories[selected_index - 1]
-
-    note_id = get_case_note_id(story, selected_index)
-
-    os.makedirs("out/notes", exist_ok=True)
-    note_path = f"out/notes/{note_id}.txt"
-
-    clear_screen()
-    section_title("Case Notes")
-
-    if os.path.exists(note_path):
-        print("Existing Notes")
-        print("-" * 50)
-
-        with open(note_path, "r", encoding="utf-8") as file:
-            print(file.read())
-    else:
-        warning("No notes yet for this case.")
-
-    print("\n[1] Add Note")
-    print("[0] Return")
-
-    action = input("\nSelect option: ").strip()
-
-    if action == "0":
-        return
-
-    if action != "1":
-        error("Invalid option.")
-        pause()
-        return
-
-    print("\nEnter analyst note.")
-    note = input("> ").strip()
-
-    if not note:
-        warning("Empty note not saved.")
-        pause()
-        return
-
-    with open(note_path, "a", encoding="utf-8") as file:
-        file.write(note + "\n")
-
-    success("Analyst note saved.")
-    pause()
-
 def main_menu():
     workspace_controller = build_investigation_console_controller()
     operations_queue_service = OperationsQueueService(
@@ -1126,11 +884,8 @@ def main_menu():
     while True:
         clear_screen()
         show_dashboard(
-            get_dashboard_stats,
+            lambda: get_dashboard_stats(workspace_controller.workspace_service),
             get_recent_activity,
-            box_row,
-            color_status,
-            color_severity,
             operations_queue_service.summarize,
             lambda: operations_prioritization_service.summarize().top_item,
             operational_summary_service.summarize,
@@ -1157,10 +912,7 @@ def main_menu():
         elif choice == "2":
             investigations_menu(
                 pause,
-                load_cases,
                 view_cases,
-                view_or_add_notes,
-                manage_case_status,
                 workspace_controller,
             )
 

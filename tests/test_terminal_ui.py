@@ -211,14 +211,17 @@ def test_command_center_header_does_not_change_exit_input_count(monkeypatch, cap
     import analyst_console
 
     calls = []
-    monkeypatch.setattr(analyst_console, "build_investigation_console_controller", lambda: object())
+    stub_controller = type("StubController", (), {"workspace_service": None})()
+    monkeypatch.setattr(
+        analyst_console, "build_investigation_console_controller", lambda: stub_controller
+    )
     monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
     monkeypatch.setattr(
         analyst_console,
         "get_dashboard_stats",
-        lambda: {
+        lambda _workspace_service=None: {
             "alerts": 0, "cases": 0, "high": 0, "medium": 0, "low": 0,
-            "open": 0, "investigating": 0, "closed": 0,
+            "open": 0, "in_progress": 0, "escalated": 0, "closed": 0,
         },
     )
     monkeypatch.setattr(analyst_console, "get_recent_activity", lambda: ())
