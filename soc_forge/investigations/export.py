@@ -1,23 +1,4 @@
-import json
-import os
 from typing import Any, Dict
-
-
-def build_case_summary(case: Dict[str, Any]) -> str:
-    return "\n".join(
-        [
-            f"Case ID: {case.get('case_id', case.get('id', 'Unknown'))}",
-            f"Title: {case.get('title', case.get('name', 'Untitled Case'))}",
-            f"Status: {case.get('status', 'New')}",
-            f"Owner: {case.get('owner', 'Unassigned')}",
-            f"Risk Score: {case.get('risk_score', case.get('risk', 'N/A'))}",
-            f"Created: {case.get('created_at', case.get('created', 'Unknown'))}",
-            f"Updated: {case.get('updated_at', 'Unknown')}",
-            "",
-            "MITRE:",
-            str(case.get("mitre", case.get("mitre_attack", case.get("techniques", [])))),
-        ]
-    )
 
 
 def build_case_brief(case: Dict[str, Any]) -> str:
@@ -95,56 +76,3 @@ def build_closure_report(case: Dict[str, Any]) -> str:
             "\n".join(history_lines) if history_lines else "No status history recorded.",
         ]
     )
-
-
-def build_notes(case: Dict[str, Any]) -> str:
-    notes = case.get("notes", [])
-
-    if not notes:
-        return "No analyst notes available."
-
-    lines = []
-    for note in notes:
-        if isinstance(note, dict):
-            timestamp = note.get("created_at") or "unknown time"
-            author = note.get("author") or "analyst"
-            text = note.get("text", "")
-            lines.append(f"- {timestamp} | {author}: {text}")
-        else:
-            lines.append(f"- {note}")
-
-    return "\n".join(lines)
-
-
-def build_lifecycle(case: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "status": case.get("status", "New"),
-        "owner": case.get("owner", "Unassigned"),
-        "created_at": case.get("created_at"),
-        "updated_at": case.get("updated_at"),
-        "status_history": case.get("status_history", []),
-        "notes": case.get("notes", []),
-    }
-
-
-def build_attack_graph(case: Dict[str, Any]) -> str:
-    graph = case.get("attack_graph", case.get("graph", ""))
-
-    if isinstance(graph, list):
-        return "\n".join(str(line) for line in graph)
-
-    return str(graph) if graph else "No attack graph available."
-
-
-def write_text(output_dir: str, filename: str, content: str) -> None:
-    path = os.path.join(output_dir, filename)
-
-    with open(path, "w", encoding="utf-8") as file:
-        file.write(content)
-
-
-def write_json(output_dir: str, filename: str, content: Any) -> None:
-    path = os.path.join(output_dir, filename)
-
-    with open(path, "w", encoding="utf-8") as file:
-        json.dump(content, file, indent=4)
