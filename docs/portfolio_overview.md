@@ -6,7 +6,7 @@ The current portfolio package (v3.6.1) is centered on a local analyst web UI wit
 
 ## What This Project Demonstrates
 
-- Event ingestion and normalization from structured security logs (Windows Security events, Sysmon-style process telemetry, EVTX)
+- Event ingestion and normalization from structured security logs (Windows Security events, Sysmon-style process telemetry, EVTX), via the CLI or a direct browser upload in the web UI
 - YAML-based detection rules with explicit MITRE ATT&CK mappings, covering 11 of 14 Enterprise tactics across 24 rules
 - Alert correlation across related events and entities, including multi-stage correlation chains (for example, external initial access followed by discovery activity)
 - Case creation, risk scoring, and case quality briefs with executive summaries, findings, evidence rationale, and containment guidance
@@ -17,7 +17,7 @@ The current portfolio package (v3.6.1) is centered on a local analyst web UI wit
 - Detection engineering maturity scoring across rule quality, MITRE coverage, context, correlations, and demo readiness
 - Security-conscious engineering practice: closed a real command-injection vulnerability, added optional web authentication and security response headers, `bandit`/`pip-audit` wired into CI, and a documented audit trail of what was found and fixed
 - Portfolio-ready output through screenshots, checked-in sample artifacts, and an HTML report
-- Regression-tested behavior across 1,464 tests covering rules, correlation, case handling, the durable Investigation model, graphs, exports, simulation, and both the terminal console and web workspace
+- Regression-tested behavior across 1,570 tests covering rules, correlation, case handling, the durable Investigation model, graphs, exports, simulation, and both the terminal console and web workspace
 
 ## Portfolio Demo Story
 
@@ -79,7 +79,7 @@ The Detection Lab demo is the cleanest web walkthrough because it shows process-
 - Rich attack-chain and detection-lab scenarios with multiple rule and correlation layers, including a full initial-access-through-impact kill chain
 - MITRE-aligned detection content with fixture-backed quality checks, and a fixture regime that goes beyond "does the rule fire at all" to catch dead branches in multi-alternative match logic
 - Security-hardened by practice, not just claim: a real vulnerability was found and fixed, with tests added specifically to prevent regression
-- Test coverage around the most important moving pieces, at 1,464 tests
+- Test coverage around the most important moving pieces, at 1,570 tests
 
 ## Honest Limitations
 
@@ -89,7 +89,6 @@ SOC-Forge is intentionally lightweight. It is not a full SIEM, production case m
 - Three ATT&CK tactics remain uncovered by design, not oversight: Reconnaissance and Resource Development are pre-compromise, attacker-side activity that never touches the victim endpoint, so no honest endpoint-telemetry rule can detect them. Exfiltration would need network telemetry (destination, data volume) SOC-Forge doesn't ingest; a process-level proxy would be too speculative to trust.
 - Response Actions and Investigation Handoff are analyst-controlled workflow records. SOC-Forge does not execute remediation, integrate a SIEM, or provide live monitoring.
 - The web UI has no authentication by default (loopback-only binding is the safety boundary); an optional shared-secret auth token is available for non-default deployments but is not required.
-- Custom dataset loading in the web UI beyond the CLI ingest formats remains limited.
 
 ## Suggested Talking Points
 

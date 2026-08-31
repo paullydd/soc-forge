@@ -1,6 +1,6 @@
 # Web UI
 
-SOC-Forge includes a lightweight local web UI for the primary guided portfolio demo and for reviewing generated investigation artifacts from the `out/` directory. Demo scenarios run through the same shared analysis pipeline used by CLI file analysis.
+SOC-Forge includes a lightweight local web UI for the primary guided portfolio demo, for reviewing generated investigation artifacts from the `out/` directory, and for ingesting an analyst's own telemetry file directly from the browser. Demo scenarios and uploaded files both run through the same shared analysis pipeline used by CLI file analysis.
 
 ## Run It
 
@@ -46,6 +46,14 @@ Use the top-right scenario selector to generate and load demo artifacts directly
 - `Attack Chain`: external RDP logon -> discovery commands -> scheduled task -> new privileged account -> log clearing
 
 The switcher refreshes `out/alerts.json`, `out/cases.json`, `out/hunts.json`, `out/reconstructions.json`, and `out/report.html` using the shared pipeline.
+
+## Load Your Own Telemetry
+
+Open the collapsed **Load Telemetry File** panel on the Command Center to analyze your own data without leaving the browser. Choose a `.jsonl`, `.csv` (Windows Security export), or `.evtx` file and select `Upload & Analyze`; format auto-detects from the extension, or you can force it with the format dropdown.
+
+The upload posts to `POST /api/ingest`, which saves the file under `out/uploads/` and runs it through the exact same `soc_forge.pipeline` path as `soc-forge --input`, replacing the current workspace (`out/alerts.json`, `out/cases.json`, `out/hunts.json`, `out/reconstructions.json`, `out/report.html`) with the new analysis, the same way the scenario switcher does. A malformed or unparsable file returns a bounded error with ingest diagnostics instead of a stack trace; the upload is capped at 50 MB and restricted to the three supported extensions.
+
+This does not change the loopback-only default or the optional shared-secret auth token - it is gated by the same `require_auth()` check as every other route, and only widens what an already-authorized user can do.
 
 ## Guided Demo
 

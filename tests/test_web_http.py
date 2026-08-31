@@ -323,6 +323,111 @@ def test_artifact_negative_paths_over_http(web_server):
     status, _headers, _body = request(web_server, "GET", "/artifact?file=report.html")
     assert status == 404
 
+
+def test_post_ingest_jsonl_file_replaces_workspace_over_http(web_server):
+    events = [
+        {
+            "event_id": 4625,
+            "timestamp": "2026-08-28T10:00:00Z",
+            "host": "WIN-01",
+            "username": "bob",
+            "src_ip": "10.0.0.5",
+            "message": "An account failed to log on.",
+        }
+        for _ in range(3)
+    ]
+    body = "\n".join(json.dumps(event) for event in events).encode("utf-8")
+
+    status, _headers, data = request(
+        web_server, "POST", "/api/ingest",
+        body=body,
+        headers={"X-Filename": "mydata.jsonl"},
+    )
+
+    assert status == 200
+    payload = json.loads(data.decode("utf-8"))
+    assert payload["filename"] == "mydata.jsonl"
+    assert payload["workspace"]["generated_event_count"] == 3
+    assert payload["workspace"]["active_scenario"] is None
+    assert payload["workspace"]["scenario_label"] == "mydata.jsonl"
+
+    saved = web_server["out_dir"] / "uploads" / "mydata.jsonl"
+    assert saved.exists()
+    assert (web_server["out_dir"] / "alerts.json").exists()
+
+    status, _headers, workspace = json_request(web_server, "GET", "/api/workspace")
+    assert status == 200
+    assert workspace["summary"]["alert_count"] == 0
+
+
+@pytest.mark.parametrize(
+    "filename,body,expected_status,expected_error_fragment",
+    [
+        ("data.exe", b"{}", 400, "Unsupported file type"),
+        ("", b"{}", 400, "valid filename"),
+        ("bad.jsonl", b"{not-json", 400, None),
+    ],
+)
+def test_post_ingest_negative_paths_over_http(web_server, filename, body, expected_status, expected_error_fragment):
+    headers = {"X-Filename": filename} if filename else {}
+    status, _headers, data = request(web_server, "POST", "/api/ingest", body=body, headers=headers)
+    assert status == expected_status
+    payload = json.loads(data.decode("utf-8"))
+    if expected_error_fragment:
+        assert expected_error_fragment in payload["error"]
+
+
+def test_post_ingest_sanitizes_traversal_filename_over_http(web_server):
+    body = json.dumps(
+        {"event_id": 4625, "timestamp": "2026-08-28T10:00:00Z", "host": "WIN-01"}
+    ).encode("utf-8")
+
+    status, _headers, _data = request(
+        web_server, "POST", "/api/ingest",
+        body=body,
+        headers={"X-Filename": "../../etc/passwd.jsonl"},
+    )
+
+    assert status == 200
+    saved = list((web_server["out_dir"] / "uploads").iterdir())
+    assert [p.name for p in saved] == ["passwd.jsonl"]
+
+
+def test_post_ingest_rejects_oversized_upload_over_http(web_server, monkeypatch):
+    monkeypatch.setattr(web_app, "MAX_UPLOAD_BYTES", 10)
+
+    status, _headers, data = request(
+        web_server, "POST", "/api/ingest",
+        body=b"x" * 100,
+        headers={"X-Filename": "big.jsonl"},
+    )
+
+    assert status == 413
+    assert b"exceeds the maximum" in data
+
+
+def test_post_ingest_rejects_unsupported_format_override_over_http(web_server):
+    status, _headers, data = request(
+        web_server, "POST", "/api/ingest?format=xml",
+        body=b"{}",
+        headers={"X-Filename": "data.jsonl"},
+    )
+
+    assert status == 400
+    assert b"Unsupported format override" in data
+
+
+def test_post_ingest_malformed_evtx_surfaces_diagnostics_over_http(web_server):
+    status, _headers, data = request(
+        web_server, "POST", "/api/ingest",
+        body=b"not a real evtx file",
+        headers={"X-Filename": "bad.evtx"},
+    )
+
+    assert status == 422
+    payload = json.loads(data.decode("utf-8"))
+    assert "diagnostics" in payload
+
     status, _headers, _body = request(web_server, "GET", "/artifact?file=../README.md")
     assert status == 404
 

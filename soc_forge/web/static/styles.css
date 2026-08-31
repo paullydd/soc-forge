@@ -655,10 +655,10 @@ button.command-metric:hover { background: var(--surface-interactive); border-col
 .security-fact strong { margin-top: var(--space-1); font-size: 20px; }
 .tactic-summary ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-1) var(--space-3); margin-top: var(--space-2); }
 .tactic-summary p { margin-bottom: 0; font-size: 12px; }
-.demo-lab { background: var(--surface-secondary); }
-.demo-lab summary { cursor: pointer; font-weight: 700; }
-.demo-lab[open] summary { margin-bottom: var(--space-2); }
-.demo-lab .scenario-control { justify-content: flex-start; }
+.demo-lab, .ingest-panel { background: var(--surface-secondary); }
+.demo-lab summary, .ingest-panel summary { cursor: pointer; font-weight: 700; }
+.demo-lab[open] summary, .ingest-panel[open] summary { margin-bottom: var(--space-2); }
+.demo-lab .scenario-control, .ingest-panel .scenario-control { justify-content: flex-start; }
 .compact-search { width: min(230px, 32vw) !important; }
 .compact-empty { min-height: 130px; }
 

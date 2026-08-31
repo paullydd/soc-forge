@@ -106,6 +106,22 @@
             <button id="startDemoButton" type="button" class="primary-button">Start Guided Demo</button>
           </div>
         </details>
+        <details class="ingest-panel panel">
+          <summary>Load Telemetry File</summary>
+          <p>Analyze your own Windows Security telemetry. Replaces the current workspace with the results.</p>
+          <div class="scenario-control" aria-label="Load telemetry file">
+            <label for="ingestFileInput">File</label>
+            <input id="ingestFileInput" type="file" accept=".jsonl,.csv,.evtx" />
+            <label for="ingestFormatSelect">Format</label>
+            <select id="ingestFormatSelect">
+              <option value="">Auto-detect</option>
+              <option value="jsonl">JSONL</option>
+              <option value="windows-security-csv">Windows Security CSV</option>
+              <option value="windows-security-evtx">Windows Security EVTX</option>
+            </select>
+            <button id="uploadIngestButton" type="button" class="primary-button" disabled>Upload &amp; Analyze</button>
+          </div>
+        </details>
       </section>
 
       <section id="casesView" class="view">

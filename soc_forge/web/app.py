@@ -119,7 +119,12 @@ from soc_forge.investigations.operational_summary import OperationalSummaryServi
 from soc_forge.investigations.operations_prioritization import OperationsPrioritizationService
 from soc_forge.investigations.operations_queue import OperationsQueueService
 from soc_forge.detection_engineering import DetectionEngineeringService
-from soc_forge.pipeline import AnalysisOptions, run_analysis_for_events
+from soc_forge.pipeline import (
+    AnalysisOptions,
+    InputLoadError,
+    run_analysis,
+    run_analysis_for_events,
+)
 from soc_forge.rules import BUILTIN_RULES_PATH
 from soc_forge.rules.engine import load_rules
 from soc_forge.rules.quality import evaluate_rule_quality_from_paths
@@ -429,6 +434,68 @@ def run_demo_scenario(scenario: str, out_dir: Path = DEFAULT_OUT_DIR) -> Dict[st
     workspace = load_workspace(out_dir)
     workspace["active_scenario"] = scenario
     workspace["scenario_label"] = WEB_SCENARIOS[scenario]
+    workspace["generated_event_count"] = result.event_count
+    return ScenarioWorkspace(workspace, result)
+
+
+UPLOAD_ALLOWED_SUFFIXES = {".jsonl", ".csv", ".evtx"}
+UPLOAD_FORMAT_OVERRIDES = {"jsonl", "windows-security-csv", "windows-security-evtx", "evtx"}
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+
+class IngestUploadError(ValueError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: int = 400,
+        diagnostics: List[Dict[str, Any]] | None = None,
+    ):
+        super().__init__(message)
+        self.status = status
+        self.diagnostics = diagnostics or []
+
+
+def sanitize_upload_filename(raw_filename: str) -> str:
+    filename = Path(raw_filename).name
+    if not filename or "\\" in filename or ".." in filename:
+        raise IngestUploadError("A valid filename is required.")
+    suffix = Path(filename).suffix.lower()
+    if suffix not in UPLOAD_ALLOWED_SUFFIXES:
+        raise IngestUploadError(
+            f"Unsupported file type '{suffix or filename}'. Use .jsonl, .csv, or .evtx."
+        )
+    return filename
+
+
+def run_ingest_upload(
+    file_bytes: bytes,
+    filename: str,
+    out_dir: Path,
+    input_format: str | None = None,
+) -> Dict[str, Any]:
+    uploads_dir = out_dir / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    saved_path = uploads_dir / filename
+    saved_path.write_bytes(file_bytes)
+
+    try:
+        result = run_analysis(
+            AnalysisOptions(
+                input_path=saved_path,
+                input_name=filename,
+                input_format=input_format,
+                output_dir=out_dir,
+            )
+        )
+    except InputLoadError as exc:
+        raise IngestUploadError(str(exc), status=422, diagnostics=exc.diagnostics) from exc
+    except ValueError as exc:
+        raise IngestUploadError(str(exc), status=400) from exc
+
+    workspace = load_workspace(out_dir)
+    workspace["active_scenario"] = None
+    workspace["scenario_label"] = filename
     workspace["generated_event_count"] = result.event_count
     return ScenarioWorkspace(workspace, result)
 
@@ -1156,6 +1223,53 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
     def request_content_type(self) -> str:
         return str(self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
 
+    def _handle_ingest(self, parsed) -> None:
+        raw_filename = self.headers.get("X-Filename") or ""
+        try:
+            filename = sanitize_upload_filename(unquote(raw_filename))
+        except IngestUploadError as exc:
+            self.send_json_error(str(exc), status=exc.status)
+            return
+
+        input_format = parse_qs(parsed.query).get("format", [None])[0]
+        if input_format is not None and input_format not in UPLOAD_FORMAT_OVERRIDES:
+            self.send_json_error("Unsupported format override.", status=400)
+            return
+
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length <= 0:
+            self.send_json_error(
+                "Content-Length header is required and must be a positive integer.",
+                status=400,
+            )
+            return
+        if length > MAX_UPLOAD_BYTES:
+            self.send_json_error("Uploaded file exceeds the maximum allowed size.", status=413)
+            return
+
+        file_bytes = self.rfile.read(length)
+
+        try:
+            workspace = run_ingest_upload(file_bytes, filename, self.out_dir, input_format=input_format)
+        except IngestUploadError as exc:
+            payload: Dict[str, Any] = {"error": str(exc)}
+            if exc.diagnostics:
+                payload["diagnostics"] = exc.diagnostics
+            self.send_json(payload, status=exc.status)
+            return
+        except Exception as exc:
+            print(f"[soc-forge-web] Unable to ingest uploaded file: {type(exc).__name__}: {exc}")
+            self.send_json_error("Unable to ingest uploaded file.", status=500)
+            return
+
+        self.server.active_analysis_result = getattr(  # type: ignore[attr-defined]
+            workspace, "analysis_result", None
+        )
+        self.send_json({"filename": filename, "workspace": workspace})
+
     def send_file(self, path: Path, content_type: str | None = None) -> None:
         if not path.exists() or not path.is_file():
             self.send_error(404, "File not found")
@@ -1230,6 +1344,10 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
                 return
 
             self.send_json({"scenario": scenario, "workspace": workspace})
+            return
+
+        if path == "/api/ingest":
+            self._handle_ingest(parsed)
             return
 
         segments = self.investigation_segments(path)

@@ -132,6 +132,34 @@ async function runScenario() {
   }
 }
 
+async function uploadIngestFile() {
+  const input = $('#ingestFileInput');
+  const file = input?.files?.[0];
+  if (!file) return;
+  const button = $('#uploadIngestButton');
+  const format = $('#ingestFormatSelect')?.value || '';
+  state.runningScenario = true;
+  if (button) { button.disabled = true; button.textContent = 'Uploading...'; }
+  try {
+    const query = format ? `?format=${encodeURIComponent(format)}` : '';
+    const response = await fetch(`/api/ingest${query}`, {
+      method: 'POST',
+      headers: { 'X-Filename': encodeURIComponent(file.name) },
+      body: file,
+    });
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json') ? await response.json() : { error: await response.text() };
+    if (!response.ok) throw new Error(payload.error || 'Unable to ingest uploaded file');
+    state.workspace = payload.workspace;
+    state.activeCaseId = state.workspace.cases[0]?.case_id || null;
+    input.value = '';
+    render();
+  } finally {
+    state.runningScenario = false;
+    if (button) { button.disabled = !input?.files?.length; button.textContent = 'Upload & Analyze'; }
+  }
+}
+
 function renderScenarioButton() {
   const button = $('#runScenarioButton');
   const startButton = $('#startDemoButton');
@@ -526,6 +554,15 @@ $('#refreshButton').addEventListener('click', () => {
   }).catch((error) => alert(error.message));
 });
 $('#runScenarioButton').addEventListener('click', () => runScenario().catch((error) => { state.runningScenario = false; renderScenarioButton(); alert(error.message); }));
+if ($('#ingestFileInput')) $('#ingestFileInput').addEventListener('change', (event) => {
+  $('#uploadIngestButton').disabled = !event.target.files?.length;
+});
+if ($('#uploadIngestButton')) $('#uploadIngestButton').addEventListener('click', () => uploadIngestFile().catch((error) => {
+  state.runningScenario = false;
+  $('#uploadIngestButton').disabled = !$('#ingestFileInput')?.files?.length;
+  $('#uploadIngestButton').textContent = 'Upload & Analyze';
+  alert(error.message);
+}));
 if ($('#refreshInvestigationsButton')) $('#refreshInvestigationsButton').addEventListener('click', () => {
   loadInvestigationSummaries().then(renderInvestigations).catch((error) => alert(error.message));
 });
