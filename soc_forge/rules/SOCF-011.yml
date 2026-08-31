@@ -21,6 +21,9 @@ rules:
   - tactic: Defense Evasion
     technique: Obfuscated Files or Information
     id: T1027
+  - tactic: Command and Control
+    technique: Ingress Tool Transfer
+    id: T1105
   match:
     all:
     - any:

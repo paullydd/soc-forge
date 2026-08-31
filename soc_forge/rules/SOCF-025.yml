@@ -1,0 +1,49 @@
+version: 1
+rules:
+- id: SOCF-025
+  enabled: true
+  title: LOLBin-based ingress tool transfer (certutil/bitsadmin download)
+  description: Detects certutil or bitsadmin used to download a remote file, a
+    common living-off-the-land technique for staging additional tooling after
+    initial access.
+  author: SOC-Forge
+  created: '2026-08-31'
+  logsource: windows-process
+  tags:
+  - windows
+  - process
+  - lolbin
+  - command-and-control
+  severity: high
+  score: 75
+  mitre:
+  - tactic: Command and Control
+    technique: Ingress Tool Transfer
+    id: T1105
+  match:
+    all:
+    - field: event_id
+      op: eq
+      value: 4688
+    - any:
+      - field: command_line
+        op: regex
+        value: (?i)-urlcache
+      - field: message
+        op: regex
+        value: (?i)-urlcache
+      - field: command_line
+        op: regex
+        value: (?i)bitsadmin(\.exe)?\s+/transfer
+      - field: message
+        op: regex
+        value: (?i)bitsadmin(\.exe)?\s+/transfer
+  emit:
+    details:
+      host: ${host}
+      username: ${username}
+      ip: ${ip}
+      process_name: ${process_name}
+      parent_process: ${parent_process}
+      command_line: ${command_line}
+      message: ${message}
