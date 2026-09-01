@@ -123,7 +123,11 @@ class AnalysisEvidenceCatalog:
                 value = self._field_value(entry.payload, provenance.source_field)
                 if value is None:
                     continue
-                rendered = self._render_value(value)
+                rendered = (
+                    self._render_mitre_value(value)
+                    if provenance.field_name == "attack_technique"
+                    else None
+                ) or self._render_value(value)
                 truncated = len(rendered) > MAX_DETAIL_VALUE_LENGTH
                 details.append(
                     EvidenceDetailField(
@@ -617,6 +621,26 @@ class AnalysisEvidenceCatalog:
         if isinstance(value, str):
             return value
         return canonical_json(value)
+
+    @staticmethod
+    def _render_mitre_value(value: object) -> str | None:
+        if not isinstance(value, (list, tuple)):
+            return None
+        labels = []
+        for mapping in value:
+            if not isinstance(mapping, Mapping):
+                continue
+            technique_id = mapping.get("technique_id") or mapping.get("id")
+            technique_name = mapping.get("technique")
+            tactic = mapping.get("tactic")
+            label = " - ".join(
+                str(part) for part in (technique_id, technique_name) if part
+            )
+            if tactic:
+                label = f"{label} ({tactic})" if label else str(tactic)
+            if label and label not in labels:
+                labels.append(label)
+        return "; ".join(labels) if labels else None
 
     @classmethod
     def _event_source_id(cls, event: Mapping) -> str:

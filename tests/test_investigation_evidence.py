@@ -361,6 +361,53 @@ def test_field_provenance_and_sensitive_details_are_compact(tmp_path):
     assert all(len(item.value) <= 2048 for item in details.fields)
 
 
+def test_attack_technique_field_renders_readable_label_not_raw_json(tmp_path):
+    analysis = build_analysis_result(tmp_path)
+    catalog = AnalysisEvidenceCatalog()
+    alert = candidate_of_type(catalog, analysis, "alert")
+
+    details = catalog.resolve_details(analysis, alert.evidence_id)
+    attack_technique = next(
+        item for item in details.fields if item.field_name == "attack_technique"
+    )
+
+    assert attack_technique.value == "T1562.001 (Defense Evasion)"
+    assert "{" not in attack_technique.value
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (
+            [{"tactic": "Credential Access", "technique": "Brute Force: Password Spraying", "technique_id": "T1110.003"}],
+            "T1110.003 - Brute Force: Password Spraying (Credential Access)",
+        ),
+        ([{"id": "T1562.001", "tactic": "Defense Evasion"}], "T1562.001 (Defense Evasion)"),
+        (
+            [
+                {"technique_id": "T1078", "technique": "Valid Accounts"},
+                {"technique_id": "T1070.001", "technique": "Clear Windows Event Logs"},
+            ],
+            "T1078 - Valid Accounts; T1070.001 - Clear Windows Event Logs",
+        ),
+        (
+            # SOCF-007: same technique legitimately mapped to two tactics -
+            # both must remain visible, not silently deduplicated away.
+            [
+                {"tactic": "Persistence", "technique": "Create Account", "id": "T1136"},
+                {"tactic": "Privilege Escalation", "technique": "Create Account", "id": "T1136"},
+            ],
+            "T1136 - Create Account (Persistence); T1136 - Create Account (Privilege Escalation)",
+        ),
+        ([], None),
+        ([{"tactic": "Defense Evasion"}], "Defense Evasion"),
+        ("T1562.001", None),
+    ],
+)
+def test_render_mitre_value_handles_real_and_degenerate_shapes(value, expected):
+    assert AnalysisEvidenceCatalog._render_mitre_value(value) == expected
+
+
 def test_catalog_is_read_only_and_does_not_open_artifacts(tmp_path):
     analysis = build_analysis_result(tmp_path)
     snapshot = deepcopy(analysis)
