@@ -9,21 +9,18 @@ from soc_forge.ui.terminal import resolve_terminal_width, strip_ansi
 def _callbacks(calls):
     return {
         name: (lambda selected=name: calls.append(selected))
-        for name in ("analyze", "simulate", "view", "rules", "search")
+        for name in ("view", "search")
     }
 
 
 @pytest.mark.parametrize(
     ("inputs", "expected"),
     [
-        (("3", "1", "0", "0"), "analyze"),
-        (("3", "2", "0", "0"), "simulate"),
-        (("3", "3", "0", "0"), "rules"),
         (("7", "1", "0", "0"), "view"),
         (("7", "2", "0", "0"), "search"),
     ],
 )
-def test_detection_legacy_capabilities_remain_reachable(monkeypatch, inputs, expected):
+def test_detection_alert_explorer_remains_reachable(monkeypatch, inputs, expected):
     from soc_forge.menus import detection
 
     calls = []
@@ -36,10 +33,7 @@ def test_detection_legacy_capabilities_remain_reachable(monkeypatch, inputs, exp
 
     detection.detection_menu(
         lambda: calls.append("pause"),
-        handlers["analyze"],
-        handlers["simulate"],
         handlers["view"],
-        handlers["rules"],
         handlers["search"],
     )
 

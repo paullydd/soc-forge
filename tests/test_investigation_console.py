@@ -1,5 +1,4 @@
 import ast
-import sys
 from pathlib import Path
 
 import pytest
@@ -539,105 +538,6 @@ def test_investigations_menu_delegates_workspace_and_preserves_back(monkeypatch)
         workspace_controller=controller,
     )
     assert controller.calls == 1
-
-
-def test_console_analysis_action_retains_completed_result(monkeypatch, tmp_path):
-    import analyst_console
-
-    expected = build_analysis(tmp_path)
-    prompts = iter([str(tmp_path / "events.jsonl"), "n", ""])
-    monkeypatch.setattr("builtins.input", lambda _prompt="": next(prompts))
-    monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
-    monkeypatch.setattr(analyst_console, "run_analysis", lambda _options: expected)
-    monkeypatch.setattr(analyst_console, "success", lambda _message: None)
-    analyst_console.analyze_log_file()
-    assert analyst_console.get_current_analysis_result() is expected
-
-
-@pytest.mark.parametrize(
-    ("choice", "scenario"),
-    [
-        ("1", "brute_force"),
-        ("2", "password_spray"),
-        ("3", "privilege_escalation"),
-    ],
-)
-def test_console_simulation_retains_completed_analysis(
-    monkeypatch, tmp_path, choice, scenario
-):
-    import analyst_console
-
-    expected = build_analysis(tmp_path)
-    commands = []
-    options = []
-    monkeypatch.setattr(analyst_console, "_current_analysis_result", None)
-    monkeypatch.setattr("builtins.input", lambda _prompt="": choice)
-    monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
-    monkeypatch.setattr(analyst_console, "pause", lambda: None)
-    monkeypatch.setattr(analyst_console, "success", lambda _message: None)
-    monkeypatch.setattr(
-        analyst_console,
-        "run_command",
-        lambda command: commands.append(command),
-    )
-    monkeypatch.setattr(
-        analyst_console,
-        "run_analysis",
-        lambda value: options.append(value) or expected,
-    )
-
-    analyst_console.run_attack_simulation()
-
-    assert analyst_console.get_current_analysis_result() is expected
-    assert analyst_console.get_current_analysis_result().cases == expected.cases
-    assert commands == [
-        [
-            sys.executable, "-m", "soc_forge.cli",
-            "--simulate", scenario,
-            "--sim-output", f"out/{scenario}_events.jsonl",
-        ]
-    ]
-    assert len(options) == 1
-    assert options[0].input_path == Path(f"out/{scenario}_events.jsonl")
-    assert options[0].output_dir == Path("out")
-    assert options[0].report_path == Path(f"out/{scenario}_report.html")
-    assert options[0].write_report is True
-
-
-def test_simulation_result_is_immediately_available_to_investigation_workspace(
-    monkeypatch, tmp_path
-):
-    import analyst_console
-
-    expected = build_analysis(tmp_path)
-    monkeypatch.setattr(analyst_console, "_current_analysis_result", None)
-    monkeypatch.setattr("builtins.input", lambda _prompt="": "2")
-    monkeypatch.setattr(analyst_console, "clear_screen", lambda: None)
-    monkeypatch.setattr(analyst_console, "pause", lambda: None)
-    monkeypatch.setattr(analyst_console, "success", lambda _message: None)
-    monkeypatch.setattr(analyst_console, "run_command", lambda _command: None)
-    monkeypatch.setattr(analyst_console, "run_analysis", lambda _options: expected)
-
-    analyst_console.run_attack_simulation()
-
-    controller = analyst_console.build_investigation_console_controller(
-        tmp_path / "workspace"
-    )
-    assert controller.analysis_provider() is expected
-    controller.input = ScriptedInput(["1", "INV-SIMULATION", "", "", "y"])
-    controller.output = lambda _message: None
-    controller.screen = lambda _title: None
-    controller.pause = lambda: None
-
-    created = controller.create_flow()
-
-    assert created is not None
-    assert created.investigation.provenance.normalized_input_name == expected.input_name
-    assert [
-        item.source_id
-        for item in created.investigation.evidence_references
-        if item.origin == "scope"
-    ] == ["CASE-A"]
 
 
 def test_live_detection_lab_simulation_makes_analysis_available_to_investigation_workspace(

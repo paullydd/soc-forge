@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import subprocess
 import sys
 import json
 from colorama import Fore, Style, init
@@ -380,130 +379,6 @@ def clear_screen():
 def pause():
     input("\nPress Enter to return to the menu...")
 
-
-def run_command(args):
-    print("\nRunning command...\n")
-    try:
-        subprocess.run(args, check=True)
-    except subprocess.CalledProcessError:
-        print("\nSomething went wrong while running that command.")
-
-
-def analyze_log_file():
-    clear_screen()
-    print("ANALYZE LOG FILE")
-    print("-" * 50)
-    global _current_analysis_result
-
-    input_file = input("Enter log file path: ").strip()
-
-    if not input_file:
-        warning("No file entered.")
-        pause()
-        return
-
-    html_choice = input("Generate HTML report? (y/n): ").lower().strip()
-
-    try:
-        _current_analysis_result = retain_completed_analysis(
-            run_analysis(
-                AnalysisOptions(
-                    input_path=Path(input_file),
-                    output_dir=Path("out"),
-                    report_path=Path("out/report.html") if html_choice == "y" else None,
-                    write_report=html_choice == "y",
-                )
-            )
-        )
-    except Exception as exc:
-        error(f"Analysis failed: {exc}")
-        pause()
-        return
-
-    success(
-        f"Analysis complete: {_current_analysis_result.event_count} events, "
-        f"{len(_current_analysis_result.alerts)} alerts, "
-        f"{len(_current_analysis_result.cases)} cases."
-    )
-    pause()
-
-
-def run_attack_simulation():
-    clear_screen()
-    print("ATTACK SIMULATION")
-    print("-" * 50)
-    global _current_analysis_result
-
-    print("[1] Brute Force")
-    print("[2] Password Spray")
-    print("[3] Privilege Escalation")
-
-    choice = input("\nSelect simulation: ").strip()
-
-    scenarios = {
-        "1": "brute_force",
-        "2": "password_spray",
-        "3": "privilege_escalation",
-    }
-
-    scenario = scenarios.get(choice)
-
-    if not scenario:
-        error("Invalid choice.")
-        pause()
-        return
-
-    sim_output = f"out/{scenario}_events.jsonl"
-    alerts_output = f"out/{scenario}_alerts.json"
-    html_output = f"out/{scenario}_report.html"
-
-    generate_command = [
-        sys.executable, "-m", "soc_forge.cli",
-        "--simulate", scenario,
-        "--sim-output", sim_output,
-    ]
-
-    run_command(generate_command)
-
-    try:
-        _current_analysis_result = retain_completed_analysis(
-            run_analysis(
-                AnalysisOptions(
-                    input_path=Path(sim_output),
-                    output_dir=Path("out"),
-                    report_path=Path(html_output),
-                    write_report=True,
-                )
-            )
-        )
-    except Exception as exc:
-        error(f"Analysis failed: {exc}")
-        pause()
-        return
-
-    success(
-        f"Analysis complete: {_current_analysis_result.event_count} events, "
-        f"{len(_current_analysis_result.alerts)} alerts, "
-        f"{len(_current_analysis_result.cases)} cases."
-    )
-    pause()
-
-
-def run_rules_only():
-    clear_screen()
-    print("RULES ONLY MODE")
-    print("-" * 50)
-
-    input_file = input("Enter log file path: ").strip()
-
-    if not input_file:
-        warning("No file entered.")
-        pause()
-        return
-
-    command = [sys.executable, "-m", "soc_forge.cli", "--input", input_file, "--rules-only"]
-    run_command(command)
-    pause()
 
 def load_all_alerts():
     alert_files = [
@@ -900,10 +775,7 @@ def main_menu():
         if choice == "1":
             detection_menu(
                 pause,
-                analyze_log_file,
-                run_attack_simulation,
                 view_alerts,
-                run_rules_only,
                 search_alerts,
                 detection_engineering_controller.show_overview,
                 detection_engineering_controller.run_rule_catalog,

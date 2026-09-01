@@ -315,7 +315,7 @@ def test_detection_menu_dispatches_real_coverage_and_gaps(monkeypatch):
     monkeypatch.setattr(detection, "menu_option", lambda *_args: None)
 
     detection.detection_menu(
-        *(lambda: None for _ in range(6)),
+        *(lambda: None for _ in range(3)),
         lambda: None,
         lambda: None,
         lambda: None,

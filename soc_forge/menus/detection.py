@@ -6,10 +6,7 @@ from soc_forge.ui.terminal import render_breadcrumb
 
 def detection_menu(
     pause,
-    analyze_log_file,
-    run_attack_simulation,
     view_alerts,
-    run_rules_only,
     search_alerts,
     show_detection_overview=None,
     show_rule_catalog=None,
@@ -61,8 +58,11 @@ def detection_menu(
             if detection_lab_controller is not None:
                 detection_lab_controller.run()
             else:
-                detection_lab(
-                    analyze_log_file, run_attack_simulation, run_rules_only, pause
+                show_architecture_notice(
+                    "DETECTION",
+                    "Detection Lab",
+                    "Detection Lab is unavailable in this console session.",
+                    pause,
                 )
         elif choice == "4":
             if show_detection_coverage is not None:
@@ -96,28 +96,6 @@ def detection_menu(
                 )
         elif choice == "7":
             alert_explorer(view_alerts, search_alerts, pause)
-        elif choice == "0":
-            return
-        else:
-            error("Invalid option.")
-            pause()
-
-
-def detection_lab(analyze_log_file, run_attack_simulation, run_rules_only, pause):
-    while True:
-        begin_screen("DETECTION LAB")
-        print(render_breadcrumb(("SOC-FORGE", "DETECTION", "DETECTION LAB")))
-        menu_option("1", "Analyze Log File")
-        menu_option("2", "Run Attack Simulation")
-        menu_option("3", "Rules Only Mode")
-        menu_option("0", "Back")
-        choice = input("\nSelect option: ").strip()
-        if choice == "1":
-            analyze_log_file()
-        elif choice == "2":
-            run_attack_simulation()
-        elif choice == "3":
-            run_rules_only()
         elif choice == "0":
             return
         else:
