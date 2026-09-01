@@ -82,6 +82,10 @@ def retain_completed_analysis(result):
     return result
 
 
+def run_and_retain_analysis(options):
+    return retain_completed_analysis(run_analysis(options))
+
+
 def build_investigation_console_controller(
     workspace_root=None,
     *,
@@ -860,7 +864,7 @@ def main_menu():
         pause_func=pause,
     )
     detection_lab_controller = DetectionLabConsoleController(
-        DetectionLabService(analysis_runner=run_analysis),
+        DetectionLabService(analysis_runner=run_and_retain_analysis),
         detection_engineering_controller.explanation_service,
         input_func=input,
         output_func=print,

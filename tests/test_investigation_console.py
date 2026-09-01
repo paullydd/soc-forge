@@ -640,6 +640,57 @@ def test_simulation_result_is_immediately_available_to_investigation_workspace(
     ] == ["CASE-A"]
 
 
+def test_live_detection_lab_simulation_makes_analysis_available_to_investigation_workspace(
+    monkeypatch, tmp_path
+):
+    """Regression test: the real Detection -> Detection Lab -> Run Attack
+    Simulation menu path (DetectionLabConsoleController, wired by
+    main_menu()) used to leave `_current_analysis_result` unset, so
+    Investigation creation always reported "No completed analysis is
+    available" even after alerts/cases were generated - only the dead-code
+    legacy `analyze_log_file()`/`run_attack_simulation()` functions ever set
+    it. This drives the exact same DetectionLabService/
+    DetectionLabConsoleController wiring main_menu() uses (via
+    analyst_console.run_and_retain_analysis) to prove the live menu path
+    now retains the result too.
+    """
+    import analyst_console
+    from soc_forge.detection_lab import DetectionLabService
+    from soc_forge.menus.detection_lab import DetectionLabConsoleController
+    from soc_forge.rule_explainability import RuleExplanationService
+
+    expected = build_analysis(tmp_path)
+    monkeypatch.setattr(analyst_console, "_current_analysis_result", None)
+    monkeypatch.setattr(analyst_console, "run_analysis", lambda _options: expected)
+
+    lab_controller = DetectionLabConsoleController(
+        DetectionLabService(analysis_runner=analyst_console.run_and_retain_analysis),
+        RuleExplanationService(),
+        input_func=ScriptedInput(["2", "1", "0", "0"]),
+        output_func=lambda _message: None,
+        screen_func=lambda: None,
+        pause_func=lambda: None,
+    )
+
+    lab_controller.run()
+
+    assert analyst_console.get_current_analysis_result() is expected
+
+    workspace_controller = analyst_console.build_investigation_console_controller(
+        tmp_path / "workspace"
+    )
+    assert workspace_controller.analysis_provider() is expected
+    workspace_controller.input = ScriptedInput(["1", "INV-LIVE-LAB", "", "", "y"])
+    workspace_controller.output = lambda _message: None
+    workspace_controller.screen = lambda _title: None
+    workspace_controller.pause = lambda: None
+
+    created = workspace_controller.create_flow()
+
+    assert created is not None
+    assert created.investigation.provenance.normalized_input_name == expected.input_name
+
+
 def test_main_runtime_opens_durable_workbench_with_live_analysis(
     monkeypatch, tmp_path
 ):
