@@ -3,7 +3,7 @@ from __future__ import annotations
 __all__ = ["__version__"]
 
 # Default fallback (never breaks imports)
-__version__ = "3.6.1"
+__version__ = "3.6.2"
 
 try:
     from importlib.metadata import PackageNotFoundError, version

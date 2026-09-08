@@ -1,5 +1,14 @@
 # Release Notes
 
+## v3.6.2
+
+**Theme:** A new detection rule inspired by a real CTF privilege-escalation technique.
+
+### Detection Engineering
+
+- Added `SOCF-026`: tar/bsdtar `--checkpoint-action` wildcard/option injection, mapped to Privilege Escalation (`T1053.005`, Scheduled Task/Job: Scheduled Task) and Execution (`T1059`, Command and Scripting Interpreter). Windows-telemetry translation of a Linux CTF technique where a privileged backup script's `tar -czf ... *` invocation was tricked, via attacker-controlled filenames in a writable directory, into executing an injected command as root; `tar.exe` (bsdtar) ships with Windows 10/11 by default and is vulnerable to the identical argument-injection mechanism.
+- Bundled rule count is now 25, covering the same 11 of 14 Enterprise ATT&CK tactics.
+
 ## v3.6.1
 
 **Theme:** Close an Initial Access / Discovery detection gap with two new rules and a fuller Attack Chain demo scenario.

@@ -1,0 +1,66 @@
+version: 1
+rules:
+  - id: SOCF-026
+    enabled: true
+    title: Tar checkpoint-action wildcard/option injection
+    description: Detects tar/bsdtar argument injection via --checkpoint-action, a
+      technique used to gain command execution when a privileged process runs tar
+      against a directory containing attacker-controlled filenames.
+    author: SOC-Forge
+    created: "2026-09-08"
+    logsource: windows-process
+    tags:
+      - windows
+      - privilege-escalation
+      - wildcard-injection
+      - tar
+    severity: high
+    score: 95
+    mitre:
+      - tactic: Privilege Escalation
+        technique: "Scheduled Task/Job: Scheduled Task"
+        id: T1053.005
+      - tactic: Execution
+        technique: "Command and Scripting Interpreter"
+        id: T1059
+    match:
+      all:
+        - any:
+            - field: event_id
+              op: eq
+              value: 4688
+            - all:
+                - field: event_id
+                  op: eq
+                  value: 1
+                - field: provider
+                  op: eq
+                  value: Microsoft-Windows-Sysmon
+        - any:
+            - field: command_line
+              op: regex
+              value: '(?i)\btar(?:\.exe)?\b.*--checkpoint-action'
+            - field: message
+              op: regex
+              value: '(?i)\btar(?:\.exe)?\b.*--checkpoint-action'
+            - all:
+                - field: parent_process
+                  op: regex
+                  value: '(?i)\btar(?:\.exe)?\b'
+                - any:
+                    - field: process_name
+                      op: regex
+                      value: '(?i)\b(cmd|powershell|pwsh|sh|bash)\.exe\b'
+                    - field: image_path
+                      op: regex
+                      value: '(?i)\\(cmd|powershell|pwsh|sh|bash)\.exe$'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        ip: "${ip}"
+        process_name: "${process_name}"
+        parent_process: "${parent_process}"
+        command_line: "${command_line}"
+        message: "${message}"
+        suspicious: true

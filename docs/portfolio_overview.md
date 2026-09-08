@@ -2,12 +2,12 @@
 
 SOC-Forge is a Python-based security operations platform that demonstrates the full analyst workflow of a small SOC: ingest security telemetry, normalize it, run deterministic detection rules, correlate alerts into cases, open a durable Investigation, select evidence, develop hypotheses, record decisions, reach analyst Findings, track Response Actions, and produce a defensible report or structured Handoff.
 
-The current portfolio package (v3.6.1) is centered on a local analyst web UI with a guided demo path, backed by a shared CLI/web analysis pipeline. It also includes a full-featured terminal analyst console, checked-in sample artifacts, an HTML incident report, rule quality checks, a detection engineering scorecard, and a durable Investigation model that persists analyst reasoning independent of the underlying machine analysis.
+The current portfolio package (v3.6.2) is centered on a local analyst web UI with a guided demo path, backed by a shared CLI/web analysis pipeline. It also includes a full-featured terminal analyst console, checked-in sample artifacts, an HTML incident report, rule quality checks, a detection engineering scorecard, and a durable Investigation model that persists analyst reasoning independent of the underlying machine analysis.
 
 ## What This Project Demonstrates
 
 - Event ingestion and normalization from structured security logs (Windows Security events, Sysmon-style process telemetry, EVTX), via the CLI or a direct browser upload in the web UI
-- YAML-based detection rules with explicit MITRE ATT&CK mappings, covering 11 of 14 Enterprise tactics across 24 rules
+- YAML-based detection rules with explicit MITRE ATT&CK mappings, covering 11 of 14 Enterprise tactics across 25 rules
 - Alert correlation across related events and entities, including multi-stage correlation chains (for example, external initial access followed by discovery activity)
 - Case creation, risk scoring, and case quality briefs with executive summaries, findings, evidence rationale, and containment guidance
 - A durable Investigation model, independent of the analysis pipeline: revisioned evidence selection, analyst hypotheses, recorded decisions, analyst-authored Findings (explicitly distinct from machine certainty), and Response Actions that record work without executing remediation
@@ -17,7 +17,7 @@ The current portfolio package (v3.6.1) is centered on a local analyst web UI wit
 - Detection engineering maturity scoring across rule quality, MITRE coverage, context, correlations, and demo readiness
 - Security-conscious engineering practice: closed a real command-injection vulnerability, added optional web authentication and security response headers, `bandit`/`pip-audit` wired into CI, and a documented audit trail of what was found and fixed
 - Portfolio-ready output through screenshots, checked-in sample artifacts, and an HTML report
-- Regression-tested behavior across 1,570 tests covering rules, correlation, case handling, the durable Investigation model, graphs, exports, simulation, and both the terminal console and web workspace
+- Regression-tested behavior across 1,579 tests covering rules, correlation, case handling, the durable Investigation model, graphs, exports, simulation, and both the terminal console and web workspace
 
 ## Portfolio Demo Story
 
@@ -79,7 +79,7 @@ The Detection Lab demo is the cleanest web walkthrough because it shows process-
 - Rich attack-chain and detection-lab scenarios with multiple rule and correlation layers, including a full initial-access-through-impact kill chain
 - MITRE-aligned detection content with fixture-backed quality checks, and a fixture regime that goes beyond "does the rule fire at all" to catch dead branches in multi-alternative match logic
 - Security-hardened by practice, not just claim: a real vulnerability was found and fixed, with tests added specifically to prevent regression
-- Test coverage around the most important moving pieces, at 1,570 tests
+- Test coverage around the most important moving pieces, at 1,579 tests
 
 ## Honest Limitations
 

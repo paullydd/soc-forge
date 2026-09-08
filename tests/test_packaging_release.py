@@ -132,7 +132,7 @@ def test_built_wheel_contains_rules_and_runs_outside_checkout(tmp_path):
     metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
     with zipfile.ZipFile(wheel) as archive:
         metadata = archive.read(metadata_name).decode("utf-8")
-    assert "Version: 3.6.1" in metadata
+    assert "Version: 3.6.2" in metadata
     assert "Requires-Dist: colorama<0.5,>=0.4.6" in metadata
     assert not any(
         name.startswith("tests/")
@@ -177,6 +177,6 @@ print(json.dumps({"version": __version__, "rule_count": len(rules), "rule_ids": 
         cwd=run_dir,
     )
     result = json.loads(completed.stdout)
-    assert result["version"] == "3.6.1"
+    assert result["version"] == "3.6.2"
     assert result["rule_count"] == expected_rule_count
     assert "SOCF-021" in result["rule_ids"]

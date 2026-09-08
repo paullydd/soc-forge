@@ -370,5 +370,55 @@
         "message": "A new process has been created running bitsadmin /transfer."
       }
     ]
+  },
+  {
+    "rule_id": "SOCF-026",
+    "rule_file": "SOCF-026.yml",
+    "match": {
+      "timestamp": "2026-09-08T09:00:00Z",
+      "event_id": 1,
+      "provider": "Microsoft-Windows-Sysmon",
+      "host": "WS-BACKUP-01",
+      "username": "svc_backup",
+      "process_name": "tar.exe",
+      "parent_process": "svchost.exe",
+      "command_line": "tar.exe -czf C:\\Backups\\notes.tgz --checkpoint=1 --checkpoint-action=exec=powershell.exe notes1.txt notes2.txt",
+      "message": "A new process has been created. New Process Name: tar.exe."
+    },
+    "non_match": {
+      "timestamp": "2026-09-08T09:00:00Z",
+      "event_id": 1,
+      "provider": "Microsoft-Windows-Sysmon",
+      "host": "WS-BACKUP-01",
+      "username": "svc_backup",
+      "process_name": "tar.exe",
+      "parent_process": "svchost.exe",
+      "command_line": "tar.exe -czf C:\\Backups\\notes.tgz notes1.txt notes2.txt",
+      "message": "A new process has been created. New Process Name: tar.exe."
+    },
+    "match_overrides": [
+      {},
+      {
+        "event_id": 4688,
+        "message": "A new process has been created. New Process Name: C:\\Windows\\System32\\tar.exe."
+      },
+      {
+        "command_line": "tar.exe -czf C:\\Backups\\notes.tgz notes1.txt",
+        "message": "A new process has been created running tar.exe with arguments referencing --checkpoint-action=exec=cmd.exe."
+      },
+      {
+        "command_line": "cmd.exe /c whoami",
+        "message": "A new process has been created. New Process Name: cmd.exe.",
+        "parent_process": "tar.exe",
+        "process_name": "cmd.exe"
+      },
+      {
+        "command_line": "sh -c proof.sh",
+        "message": "A new process has been created.",
+        "parent_process": "tar.exe",
+        "process_name": "unknown.exe",
+        "image_path": "C:\\Windows\\System32\\sh.exe"
+      }
+    ]
   }
 ]

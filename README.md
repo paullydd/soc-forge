@@ -130,4 +130,4 @@ pytest --collect-only -q
 pytest -q
 ```
 
-Current release: **v3.6.1**. SOC-Forge is a local portfolio and analyst workflow platform, not a production monitoring service, hosted SIEM, or remediation engine.
+Current release: **v3.6.2**. SOC-Forge is a local portfolio and analyst workflow platform, not a production monitoring service, hosted SIEM, or remediation engine.
