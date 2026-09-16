@@ -1012,6 +1012,33 @@ def correlate_alerts(
         uniq_corr.append(c)
 
         # Also tag original alerts with correlation_id when they match
+    #
+    # An alert can be the "bridge" between two different correlation blocks
+    # (e.g. the same SOCF-006 alert satisfies both SOCF-CORR-002 and
+    # SOCF-CORR-003). Without tracking that, the loop below would just
+    # overwrite correlation_id with whichever block processes last, silently
+    # fragmenting one real multi-hop case into several. A small union-find
+    # merges any correlation_ids that ever get assigned to the same alert,
+    # so build_cases groups the whole chain together.
+    _uf_parent: Dict[str, str] = {c["correlation_id"]: c["correlation_id"] for c in uniq_corr if c.get("correlation_id")}
+
+    def _uf_find(x: str) -> str:
+        while _uf_parent.get(x, x) != x:
+            _uf_parent[x] = _uf_parent.get(_uf_parent[x], _uf_parent[x])
+            x = _uf_parent[x]
+        return x
+
+    def _uf_union(x: str, y: str) -> None:
+        rx, ry = _uf_find(x), _uf_find(y)
+        if rx != ry:
+            _uf_parent[rx] = ry
+
+    def _tag(a: Dict[str, Any], cid: str) -> None:
+        existing = a.get("correlation_id")
+        if existing and existing != cid:
+            _uf_union(existing, cid)
+        a["correlation_id"] = cid
+
     for c in uniq_corr:
         cid = c.get("correlation_id")
         if not cid:
@@ -1029,9 +1056,9 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
 
                 if rid == "SOCF-001" and d.get("ip") == ip:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
                 if rid == "SOCF-002" and d.get("username") == user:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
 
         elif rule_id == "SOCF-CORR-002":
             host = details.get("host")
@@ -1043,9 +1070,9 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
 
                 if rid == "SOCF-006" and d.get("host") == host and d.get("username") == user and d.get("ip") == ip:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
                 if rid == "SOCF-005" and d.get("host") == host:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
 
         elif rule_id == "SOCF-CORR-003":
             host = details.get("host")
@@ -1057,9 +1084,9 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
 
                 if rid == "SOCF-006" and d.get("host") == host and d.get("username") == user and d.get("ip") == ip:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
                 if rid in {"SOCF-003", "SOCF-008"} and d.get("host") == host:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
 
         elif rule_id == "SOCF-CORR-004":
             host = details.get("host")
@@ -1070,7 +1097,7 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
 
                 if rid in {"SOCF-007", "SOCF-008"} and d.get("host") == host and d.get("target_user") == target_user:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
 
         elif rule_id == "SOCF-CORR-005":
             host = details.get("host")
@@ -1081,9 +1108,9 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
 
                 if rid in {"SOCF-007", "SOCF-008"} and d.get("host") == host and d.get("target_user") == target_user:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
                 if rid == "SOCF-009" and d.get("host") == host:
-                    a["correlation_id"] = cid
+                    _tag(a, cid)
 
 
 
@@ -1095,7 +1122,7 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
                 if rid in {"SOCF-011", "SOCF-013"} and d.get("host") == host:
                     if username in {None, "unknown"} or d.get("username") in {None, username}:
-                        a["correlation_id"] = cid
+                        _tag(a, cid)
 
         elif rule_id == "SOCF-CORR-007":
             host = details.get("host")
@@ -1105,7 +1132,7 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
                 if rid in {"SOCF-011", "SOCF-013", "SOCF-014"} and d.get("host") == host:
                     if username in {None, "unknown"} or d.get("username") in {None, username}:
-                        a["correlation_id"] = cid
+                        _tag(a, cid)
 
         elif rule_id == "SOCF-CORR-008":
             host = details.get("host")
@@ -1115,7 +1142,7 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
                 if rid in {"SOCF-011", "SOCF-012", "SOCF-013", "SOCF-015"} and d.get("host") == host:
                     if username in {None, "unknown"} or d.get("username") in {None, username}:
-                        a["correlation_id"] = cid
+                        _tag(a, cid)
 
         elif rule_id in {"SOCF-CORR-009", "SOCF-CORR-010", "SOCF-CORR-011", "SOCF-CORR-012", "SOCF-CORR-013", "SOCF-CORR-014"}:
             host = details.get("host")
@@ -1126,7 +1153,7 @@ def correlate_alerts(
                 d = a.get("details", {}) or {}
                 if rid in source_rule_ids and d.get("host") == host:
                     if username in {None, "unknown"} or d.get("username") in {None, username}:
-                        a["correlation_id"] = cid
+                        _tag(a, cid)
 
         elif rule_id in {"SOCF-CORR-015", "SOCF-CORR-016", "SOCF-CORR-017"}:
             # Deliberately no username gate here (unlike the 009-014 branch
@@ -1145,5 +1172,25 @@ def correlate_alerts(
                     continue
                 if ip and d.get("ip") not in {None, ip}:
                     continue
-                a["correlation_id"] = cid
+                _tag(a, cid)
+
+    # Resolve every correlation_id to its union-find canonical representative
+    # (the lexicographically smallest id in its merged component), so alerts
+    # and correlation pseudo-alerts that share a bridge end up grouped into
+    # one case by build_cases instead of several fragmented ones.
+    _uf_roots = {cid: _uf_find(cid) for cid in _uf_parent}
+    _uf_canonical: Dict[str, str] = {}
+    for cid, root in _uf_roots.items():
+        _uf_canonical[root] = min(_uf_canonical.get(root, cid), cid)
+    _uf_resolved = {cid: _uf_canonical[root] for cid, root in _uf_roots.items()}
+
+    for a in alerts_sorted:
+        cid = a.get("correlation_id")
+        if cid in _uf_resolved:
+            a["correlation_id"] = _uf_resolved[cid]
+    for c in uniq_corr:
+        cid = c.get("correlation_id")
+        if cid in _uf_resolved:
+            c["correlation_id"] = _uf_resolved[cid]
+
     return alerts_sorted + uniq_corr

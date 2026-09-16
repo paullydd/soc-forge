@@ -172,7 +172,10 @@ def test_run_analysis_for_events_detection_lab_matches_current_artifact_shape(tm
     assert len(result.legacy_alerts) == 0
     assert result.correlations["total"] == 3
     assert len(result.hunt_findings) == 1
-    assert len(result.cases) == 3
+    # Overlapping correlations (e.g. SOCF-CORR-006/007/008 sharing a bridge
+    # alert) now merge into one case via the union-find fix in
+    # correlate_alerts, instead of fragmenting into separate cases.
+    assert len(result.cases) == 1
     assert len(result.reconstructions) == len(result.cases)
     assert result.risk_summary["level"] == "critical"
 
@@ -184,9 +187,9 @@ def test_run_analysis_for_events_detection_lab_matches_current_artifact_shape(tm
     assert result.artifacts["report"] == tmp_path / "report.html"
 
     assert len(json.loads((tmp_path / "alerts.json").read_text(encoding="utf-8"))) == 8
-    assert len(json.loads((tmp_path / "cases.json").read_text(encoding="utf-8"))) == 3
+    assert len(json.loads((tmp_path / "cases.json").read_text(encoding="utf-8"))) == 1
     assert len(json.loads((tmp_path / "hunts.json").read_text(encoding="utf-8"))) == 1
-    assert len(json.loads((tmp_path / "reconstructions.json").read_text(encoding="utf-8"))) == 3
+    assert len(json.loads((tmp_path / "reconstructions.json").read_text(encoding="utf-8"))) == 1
     assert (tmp_path / "report.html").exists()
 
 
@@ -202,7 +205,7 @@ def test_run_analysis_for_events_can_skip_artifact_writes(tmp_path):
     )
 
     assert len(result.alerts) == 8
-    assert len(result.cases) == 3
+    assert len(result.cases) == 1
     assert result.alerts_path is None
     assert result.report_path is None
     assert result.artifacts == {}
@@ -313,8 +316,10 @@ def test_run_analysis_file_input_exposes_csv_ingest_diagnostics(tmp_path):
 @pytest.mark.parametrize(
     "scenario,expected",
     [
-        ("attack_chain", {"events": 7, "alerts": 14, "correlations": 5, "cases": 6, "hunts": 1}),
-        ("detection_lab", {"events": 6, "alerts": 8, "correlations": 3, "cases": 3, "hunts": 1}),
+        # "cases" dropped from the pre-union-find-fix counts (6, 3) once
+        # correlations sharing a bridge alert correctly merge into one case.
+        ("attack_chain", {"events": 7, "alerts": 14, "correlations": 5, "cases": 3, "hunts": 1}),
+        ("detection_lab", {"events": 6, "alerts": 8, "correlations": 3, "cases": 1, "hunts": 1}),
     ],
 )
 def test_run_analysis_for_events_artifact_map_matches_serialized_outputs(tmp_path, scenario, expected):

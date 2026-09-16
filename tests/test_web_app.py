@@ -6,13 +6,16 @@ import soc_forge.web.app as web_app
 from soc_forge.web.app import build_detection_rule_catalog, build_detection_scorecard, build_summary, load_workspace, run_demo_scenario, safe_artifact_path
 
 
+# "cases" reflects correlations that share a bridge alert now merging into
+# one case via the union-find fix in correlate_alerts, rather than the
+# pre-fix fragmented counts (6, 3).
 SCENARIO_EXPECTATIONS = {
     "attack_chain": {
         "label": "Attack Chain",
         "events": 7,
         "alerts": 14,
         "correlations": 5,
-        "cases": 6,
+        "cases": 3,
         "hunts": 1,
     },
     "detection_lab": {
@@ -20,7 +23,7 @@ SCENARIO_EXPECTATIONS = {
         "events": 6,
         "alerts": 8,
         "correlations": 3,
-        "cases": 3,
+        "cases": 1,
         "hunts": 1,
     },
 }

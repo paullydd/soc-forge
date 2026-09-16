@@ -118,6 +118,12 @@ def test_full_web_to_privesc_chain_shares_one_correlation_lineage():
     assert any(a.get("rule_id") == "SOCF-CORR-016" for a in out)
     assert any(a.get("rule_id") == "SOCF-CORR-017" for a in out)
 
-    for rule_id in ("SOCF-029", "SOCF-030", "SOCF-027", "SOCF-028"):
+    # All four source alerts, plus all three correlation pseudo-alerts, should
+    # share one canonical correlation_id (via the union-find merge in
+    # correlate_alerts) so build_cases groups the whole chain into one case.
+    cids = set()
+    for rule_id in ("SOCF-029", "SOCF-030", "SOCF-027", "SOCF-028", "SOCF-CORR-015", "SOCF-CORR-016", "SOCF-CORR-017"):
         alert = next(a for a in out if a["rule_id"] == rule_id)
         assert alert.get("correlation_id"), f"{rule_id} was not tagged with a correlation_id"
+        cids.add(alert["correlation_id"])
+    assert len(cids) == 1, f"expected one shared correlation_id across the whole chain, got {cids}"

@@ -44,7 +44,9 @@ def test_cli_detection_lab_analysis_outputs_current_artifact_shape(tmp_path, mon
 
     assert len(alerts) == 8
     assert sum(1 for alert in alerts if str(alert.get("rule_id", "")).startswith("SOCF-CORR")) == 3
-    assert len(cases) == 3
+    # Correlations sharing a bridge alert now merge into one case via the
+    # union-find fix in correlate_alerts (previously fragmented into 3).
+    assert len(cases) == 1
     assert len(hunts) == 1
     assert len(reconstructions) == len(cases)
     assert report_path.exists()
@@ -58,7 +60,9 @@ def test_web_detection_lab_demo_outputs_current_workspace_shape(tmp_path):
     assert workspace["generated_event_count"] == 6
     assert workspace["summary"]["alert_count"] == 8
     assert workspace["summary"]["correlated_alert_count"] == 3
-    assert workspace["summary"]["case_count"] == 3
+    # Correlations sharing a bridge alert now merge into one case via the
+    # union-find fix in correlate_alerts (previously fragmented into 3).
+    assert workspace["summary"]["case_count"] == 1
     assert workspace["summary"]["hunt_count"] == 1
     assert len(workspace["reconstructions"]) == len(workspace["cases"])
     assert (tmp_path / "alerts.json").exists()

@@ -9,9 +9,12 @@ import soc_forge.web.app as web_app
 from soc_forge.web.app import make_server, warn_if_non_loopback
 
 
+# "cases" reflects correlations that share a bridge alert now merging into
+# one case via the union-find fix in correlate_alerts, rather than the
+# pre-fix fragmented counts (6, 3).
 SCENARIO_EXPECTATIONS = {
-    "attack_chain": {"events": 7, "alerts": 14, "correlations": 5, "cases": 6, "hunts": 1},
-    "detection_lab": {"events": 6, "alerts": 8, "correlations": 3, "cases": 3, "hunts": 1},
+    "attack_chain": {"events": 7, "alerts": 14, "correlations": 5, "cases": 3, "hunts": 1},
+    "detection_lab": {"events": 6, "alerts": 8, "correlations": 3, "cases": 1, "hunts": 1},
 }
 
 
