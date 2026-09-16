@@ -6,8 +6,8 @@ The current portfolio package (v3.6.2) is centered on a local analyst web UI wit
 
 ## What This Project Demonstrates
 
-- Event ingestion and normalization from structured security logs (Windows Security events, Sysmon-style process telemetry, EVTX), via the CLI or a direct browser upload in the web UI
-- YAML-based detection rules with explicit MITRE ATT&CK mappings, covering 11 of 14 Enterprise tactics across 25 rules
+- Event ingestion and normalization from structured security logs (Windows Security events, Sysmon-style process telemetry, EVTX, Linux SSH auth logs, Linux auditd, nginx access logs), via the CLI or a direct browser upload in the web UI
+- YAML-based detection rules with explicit MITRE ATT&CK mappings, covering 12 of 14 Enterprise tactics across 29 rules
 - Alert correlation across related events and entities, including multi-stage correlation chains (for example, external initial access followed by discovery activity)
 - Case creation, risk scoring, and case quality briefs with executive summaries, findings, evidence rationale, and containment guidance
 - A durable Investigation model, independent of the analysis pipeline: revisioned evidence selection, analyst hypotheses, recorded decisions, analyst-authored Findings (explicitly distinct from machine certainty), and Response Actions that record work without executing remediation
