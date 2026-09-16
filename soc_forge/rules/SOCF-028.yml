@@ -1,0 +1,59 @@
+version: 1
+rules:
+  - id: SOCF-028
+    enabled: true
+    title: Tar checkpoint-action wildcard/option injection (Linux/auditd)
+    description: Detects tar/bsdtar argument injection via --checkpoint-action on
+      Linux, the technique used to gain command execution when a privileged
+      process (commonly a root cron job) runs tar against a directory containing
+      attacker-controlled filenames. Linux/auditd twin of SOCF-026, gated on
+      auditd execve telemetry (pid/exe/process_name) instead of Windows Event ID
+      4688 / Sysmon Event ID 1. auditd's execve audit rule is not enabled by
+      default on a stock install, the same way Sysmon requires deliberate
+      deployment on Windows - this rule needs an audit rule such as
+      "-a always,exit -F arch=b64 -S execve -k proc_exec" configured to fire.
+      Does not include SOCF-026's parent/child process-name fallback branch,
+      because a single auditd SYSCALL/EXECVE record pair resolves only the
+      parent's numeric ppid, not its own process name.
+    author: SOC-Forge
+    created: "2026-09-16"
+    logsource: linux-auditd
+    tags:
+      - linux
+      - privilege-escalation
+      - wildcard-injection
+      - tar
+      - auditd
+    severity: high
+    score: 95
+    mitre:
+      - tactic: Privilege Escalation
+        technique: "Scheduled Task/Job: Cron"
+        id: T1053.003
+      - tactic: Execution
+        technique: "Command and Scripting Interpreter: Unix Shell"
+        id: T1059.004
+    match:
+      all:
+        - field: pid
+          op: exists
+        - any:
+            - field: exe
+              op: regex
+              value: '(?i)(^|/)(bsd)?tar$'
+            - field: process_name
+              op: eq
+              value: tar
+        - field: command_line
+          op: regex
+          value: '(?i)\btar\b.*--checkpoint-action'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        exe: "${exe}"
+        process_name: "${process_name}"
+        pid: "${pid}"
+        ppid: "${ppid}"
+        command_line: "${command_line}"
+        message: "${message}"

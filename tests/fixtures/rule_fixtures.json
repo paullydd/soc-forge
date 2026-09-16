@@ -456,5 +456,43 @@
         "auth_result": null
       }
     ]
+  },
+  {
+    "rule_id": "SOCF-028",
+    "rule_file": "SOCF-028.yml",
+    "match": {
+      "timestamp": "2026-09-16T03:20:00.123Z",
+      "host": "dispatch-ops01",
+      "username": "root",
+      "actor": "root",
+      "process_name": "tar",
+      "exe": "/usr/bin/tar",
+      "pid": 4820,
+      "ppid": 4812,
+      "command_line": "tar -czf backup.tgz --checkpoint=1 --checkpoint-action=exec=sh shell.sh",
+      "message": "execve pid=4820 exe=/usr/bin/tar: tar -czf backup.tgz --checkpoint=1 --checkpoint-action=exec=sh shell.sh"
+    },
+    "non_match": {
+      "timestamp": "2026-09-16T03:20:00.123Z",
+      "host": "dispatch-ops01",
+      "username": "root",
+      "actor": "root",
+      "process_name": "tar",
+      "exe": "/usr/bin/tar",
+      "pid": 4820,
+      "ppid": 4812,
+      "command_line": "tar -czf backup.tgz notes1.txt notes2.txt",
+      "message": "execve pid=4820 exe=/usr/bin/tar: tar -czf backup.tgz notes1.txt notes2.txt"
+    },
+    "match_overrides": [
+      {},
+      {
+        "exe": null
+      },
+      {
+        "process_name": "bsdtar-wrapper",
+        "exe": "/usr/bin/bsdtar"
+      }
+    ]
   }
 ]

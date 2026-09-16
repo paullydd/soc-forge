@@ -85,7 +85,7 @@ The Detection Lab demo is the cleanest web walkthrough because it shows process-
 
 SOC-Forge is intentionally lightweight. It is not a full SIEM, production case management platform, or enterprise detection engine. Current, accurate limitations:
 
-- Mostly Windows telemetry footprint: most rules read Windows Security or Sysmon-style process events. Linux SSH auth-log coverage exists (`linux-auth-log` ingest, SOCF-027); there is no Linux process-execution (auditd), cloud identity, SaaS audit log, or Linux web/nginx access-log coverage yet.
+- Mostly Windows telemetry footprint: most rules read Windows Security or Sysmon-style process events. Linux coverage exists for SSH auth (`linux-auth-log` ingest, SOCF-027) and process execution via auditd (`linux-auditd` ingest, SOCF-028, requires an execve audit rule configured - not on by default); there is no cloud identity, SaaS audit log, or Linux web/nginx access-log coverage yet.
 - Three ATT&CK tactics remain uncovered by design, not oversight: Reconnaissance and Resource Development are pre-compromise, attacker-side activity that never touches the victim endpoint, so no honest endpoint-telemetry rule can detect them. Exfiltration would need network telemetry (destination, data volume) SOC-Forge doesn't ingest; a process-level proxy would be too speculative to trust.
 - Response Actions and Investigation Handoff are analyst-controlled workflow records. SOC-Forge does not execute remediation, integrate a SIEM, or provide live monitoring.
 - The web UI has no authentication by default (loopback-only binding is the safety boundary); an optional shared-secret auth token is available for non-default deployments but is not required.

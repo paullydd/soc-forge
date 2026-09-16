@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
+from soc_forge.ingest.linux_auditd import LinuxAuditdResult
 from soc_forge.ingest.linux_auth_log import LinuxAuthLogResult
 from soc_forge.pipeline import AnalysisOptions, load_events_with_diagnostics, run_analysis
 
@@ -54,6 +55,44 @@ def test_linux_auth_log_diagnostics_propagate_without_explicit_format(tmp_path):
 
     assert events == []
     assert any(d["level"] == "warning" for d in diagnostics)
+
+
+def test_pipeline_calls_linux_auditd_loader_and_runs_standard_rules(tmp_path):
+    auditd_event = {
+        "timestamp": "2026-09-16T03:20:00.123Z",
+        "host": "dispatch-ops01",
+        "process_name": "tar",
+        "exe": "/usr/bin/tar",
+        "pid": 4820,
+        "ppid": 4812,
+        "command_line": "tar -czf backup.tgz --checkpoint-action=exec=sh shell.sh",
+        "uid": "0",
+        "message": "execve pid=4820 exe=/usr/bin/tar: tar -czf backup.tgz --checkpoint-action=exec=sh shell.sh",
+    }
+    loader_result = LinuxAuditdResult(
+        events=[auditd_event],
+        diagnostics=[],
+        parsed_record_count=2,
+    )
+
+    with patch(
+        "soc_forge.pipeline.load_linux_auditd_with_diagnostics", return_value=loader_result
+    ) as loader:
+        result = run_analysis(
+            AnalysisOptions(
+                input_path=tmp_path / "audit.log",
+                input_format="linux-auditd",
+                output_dir=tmp_path,
+                write_outputs=False,
+                write_report=False,
+                rules_only=True,
+            )
+        )
+
+    loader.assert_called_once_with(tmp_path / "audit.log")
+    assert result.event_count == 1
+    assert result.ingest_diagnostics == loader_result.diagnostics_as_dicts()
+    assert any(alert.get("rule_id") == "SOCF-028" for alert in result.alerts)
 
 
 def test_dot_log_file_with_no_explicit_format_is_unsupported(tmp_path):

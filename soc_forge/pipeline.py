@@ -10,6 +10,7 @@ from soc_forge.config import load_config
 from soc_forge.correlate.rules import correlate_alerts
 from soc_forge.export.cases_export import export_cases_json
 from soc_forge.hunts import findings_to_dicts, run_hunts
+from soc_forge.ingest.linux_auditd import load_linux_auditd_with_diagnostics
 from soc_forge.ingest.linux_auth_log import load_linux_auth_log_with_diagnostics
 from soc_forge.ingest.windows_evtx import load_windows_security_evtx_with_diagnostics
 from soc_forge.ingest.windows_security_csv import load_windows_security_csv_with_diagnostics
@@ -26,6 +27,7 @@ from soc_forge.rules.legacy import detect_bruteforce
 CANONICAL_EVTX_FORMAT = "windows-security-evtx"
 EVTX_FORMAT_ALIASES = {"evtx", CANONICAL_EVTX_FORMAT}
 LINUX_AUTH_LOG_FORMAT = "linux-auth-log"
+LINUX_AUDITD_FORMAT = "linux-auditd"
 
 
 @dataclass
@@ -139,9 +141,12 @@ def load_events_with_diagnostics(path: str | Path, input_format: str | None = No
     if detected_format == LINUX_AUTH_LOG_FORMAT:
         result = load_linux_auth_log_with_diagnostics(input_path)
         return result.events, result.diagnostics_as_dicts()
+    if detected_format == LINUX_AUDITD_FORMAT:
+        result = load_linux_auditd_with_diagnostics(input_path)
+        return result.events, result.diagnostics_as_dicts()
     raise ValueError(
         f"Unsupported input format: {input_path.suffix}. Use .jsonl, .csv, or .evtx, "
-        "or pass an explicit input_format (e.g. linux-auth-log)."
+        "or pass an explicit input_format (e.g. linux-auth-log, linux-auditd)."
     )
 
 

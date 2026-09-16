@@ -87,7 +87,7 @@ def main():
     ap.add_argument("--bf-window", type=int, default=None, help="Bruteforce window minutes (overrides config)")
     ap.add_argument("--config", default="config.yml", help="Path to YAML config (default: config.yml)")
     ap.add_argument("--html", default=None, help="Output HTML report path (overrides config)")
-    ap.add_argument("--format", default=None, choices=["jsonl", "windows-security-csv", "windows-security-evtx", "evtx", "linux-auth-log"], help="Input format override; defaults to auto-detect from file extension (linux-auth-log has no auto-detected extension and must be passed explicitly)")
+    ap.add_argument("--format", default=None, choices=["jsonl", "windows-security-csv", "windows-security-evtx", "evtx", "linux-auth-log", "linux-auditd"], help="Input format override; defaults to auto-detect from file extension (linux-auth-log and linux-auditd have no auto-detected extension and must be passed explicitly)")
     ap.add_argument("--write-events", default=None, help="Write normalized loaded events to this JSON path during --input analysis")
     ap.add_argument("--rules", action="append", help="Rule file or directory (repeatable)")
     ap.add_argument("--rules-only", action="store_true", help="Run YAML rules only (skip built-in detectors)")
