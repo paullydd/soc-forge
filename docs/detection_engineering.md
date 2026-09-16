@@ -102,6 +102,7 @@ Detection content now covers:
 - Correlations that connect lateral movement, credential access, and collection into case narratives
 - Correlation that connects external initial access to discovery activity
 - Tar/bsdtar `--checkpoint-action` wildcard/option injection (privilege escalation)
+- SSH accepted logon from an external-looking source address (Linux, initial access)
 
 ## Endpoint Defense And Recovery Rules
 
@@ -112,10 +113,11 @@ Detection content now covers:
 - `SOCF-024`: account or group discovery command execution (whoami, net user/group/localgroup), reconstructed as Discovery (`T1087`)
 - `SOCF-025`: certutil or bitsadmin used to download a remote file, reconstructed as Command and Control (`T1105`, Ingress Tool Transfer). `SOCF-011` (Suspicious PowerShell) also carries this technique for its download-cradle patterns (`Invoke-WebRequest`/`downloadstring`/`IWR`), alongside its existing Execution and Defense Evasion mappings.
 - `SOCF-026`: tar/bsdtar `--checkpoint-action` wildcard/option injection, reconstructed as Privilege Escalation (`T1053.005`, Scheduled Task/Job: Scheduled Task) and Execution (`T1059`). Windows-telemetry translation of a real CTF technique: a privileged automated process (e.g. a scheduled backup) running `tar` against a directory an attacker can write filenames into, where a filename like `--checkpoint-action=exec=...` gets interpreted as a tar option instead of a filename. `tar.exe` (bsdtar) has shipped with Windows since 10/11, so the same mechanism applies.
+- `SOCF-027`: SSH accepted logon from an external-looking source address, reconstructed as Initial Access (`T1133`). Linux twin of `SOCF-023`; same address-prefix heuristic (excludes common private/loopback/link-local ranges), applied to `sshd` auth-log events (ingested via `--format linux-auth-log`) instead of Windows RDP logons.
 
 Reconnaissance and Resource Development are deliberately not covered: both are pre-compromise, attacker-side activity (OSINT, infrastructure acquisition, capability development) that never touches the victim endpoint, so there is no honest way to detect them from Windows process/security telemetry. Exfiltration is also not covered - meaningful exfiltration detection needs network telemetry (destination, data volume) that SOC-Forge does not ingest; a process-level proxy would be too speculative to trust.
 
-These process rules support native Windows Security Event ID 4688. Event ID 1 is accepted only when the event provider is `Microsoft-Windows-Sysmon`.
+These process rules support native Windows Security Event ID 4688. Event ID 1 is accepted only when the event provider is `Microsoft-Windows-Sysmon`. `SOCF-027` is the one rule in this set built on Linux telemetry instead: it reads normalized `linux-auth-log` events (sshd auth lines from `/var/log/auth.log` or a journald export), not a Windows event ID at all.
 
 The rules identify specific command-line patterns and do not establish malware certainty. Legitimate endpoint administration, backup maintenance, and disaster-recovery testing can produce similar activity. Alternate syntax or tools can bypass string matching. Generated evidence may retain sensitive command-line arguments and should be reviewed or redacted before sharing.
 

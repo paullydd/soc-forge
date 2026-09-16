@@ -79,13 +79,13 @@ The Detection Lab demo is the cleanest web walkthrough because it shows process-
 - Rich attack-chain and detection-lab scenarios with multiple rule and correlation layers, including a full initial-access-through-impact kill chain
 - MITRE-aligned detection content with fixture-backed quality checks, and a fixture regime that goes beyond "does the rule fire at all" to catch dead branches in multi-alternative match logic
 - Security-hardened by practice, not just claim: a real vulnerability was found and fixed, with tests added specifically to prevent regression
-- Test coverage around the most important moving pieces, at 1,579 tests
+- Test coverage around the most important moving pieces, at 1,591 tests
 
 ## Honest Limitations
 
 SOC-Forge is intentionally lightweight. It is not a full SIEM, production case management platform, or enterprise detection engine. Current, accurate limitations:
 
-- Single-OS telemetry footprint: every rule reads Windows Security or Sysmon-style process events. There is no Linux, cloud identity, or SaaS audit log coverage yet.
+- Mostly Windows telemetry footprint: most rules read Windows Security or Sysmon-style process events. Linux SSH auth-log coverage exists (`linux-auth-log` ingest, SOCF-027); there is no Linux process-execution (auditd), cloud identity, SaaS audit log, or Linux web/nginx access-log coverage yet.
 - Three ATT&CK tactics remain uncovered by design, not oversight: Reconnaissance and Resource Development are pre-compromise, attacker-side activity that never touches the victim endpoint, so no honest endpoint-telemetry rule can detect them. Exfiltration would need network telemetry (destination, data volume) SOC-Forge doesn't ingest; a process-level proxy would be too speculative to trust.
 - Response Actions and Investigation Handoff are analyst-controlled workflow records. SOC-Forge does not execute remediation, integrate a SIEM, or provide live monitoring.
 - The web UI has no authentication by default (loopback-only binding is the safety boundary); an optional shared-secret auth token is available for non-default deployments but is not required.

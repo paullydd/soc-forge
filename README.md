@@ -101,6 +101,7 @@ Open `http://127.0.0.1:8765`. The local server binds to loopback by default and 
 soc-forge --input sample_events.jsonl
 soc-forge --input security_events.csv --format windows-security-csv
 soc-forge --input security.evtx --format windows-security-evtx
+soc-forge --input auth.log --format linux-auth-log
 soc-forge --simulate attack_chain --sim-output out/attack_chain_events.jsonl
 ```
 

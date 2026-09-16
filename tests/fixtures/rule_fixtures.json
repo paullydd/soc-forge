@@ -420,5 +420,41 @@
         "image_path": "C:\\Windows\\System32\\sh.exe"
       }
     ]
+  },
+  {
+    "rule_id": "SOCF-027",
+    "rule_file": "SOCF-027.yml",
+    "match": {
+      "timestamp": "2026-09-16T03:14:07Z",
+      "host": "ubuntu-victim",
+      "process_name": "sshd",
+      "pid": 8842,
+      "username": "dispatch-svc",
+      "actor": "dispatch-svc",
+      "ip": "203.0.113.7",
+      "auth_result": "success",
+      "auth_method": "password",
+      "invalid_user": false,
+      "message": "Accepted password for dispatch-svc from 203.0.113.7 port 51000 ssh2"
+    },
+    "non_match": {
+      "timestamp": "2026-09-16T03:14:07Z",
+      "host": "ubuntu-victim",
+      "process_name": "sshd",
+      "pid": 8842,
+      "username": "dispatch-svc",
+      "actor": "dispatch-svc",
+      "ip": "192.168.128.2",
+      "auth_result": "success",
+      "auth_method": "password",
+      "invalid_user": false,
+      "message": "Accepted password for dispatch-svc from 192.168.128.2 port 51000 ssh2"
+    },
+    "match_overrides": [
+      {},
+      {
+        "auth_result": null
+      }
+    ]
   }
 ]
