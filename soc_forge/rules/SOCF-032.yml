@@ -1,0 +1,42 @@
+version: 1
+rules:
+  - id: SOCF-032
+    enabled: true
+    title: Sensitive account or privilege file modified (possible persistence)
+    description: Detects a write to a Linux account or privilege-configuration
+      file commonly abused for persistence or privilege escalation -
+      /etc/passwd, /etc/shadow, /etc/sudoers (or /etc/sudoers.d/*), or a
+      cron path (/etc/cron.d/* or a user crontab) - via auditd file-watch
+      telemetry. Deliberately one broader rule covering this whole surface
+      rather than several narrower ones (e.g. a dedicated sudoers-specific
+      rule mapped to T1548.003); splitting further is a reasonable future
+      enhancement, not done here. Like SOCF-031, requires auditd watch
+      rules configured on these paths - not on by default.
+    author: SOC-Forge
+    created: "2026-09-17"
+    logsource: linux-auditd
+    tags:
+      - linux
+      - persistence
+      - account-manipulation
+      - auditd
+    severity: high
+    score: 90
+    mitre:
+      - tactic: Persistence
+        technique: Account Manipulation
+        id: T1098
+    match:
+      all:
+        - field: path
+          op: regex
+          value: '(?i)(^|/)(passwd|shadow)$|/etc/sudoers(\.d/.*)?$|/etc/cron\.d/|(^|/)crontab$'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        exe: "${exe}"
+        process_name: "${process_name}"
+        pid: "${pid}"
+        path: "${path}"
+        message: "${message}"

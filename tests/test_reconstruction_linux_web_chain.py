@@ -20,6 +20,8 @@ def test_linux_and_web_rules_have_explicit_reconstruction_stages_and_techniques(
         "SOCF-028": ("Privilege Escalation", "Privilege Escalation", "T1053.003"),
         "SOCF-029": ("Reconnaissance", "Reconnaissance", "T1595.003"),
         "SOCF-030": ("Credential Access", "Credential Access", "T1552.001"),
+        "SOCF-031": ("Persistence", "Persistence", "T1098.004"),
+        "SOCF-032": ("Persistence", "Persistence", "T1098"),
     }
 
     for index, (rule_id, contract) in enumerate(expected.items()):

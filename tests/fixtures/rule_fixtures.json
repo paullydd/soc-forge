@@ -569,5 +569,76 @@
         "message": "GET /backup.sql HTTP/1.1"
       }
     ]
+  },
+  {
+    "rule_id": "SOCF-031",
+    "rule_file": "SOCF-031.yml",
+    "match": {
+      "timestamp": "2026-09-17T03:20:00.100Z",
+      "host": "dispatch-ops01",
+      "username": "root",
+      "actor": "root",
+      "process_name": "sh",
+      "exe": "/usr/bin/dash",
+      "pid": 6001,
+      "path": "/root/.ssh/authorized_keys",
+      "message": "write path=/root/.ssh/authorized_keys by pid=6001 exe=/usr/bin/dash"
+    },
+    "non_match": {
+      "timestamp": "2026-09-17T03:20:00.100Z",
+      "host": "dispatch-ops01",
+      "username": "root",
+      "actor": "root",
+      "process_name": "sh",
+      "exe": "/usr/bin/dash",
+      "pid": 6001,
+      "path": "/root/.bashrc",
+      "message": "write path=/root/.bashrc by pid=6001 exe=/usr/bin/dash"
+    }
+  },
+  {
+    "rule_id": "SOCF-032",
+    "rule_file": "SOCF-032.yml",
+    "match": {
+      "timestamp": "2026-09-17T03:21:00.100Z",
+      "host": "dispatch-ops01",
+      "username": "root",
+      "actor": "root",
+      "process_name": "vi",
+      "exe": "/usr/bin/vi",
+      "pid": 6100,
+      "path": "/etc/passwd",
+      "message": "write path=/etc/passwd by pid=6100 exe=/usr/bin/vi"
+    },
+    "non_match": {
+      "timestamp": "2026-09-17T03:21:00.100Z",
+      "host": "dispatch-ops01",
+      "username": "root",
+      "actor": "root",
+      "process_name": "vi",
+      "exe": "/usr/bin/vi",
+      "pid": 6100,
+      "path": "/etc/hosts",
+      "message": "write path=/etc/hosts by pid=6100 exe=/usr/bin/vi"
+    },
+    "match_overrides": [
+      {},
+      {
+        "path": "/etc/shadow",
+        "message": "write path=/etc/shadow by pid=6100 exe=/usr/bin/vi"
+      },
+      {
+        "path": "/etc/sudoers.d/90-dispatch-svc",
+        "message": "write path=/etc/sudoers.d/90-dispatch-svc by pid=6100 exe=/usr/bin/vi"
+      },
+      {
+        "path": "/etc/cron.d/dispatch-backup",
+        "message": "write path=/etc/cron.d/dispatch-backup by pid=6100 exe=/usr/bin/vi"
+      },
+      {
+        "path": "/etc/crontab",
+        "message": "write path=/etc/crontab by pid=6100 exe=/usr/bin/vi"
+      }
+    ]
   }
 ]

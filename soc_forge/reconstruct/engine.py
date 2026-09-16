@@ -28,6 +28,8 @@ RULE_TO_RECON = {
     "SOCF-028": ("Privilege Escalation", "Privilege Escalation", "T1053.003", "Tar checkpoint-action wildcard injection (Linux)"),
     "SOCF-029": ("Reconnaissance", "Reconnaissance", "T1595.003", "Web content-discovery burst"),
     "SOCF-030": ("Credential Access", "Credential Access", "T1552.001", "Sensitive file or path exposed via web server"),
+    "SOCF-031": ("Persistence", "Persistence", "T1098.004", "SSH authorized_keys modified"),
+    "SOCF-032": ("Persistence", "Persistence", "T1098", "Sensitive account/privilege file modified"),
 }
 
 
