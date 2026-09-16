@@ -105,6 +105,7 @@ Detection content now covers:
 - SSH accepted logon from an external-looking source address (Linux, initial access)
 - Tar/bsdtar `--checkpoint-action` wildcard/option injection on Linux via auditd (privilege escalation)
 - Web content-discovery burst detection from nginx access logs (reconnaissance)
+- Correlation that chains web content-discovery, sensitive-path exposure, SSH initial access, and Linux privilege escalation into one case narrative
 - Sensitive file/path exposure via a misconfigured web server (credential access)
 
 ## Endpoint Defense And Recovery Rules

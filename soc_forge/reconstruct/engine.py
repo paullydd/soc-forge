@@ -22,6 +22,12 @@ RULE_TO_RECON = {
     "SOCF-020": ("Collection", "Collection", "T1560", "Suspicious archive staging of sensitive files"),
     "SOCF-021": ("Defense Evasion", "Defense Evasion", "T1562.001", "Windows security control tampering"),
     "SOCF-022": ("Impact", "Impact", "T1490", "System recovery or shadow copy deletion"),
+    "SOCF-023": ("Initial Access", "Initial Access", "T1133", "RDP logon from an external-looking source address"),
+    "SOCF-024": ("Discovery", "Discovery", "T1087", "Account or group discovery command execution"),
+    "SOCF-027": ("Initial Access", "Initial Access", "T1133", "SSH logon from an external-looking source address"),
+    "SOCF-028": ("Privilege Escalation", "Privilege Escalation", "T1053.003", "Tar checkpoint-action wildcard injection (Linux)"),
+    "SOCF-029": ("Reconnaissance", "Reconnaissance", "T1595.003", "Web content-discovery burst"),
+    "SOCF-030": ("Credential Access", "Credential Access", "T1552.001", "Sensitive file or path exposed via web server"),
 }
 
 

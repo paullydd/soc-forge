@@ -833,6 +833,173 @@ def correlate_alerts(
             })
             break
 
+    # -------------------------
+    # SOCF-CORR-015: Web content-discovery burst -> sensitive path exposure
+    # -------------------------
+    discovery_bursts = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-029"]
+    exposures_015 = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-030"]
+    seen_corr_015 = set()
+
+    for burst in discovery_bursts:
+        burst_ts = _parse_ts(burst["timestamp"])
+        burst_host = _field(burst, "host")
+        burst_ip = _field(burst, "ip", "src_ip")
+
+        for exposure in exposures_015:
+            exposure_ts = _parse_ts(exposure["timestamp"])
+            exposure_host = _field(exposure, "host")
+            exposure_ip = _field(exposure, "ip", "src_ip")
+
+            if burst_host != exposure_host:
+                continue
+            if burst_ip != "unknown" and exposure_ip != "unknown" and burst_ip != exposure_ip:
+                continue
+            if not (timedelta(0) <= (exposure_ts - burst_ts) <= window):
+                continue
+
+            corr_id = _cid("SOCF-CORR-015", burst_host, burst_ip)
+            if corr_id in seen_corr_015:
+                continue
+            seen_corr_015.add(corr_id)
+
+            correlated.append({
+                "rule_id": "SOCF-CORR-015",
+                "severity": "high",
+                "title": "Web content-discovery burst followed by sensitive path exposure",
+                "timestamp": exposure["timestamp"],
+                "details": {
+                    "host": exposure_host,
+                    "ip": burst_ip,
+                    "uri": _field(exposure, "uri"),
+                    "window_minutes": window_minutes,
+                    "evidence": [
+                        {"rule_id": burst["rule_id"], "timestamp": burst["timestamp"]},
+                        {"rule_id": exposure["rule_id"], "timestamp": exposure["timestamp"]},
+                    ],
+                    "source_rule_ids": ["SOCF-029", "SOCF-030"],
+                },
+                "mitre": [
+                    {"tactic": "Reconnaissance", "technique": "Active Scanning: Wordlist Scanning", "id": "T1595.003"},
+                    {"tactic": "Credential Access", "technique": "Unsecured Credentials: Credentials In Files", "id": "T1552.001"},
+                ],
+                "score": 145,
+                "status": "new",
+                "correlation_id": corr_id,
+            })
+            break
+
+    # -------------------------
+    # SOCF-CORR-016: Sensitive path exposure -> external SSH logon
+    # -------------------------
+    exposures_016 = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-030"]
+    ssh_logons = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-027"]
+    seen_corr_016 = set()
+
+    for exposure in exposures_016:
+        exposure_ts = _parse_ts(exposure["timestamp"])
+        exposure_host = _field(exposure, "host")
+        exposure_ip = _field(exposure, "ip", "src_ip")
+
+        for logon in ssh_logons:
+            logon_ts = _parse_ts(logon["timestamp"])
+            logon_host = _field(logon, "host")
+            logon_ip = _field(logon, "ip", "src_ip")
+            logon_user = _field(logon, "username", "actor")
+
+            if exposure_host != logon_host:
+                continue
+            if exposure_ip != "unknown" and logon_ip != "unknown" and exposure_ip != logon_ip:
+                continue
+            if not (timedelta(0) <= (logon_ts - exposure_ts) <= window):
+                continue
+
+            corr_id = _cid("SOCF-CORR-016", exposure_host, exposure_ip)
+            if corr_id in seen_corr_016:
+                continue
+            seen_corr_016.add(corr_id)
+
+            correlated.append({
+                "rule_id": "SOCF-CORR-016",
+                "severity": "critical",
+                "title": "Sensitive path exposure followed by external SSH logon",
+                "timestamp": logon["timestamp"],
+                "details": {
+                    "host": logon_host,
+                    "ip": exposure_ip,
+                    "username": logon_user,
+                    "window_minutes": window_minutes,
+                    "evidence": [
+                        {"rule_id": exposure["rule_id"], "timestamp": exposure["timestamp"]},
+                        {"rule_id": logon["rule_id"], "timestamp": logon["timestamp"]},
+                    ],
+                    "source_rule_ids": ["SOCF-030", "SOCF-027"],
+                },
+                "mitre": [
+                    {"tactic": "Credential Access", "technique": "Unsecured Credentials: Credentials In Files", "id": "T1552.001"},
+                    {"tactic": "Initial Access", "technique": "External Remote Services", "id": "T1133"},
+                ],
+                "score": 155,
+                "status": "new",
+                "correlation_id": corr_id,
+            })
+            break
+
+    # -------------------------
+    # SOCF-CORR-017: External SSH logon -> privilege escalation via tar wildcard injection
+    # -------------------------
+    # Deliberately no username gate, at discovery time or in the shared 015-017
+    # tagging branch below: SOCF-028 reflects the hijacked root cron process
+    # (username "root" or absent), not the attacker's own login identity (e.g.
+    # "dispatch-svc"), so a soft-username check would actively reject the real
+    # link between these two alerts.
+    initial_access_017 = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-027"]
+    privescs = [a for a in alerts_sorted if a.get("rule_id") == "SOCF-028"]
+    seen_corr_017 = set()
+
+    for access in initial_access_017:
+        access_ts = _parse_ts(access["timestamp"])
+        access_host = _field(access, "host")
+        access_user = _field(access, "username", "actor")
+
+        for privesc in privescs:
+            privesc_ts = _parse_ts(privesc["timestamp"])
+            privesc_host = _field(privesc, "host")
+
+            if access_host != privesc_host:
+                continue
+            if not (timedelta(0) <= (privesc_ts - access_ts) <= window):
+                continue
+
+            corr_id = _cid("SOCF-CORR-017", access_host, access_user)
+            if corr_id in seen_corr_017:
+                continue
+            seen_corr_017.add(corr_id)
+
+            correlated.append({
+                "rule_id": "SOCF-CORR-017",
+                "severity": "critical",
+                "title": "External SSH logon followed by privilege escalation",
+                "timestamp": privesc["timestamp"],
+                "details": {
+                    "host": access_host,
+                    "username": access_user,
+                    "window_minutes": window_minutes,
+                    "evidence": [
+                        {"rule_id": access["rule_id"], "timestamp": access["timestamp"]},
+                        {"rule_id": privesc["rule_id"], "timestamp": privesc["timestamp"]},
+                    ],
+                    "source_rule_ids": ["SOCF-027", "SOCF-028"],
+                },
+                "mitre": [
+                    {"tactic": "Initial Access", "technique": "External Remote Services", "id": "T1133"},
+                    {"tactic": "Privilege Escalation", "technique": "Scheduled Task/Job: Cron", "id": "T1053.003"},
+                ],
+                "score": 165,
+                "status": "new",
+                "correlation_id": corr_id,
+            })
+            break
+
     # De-duplicate correlated alerts by correlation_id
     seen = set()
     uniq_corr = []
@@ -960,4 +1127,23 @@ def correlate_alerts(
                 if rid in source_rule_ids and d.get("host") == host:
                     if username in {None, "unknown"} or d.get("username") in {None, username}:
                         a["correlation_id"] = cid
+
+        elif rule_id in {"SOCF-CORR-015", "SOCF-CORR-016", "SOCF-CORR-017"}:
+            # Deliberately no username gate here (unlike the 009-014 branch
+            # above): SOCF-CORR-017 links SOCF-027 (username e.g. "dispatch-svc")
+            # to SOCF-028 (username "root" or absent), a genuine, expected
+            # identity change across a privilege-escalation boundary. `ip` is
+            # used instead where the correlation has one (015/016); host alone
+            # gates 017, which has no shared ip to match on.
+            host = details.get("host")
+            ip = details.get("ip")
+            source_rule_ids = set(details.get("source_rule_ids", []) or [])
+            for a in alerts_sorted:
+                rid = a.get("rule_id")
+                d = a.get("details", {}) or {}
+                if rid not in source_rule_ids or d.get("host") != host:
+                    continue
+                if ip and d.get("ip") not in {None, ip}:
+                    continue
+                a["correlation_id"] = cid
     return alerts_sorted + uniq_corr

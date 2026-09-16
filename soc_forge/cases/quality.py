@@ -18,6 +18,9 @@ CORRELATION_RULE_NOTES = {
     "SOCF-CORR-012": "Lateral movement activity was followed by credential access on the same host or user context.",
     "SOCF-CORR-013": "Administrative share execution was followed by persistence or archive staging behavior.",
     "SOCF-CORR-014": "External initial access was followed by account or group discovery activity.",
+    "SOCF-CORR-015": "A web content-discovery burst was followed by successful access to a sensitive, commonly-exposed path from the same source.",
+    "SOCF-CORR-016": "A sensitive path exposure was followed by an external SSH logon from the same source address, suggesting recovered credentials were reused.",
+    "SOCF-CORR-017": "An external SSH logon was followed by privilege-escalation activity on the same host.",
 }
 
 RULE_FINDINGS = {

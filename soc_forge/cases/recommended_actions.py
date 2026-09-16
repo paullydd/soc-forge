@@ -178,6 +178,21 @@ def build_recommended_actions(items_sorted: List[Dict[str, Any]]) -> List[str]:
         actions.append("Treat external logon followed by discovery commands as likely hands-on-keyboard initial access.")
         actions.append("Validate whether the source address and account are an approved remote-access path; if not, disable the account and block the address.")
 
+    # SOCF-CORR-015: Web content-discovery burst -> sensitive path exposure
+    if _has_rule(items_sorted, "SOCF-CORR-015"):
+        actions.append("Fix the web server misconfiguration exposing the flagged path (e.g. add a deny rule for dotfiles/version-control directories, remove the file from the webroot).")
+        actions.append("Rotate any credentials or secrets that may have been reachable through the exposed path, and review the path's access history for prior exposure.")
+
+    # SOCF-CORR-016: Sensitive path exposure -> external SSH logon
+    if _has_rule(items_sorted, "SOCF-CORR-016"):
+        actions.append("Treat the SSH logon following a sensitive-path exposure as likely use of a credential recovered from that exposure.")
+        actions.append("Rotate the account's credentials, review the account for other reused-password exposure, and validate whether the source address is expected.")
+
+    # SOCF-CORR-017: External SSH logon -> privilege escalation
+    if _has_rule(items_sorted, "SOCF-CORR-017"):
+        actions.append("Treat this as likely privilege escalation to root following initial access; identify and remediate the escalation vector (e.g. an unsafe automated job the logged-on account could influence).")
+        actions.append("Review what the escalated (root) session did, rotate any credentials or keys it could have accessed, and check for persistence (planted SSH keys, new accounts, modified sudoers/cron).")
+
     if _has_rule(items_sorted, "SOCF-006") and _has_rule(items_sorted, "SOCF-005", "SOCF-010", "SOCF-011"):
         actions.append("Pull EDR triage: process tree around first RDP logon (parent/child, network, command line)")
         actions.append("Check scheduled task details (name, triggers, command, author) and capture the full XML if available")
