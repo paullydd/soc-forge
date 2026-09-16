@@ -91,33 +91,45 @@ def extract_path(candidates: List[Dict[str, Any]], edges: List[Dict[str, Any]]) 
     if not candidates:
         return [], []
 
-    edge_map: Dict[str, List[Dict[str, Any]]] = {}
+    # candidates is already sorted by timestamp, and build_edges only ever
+    # creates edges from an earlier index to a later one - so array order is
+    # already a topological order and this is a DP longest-weighted-path
+    # search over a DAG, not a greedy walk. best_score[j] is the best total
+    # edge weight of any path ending at candidate j, allowing j to be a fresh
+    # start of its own (baseline 0.0) so the search isn't locked into
+    # starting at candidates[0] the way the old greedy walk was.
+    id_to_index = {c["id"]: i for i, c in enumerate(candidates)}
+    incoming: Dict[str, List[Dict[str, Any]]] = {}
     for e in edges:
-        edge_map.setdefault(e["from"], []).append(e)
+        incoming.setdefault(e["to"], []).append(e)
 
-    for k in edge_map:
-        edge_map[k].sort(key=lambda x: x["weight"], reverse=True)
+    best_score = [0.0] * len(candidates)
+    best_prev: List[int | None] = [None] * len(candidates)
+    best_edge: List[Dict[str, Any] | None] = [None] * len(candidates)
 
-    path = [candidates[0]]
-    rels: List[Dict[str, Any]] = []
-    seen = {candidates[0]["id"]}
-    current = candidates[0]["id"]
-    lookup = {c["id"]: c for c in candidates}
+    for j, c in enumerate(candidates):
+        for e in incoming.get(c["id"], []):
+            i = id_to_index[e["from"]]
+            candidate_score = best_score[i] + e["weight"]
+            if candidate_score > best_score[j]:
+                best_score[j] = candidate_score
+                best_prev[j] = i
+                best_edge[j] = e
 
-    while current in edge_map:
-        next_edge = None
-        for e in edge_map[current]:
-            if e["to"] not in seen:
-                next_edge = e
-                break
-        if not next_edge:
-            break
+    # Pick the best-scoring endpoint; ties prefer the earlier candidate so
+    # the narrative still favors "start at the earliest coherent activity"
+    # when multiple paths score equally.
+    end = min(range(len(candidates)), key=lambda j: (-best_score[j], j))
 
-        nxt = lookup[next_edge["to"]]
-        path.append(nxt)
-        rels.append(next_edge)
-        seen.add(nxt["id"])
-        current = nxt["id"]
+    order: List[int] = []
+    idx: int | None = end
+    while idx is not None:
+        order.append(idx)
+        idx = best_prev[idx]
+    order.reverse()
+
+    path = [candidates[i] for i in order]
+    rels = [best_edge[i] for i in order[1:]]
 
     if len(path) == 1 and len(candidates) > 1:
         path = candidates[:]
@@ -181,6 +193,8 @@ def reconstruct_case(case_header: Dict[str, Any], case_items: List[Dict[str, Any
     candidates = build_candidates(case_items)
     edges = build_edges(candidates)
     path, rels = extract_path(candidates, edges)
+    included_ids = {p["id"] for p in path}
+    orphaned = [c for c in candidates if c["id"] not in included_ids]
     path = maybe_insert_inferred_steps(path)
 
     attack_steps: List[ReconstructionStep] = []
@@ -240,6 +254,14 @@ def reconstruct_case(case_header: Dict[str, Any], case_items: List[Dict[str, Any
     gaps = []
     if any(s.stage == "Persistence" for s in attack_steps) and not any(s.stage == "Execution" for s in attack_steps):
         gaps.append("Execution activity was not directly observed before persistence-related behavior.")
+    if orphaned:
+        orphan_desc = "; ".join(
+            f"{c.get('rule_id')} at {c.get('ts')}" for c in sorted(orphaned, key=lambda c: c.get("ts") or "")
+        )
+        gaps.append(
+            f"{len(orphaned)} additional alert(s) in this case were not connected to the primary "
+            f"narrative and are not reflected in the attack path above: {orphan_desc}."
+        )
 
     assumptions = []
     if any(s.inferred for s in attack_steps):

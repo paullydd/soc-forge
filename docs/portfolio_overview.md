@@ -79,7 +79,7 @@ The Detection Lab demo is the cleanest web walkthrough because it shows process-
 - Rich attack-chain and detection-lab scenarios with multiple rule and correlation layers, including a full initial-access-through-impact kill chain
 - MITRE-aligned detection content with fixture-backed quality checks, and a fixture regime that goes beyond "does the rule fire at all" to catch dead branches in multi-alternative match logic
 - Security-hardened by practice, not just claim: a real vulnerability was found and fixed, with tests added specifically to prevent regression
-- Test coverage around the most important moving pieces, at 1,623 tests
+- Test coverage around the most important moving pieces, at 1,626 tests
 
 ## Honest Limitations
 
