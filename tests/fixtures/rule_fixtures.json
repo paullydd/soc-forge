@@ -494,5 +494,80 @@
         "exe": "/usr/bin/bsdtar"
       }
     ]
+  },
+  {
+    "rule_id": "SOCF-029",
+    "rule_file": "SOCF-029.yml",
+    "match": {
+      "timestamp": "2026-09-16T03:11:00Z",
+      "host": "dispatch-ops01",
+      "ip": "203.0.113.7",
+      "status_code": 404,
+      "uri": "/path-01",
+      "message": "GET /path-01 HTTP/1.1"
+    },
+    "non_match": {
+      "timestamp": "2026-09-16T03:11:00Z",
+      "host": "dispatch-ops01",
+      "ip": "192.168.128.2",
+      "status_code": 404,
+      "uri": "/favicon.ico",
+      "message": "GET /favicon.ico HTTP/1.1"
+    },
+    "match_overrides": [
+      {},
+      {"timestamp": "2026-09-16T03:11:01Z", "uri": "/path-02"},
+      {"timestamp": "2026-09-16T03:11:02Z", "uri": "/path-03"},
+      {"timestamp": "2026-09-16T03:11:03Z", "uri": "/path-04"},
+      {"timestamp": "2026-09-16T03:11:04Z", "uri": "/path-05"},
+      {"timestamp": "2026-09-16T03:11:05Z", "uri": "/path-06"},
+      {"timestamp": "2026-09-16T03:11:06Z", "uri": "/path-07"},
+      {"timestamp": "2026-09-16T03:11:07Z", "uri": "/path-08"},
+      {"timestamp": "2026-09-16T03:11:08Z", "uri": "/path-09"},
+      {"timestamp": "2026-09-16T03:11:09Z", "uri": "/path-10"},
+      {"timestamp": "2026-09-16T03:11:10Z", "uri": "/path-11"},
+      {"timestamp": "2026-09-16T03:11:11Z", "uri": "/path-12"},
+      {"timestamp": "2026-09-16T03:11:12Z", "uri": "/path-13"},
+      {"timestamp": "2026-09-16T03:11:13Z", "uri": "/path-14"},
+      {"timestamp": "2026-09-16T03:11:14Z", "uri": "/path-15"},
+      {"timestamp": "2026-09-16T03:11:15Z", "uri": "/path-16"},
+      {"timestamp": "2026-09-16T03:11:16Z", "uri": "/path-17"},
+      {"timestamp": "2026-09-16T03:11:17Z", "uri": "/path-18"},
+      {"timestamp": "2026-09-16T03:11:18Z", "uri": "/path-19"},
+      {"timestamp": "2026-09-16T03:11:19Z", "uri": "/path-20"}
+    ]
+  },
+  {
+    "rule_id": "SOCF-030",
+    "rule_file": "SOCF-030.yml",
+    "match": {
+      "timestamp": "2026-09-16T03:11:05Z",
+      "host": "dispatch-ops01",
+      "ip": "203.0.113.7",
+      "status_code": 200,
+      "uri": "/.git/HEAD",
+      "user_agent": "gobuster/3.8.2",
+      "message": "GET /.git/HEAD HTTP/1.1"
+    },
+    "non_match": {
+      "timestamp": "2026-09-16T03:11:05Z",
+      "host": "dispatch-ops01",
+      "ip": "203.0.113.7",
+      "status_code": 200,
+      "uri": "/dashboard",
+      "user_agent": "Mozilla/5.0",
+      "message": "GET /dashboard HTTP/1.1"
+    },
+    "match_overrides": [
+      {},
+      {
+        "uri": "/.env",
+        "message": "GET /.env HTTP/1.1"
+      },
+      {
+        "uri": "/backup.sql",
+        "message": "GET /backup.sql HTTP/1.1"
+      }
+    ]
   }
 ]

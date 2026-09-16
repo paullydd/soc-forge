@@ -103,6 +103,7 @@ soc-forge --input security_events.csv --format windows-security-csv
 soc-forge --input security.evtx --format windows-security-evtx
 soc-forge --input auth.log --format linux-auth-log
 soc-forge --input audit.log --format linux-auditd
+soc-forge --input access.log --format nginx-access-log
 soc-forge --simulate attack_chain --sim-output out/attack_chain_events.jsonl
 ```
 

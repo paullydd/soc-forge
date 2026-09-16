@@ -4,6 +4,7 @@ import pytest
 
 from soc_forge.ingest.linux_auditd import LinuxAuditdResult
 from soc_forge.ingest.linux_auth_log import LinuxAuthLogResult
+from soc_forge.ingest.nginx_access_log import NginxAccessLogResult
 from soc_forge.pipeline import AnalysisOptions, load_events_with_diagnostics, run_analysis
 
 
@@ -93,6 +94,45 @@ def test_pipeline_calls_linux_auditd_loader_and_runs_standard_rules(tmp_path):
     assert result.event_count == 1
     assert result.ingest_diagnostics == loader_result.diagnostics_as_dicts()
     assert any(alert.get("rule_id") == "SOCF-028" for alert in result.alerts)
+
+
+def test_pipeline_calls_nginx_access_log_loader_and_runs_standard_rules(tmp_path):
+    access_event = {
+        "timestamp": "2026-09-16T03:11:05Z",
+        "host": "dispatch-ops01",
+        "ip": "203.0.113.7",
+        "method": "GET",
+        "uri": "/.git/HEAD",
+        "protocol": "HTTP/1.1",
+        "status_code": 200,
+        "bytes_sent": 23,
+        "user_agent": "gobuster/3.8.2",
+        "message": "GET /.git/HEAD HTTP/1.1",
+    }
+    loader_result = NginxAccessLogResult(
+        events=[access_event],
+        diagnostics=[],
+        row_count=1,
+    )
+
+    with patch(
+        "soc_forge.pipeline.load_nginx_access_log_with_diagnostics", return_value=loader_result
+    ) as loader:
+        result = run_analysis(
+            AnalysisOptions(
+                input_path=tmp_path / "access.log",
+                input_format="nginx-access-log",
+                output_dir=tmp_path,
+                write_outputs=False,
+                write_report=False,
+                rules_only=True,
+            )
+        )
+
+    loader.assert_called_once_with(tmp_path / "access.log")
+    assert result.event_count == 1
+    assert result.ingest_diagnostics == loader_result.diagnostics_as_dicts()
+    assert any(alert.get("rule_id") == "SOCF-030" for alert in result.alerts)
 
 
 def test_dot_log_file_with_no_explicit_format_is_unsupported(tmp_path):

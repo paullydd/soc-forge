@@ -1,0 +1,46 @@
+version: 1
+rules:
+  - id: SOCF-029
+    enabled: true
+    title: Web content-discovery burst (possible directory/file brute-forcing)
+    description: Detects many distinct URIs returning HTTP 404 from a single source
+      address within a short window - the access-log signature of an automated
+      content-discovery tool (e.g. gobuster, ffuf, dirbuster) working through a
+      wordlist against a web server. The 20-distinct-path-in-2-minutes threshold
+      is deliberately conservative - real content-discovery tools generate far more
+      requests than that in the same span, keeping this well clear of normal
+      user-driven 404 noise. This is one of the few Reconnaissance-tactic
+      techniques SOC-Forge can honestly detect, because it targets the monitored
+      web server's own access log rather than requiring network-level telemetry
+      SOC-Forge does not ingest (e.g. a port scan against arbitrary hosts).
+    author: SOC-Forge
+    created: "2026-09-16"
+    logsource: nginx-access-log
+    tags:
+      - web
+      - reconnaissance
+      - content-discovery
+    severity: medium
+    score: 60
+    mitre:
+      - tactic: Reconnaissance
+        technique: "Active Scanning: Wordlist Scanning"
+        id: T1595.003
+    match:
+      all:
+        - field: status_code
+          op: eq
+          value: 404
+    aggregate:
+      group_by:
+        - ip
+      window_minutes: 2
+      distinct_count:
+        field: uri
+        gte: 20
+    emit:
+      details:
+        host: "${host}"
+        ip: "${ip}"
+        uri: "${uri}"
+        message: "${message}"

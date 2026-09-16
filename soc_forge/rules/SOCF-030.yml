@@ -1,0 +1,41 @@
+version: 1
+rules:
+  - id: SOCF-030
+    enabled: true
+    title: Sensitive file or path exposed via web server (possible credential/source exposure)
+    description: Detects a successful (HTTP 200) request to a path commonly
+      associated with unintentionally exposed version control, environment, or
+      backup/config files (.git/, .env, .svn/, .htpasswd, id_rsa, .pem, .bak,
+      .sql, .db) - the signature of a misconfigured webroot serving files it
+      should not, the same mistake that exposed a .git repository and app
+      source in the reference CTF. This is a URL-pattern heuristic - a 200
+      response to a matching path confirms the path is reachable, not that the
+      response body actually contained sensitive content.
+    author: SOC-Forge
+    created: "2026-09-16"
+    logsource: nginx-access-log
+    tags:
+      - web
+      - credential-access
+      - exposure
+    severity: high
+    score: 85
+    mitre:
+      - tactic: Credential Access
+        technique: "Unsecured Credentials: Credentials In Files"
+        id: T1552.001
+    match:
+      all:
+        - field: status_code
+          op: eq
+          value: 200
+        - field: uri
+          op: regex
+          value: '(?i)(\.git/|\.env$|\.svn/|\.htpasswd$|id_rsa|\.pem$|\.bak$|\.sql$|\.db$)'
+    emit:
+      details:
+        host: "${host}"
+        ip: "${ip}"
+        uri: "${uri}"
+        user_agent: "${user_agent}"
+        message: "${message}"
