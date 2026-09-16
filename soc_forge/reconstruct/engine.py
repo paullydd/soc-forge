@@ -47,7 +47,12 @@ def _candidate_from_item(item: Dict[str, Any], idx: int) -> Dict[str, Any] | Non
         "stage": stage,
         "technique": technique,
         "ts": item.get("timestamp") or item.get("ts"),
-        "src_ip": item.get("src_ip") or details.get("src_ip"),
+        # Real pipeline alerts (soc_forge/rules/engine.py) nest the source
+        # address under details["ip"], not details["src_ip"] - fall back to
+        # both so IP-based edge scoring (score_link's heaviest signal) works
+        # on real data, not just flat-shaped test fixtures that happen to use
+        # the "src_ip" spelling.
+        "src_ip": item.get("src_ip") or details.get("src_ip") or details.get("ip"),
         "username": item.get("username") or details.get("username"),
         "host": item.get("host") or details.get("host"),
         "score": float(item.get("score", 0) or 0),

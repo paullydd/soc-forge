@@ -58,3 +58,48 @@ def test_full_recon_to_privesc_chain_reconstructs_as_one_connected_path():
     # relationship-scoring engine's 30-minute proximity window.
     relationship_pairs = {(rel.from_step, rel.to_step) for rel in recon.relationships}
     assert len(relationship_pairs) >= 1
+
+
+def _real_shaped_item(rule_id: str, timestamp: str, **details) -> dict:
+    # Mirrors the actual nested shape produced by soc_forge/rules/engine.py's
+    # run_rules() - no top-level src_ip/username/host at all, only under
+    # "details", and the IP key is "ip" (not "src_ip").
+    return {
+        "rule_id": rule_id,
+        "severity": "high",
+        "title": f"{rule_id} test alert",
+        "timestamp": timestamp,
+        "details": {"host": "dispatch-ops01", **details},
+        "mitre": [],
+        "score": 80,
+        "status": "new",
+    }
+
+
+def test_full_chain_reconstructs_from_real_pipeline_shaped_items():
+    # Regression test for the details["ip"] vs details["src_ip"] fallback bug:
+    # _candidate_from_item used to only check details.get("src_ip"), but real
+    # alerts nest the address under details["ip"], so IP-based edge scoring
+    # (score_link's heaviest signal, +0.35) silently never fired on real
+    # pipeline data - only on flat, top-level-src_ip-shaped test fixtures like
+    # the one above. This test uses the real nested shape end to end.
+    header = {"case_id": "CASE-REAL-SHAPE"}
+    items = [
+        _real_shaped_item("SOCF-029", "2026-09-16T03:11:00Z", ip="203.0.113.7"),
+        _real_shaped_item("SOCF-030", "2026-09-16T03:11:59Z", ip="203.0.113.7"),
+        _real_shaped_item("SOCF-027", "2026-09-16T03:14:07Z", ip="203.0.113.7", username="dispatch-svc"),
+        _real_shaped_item("SOCF-028", "2026-09-16T03:20:00Z", username="root"),
+    ]
+
+    recon = reconstruct_case(header, items)
+
+    ordered_rule_ids = [step.evidence[0].rule_id for step in recon.attack_path]
+    assert ordered_rule_ids == ["SOCF-029", "SOCF-030", "SOCF-027", "SOCF-028"]
+
+    # SOCF-030 -> SOCF-027 loses the tactic-progression bonus (Credential
+    # Access sits after Initial Access in TACTIC_ORDER's ATT&CK-matrix-column
+    # order), so this edge specifically depends on the ip-match fix to clear
+    # the 0.55 threshold on its own.
+    relationship_reasons = {(rel.from_step, rel.to_step): rel.reason for rel in recon.relationships}
+    assert (2, 3) in relationship_reasons
+    assert "same src_ip" in relationship_reasons[(2, 3)]
