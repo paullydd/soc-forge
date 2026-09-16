@@ -7,7 +7,7 @@ The current portfolio package (v3.6.2) is centered on a local analyst web UI wit
 ## What This Project Demonstrates
 
 - Event ingestion and normalization from structured security logs (Windows Security events, Sysmon-style process telemetry, EVTX, Linux SSH auth logs, Linux auditd, nginx access logs), via the CLI or a direct browser upload in the web UI
-- YAML-based detection rules with explicit MITRE ATT&CK mappings, covering 12 of 14 Enterprise tactics across 29 rules
+- YAML-based detection rules with explicit MITRE ATT&CK mappings, covering 12 of 14 Enterprise tactics across 31 rules
 - Alert correlation across related events and entities, including multi-stage correlation chains (for example, external initial access followed by discovery activity)
 - Case creation, risk scoring, and case quality briefs with executive summaries, findings, evidence rationale, and containment guidance
 - A durable Investigation model, independent of the analysis pipeline: revisioned evidence selection, analyst hypotheses, recorded decisions, analyst-authored Findings (explicitly distinct from machine certainty), and Response Actions that record work without executing remediation
@@ -79,13 +79,13 @@ The Detection Lab demo is the cleanest web walkthrough because it shows process-
 - Rich attack-chain and detection-lab scenarios with multiple rule and correlation layers, including a full initial-access-through-impact kill chain
 - MITRE-aligned detection content with fixture-backed quality checks, and a fixture regime that goes beyond "does the rule fire at all" to catch dead branches in multi-alternative match logic
 - Security-hardened by practice, not just claim: a real vulnerability was found and fixed, with tests added specifically to prevent regression
-- Test coverage around the most important moving pieces, at 1,626 tests
+- Test coverage around the most important moving pieces, at 1,630 tests
 
 ## Honest Limitations
 
 SOC-Forge is intentionally lightweight. It is not a full SIEM, production case management platform, or enterprise detection engine. Current, accurate limitations:
 
-- Mostly Windows telemetry footprint: most rules read Windows Security or Sysmon-style process events. Linux coverage exists for SSH auth (`linux-auth-log` ingest, SOCF-027), process execution via auditd (`linux-auditd` ingest, SOCF-028, requires an execve audit rule configured - not on by default), and nginx web access logs (`nginx-access-log` ingest, SOCF-029/SOCF-030); there is no cloud identity or SaaS audit log coverage yet.
+- Mostly Windows telemetry footprint: most rules read Windows Security or Sysmon-style process events. Linux coverage exists for SSH auth (`linux-auth-log` ingest, SOCF-027), process execution and file-watch persistence via auditd (`linux-auditd` ingest - SOCF-028 for process execution, SOCF-031/SOCF-032 for SSH-key and account-file persistence - each requires its own auditd rule configured, not on by default), and nginx web access logs (`nginx-access-log` ingest, SOCF-029/SOCF-030); there is no cloud identity or SaaS audit log coverage yet.
 - Two ATT&CK tactics remain fully uncovered by design, not oversight: Resource Development is pre-compromise, attacker-side activity that never touches a monitored endpoint. Exfiltration would need network telemetry (destination, data volume) SOC-Forge doesn't ingest; a process-level proxy would be too speculative to trust. Reconnaissance is mostly in the same position - network-level scanning touches no monitored endpoint - but is a partial exception: SOCF-029 detects content-discovery/directory brute-forcing against a monitored web server, since that activity shows up in the server's own access log.
 - Correlation is hand-wired per rule-ID pair, not automatic: an alert only joins a case narrative if an engineer has explicitly added a correlation rule linking its rule ID to another. All of `SOCF-023`/`SOCF-024`/`SOCF-027`/`SOCF-028`/`SOCF-029`/`SOCF-030` are now wired into both correlation (`SOCF-CORR-015`/`016`/`017`, chaining web recon -> exposure -> SSH access -> Linux privesc) and attack-path reconstruction, and correlations that share a "bridge" alert now correctly merge into one case via a union-find pass in `correlate_alerts` (this also retroactively fixed several pre-existing overlaps in the original Windows correlation set, e.g. `SOCF-CORR-004`/`005`, that were silently fragmenting before).
 - Response Actions and Investigation Handoff are analyst-controlled workflow records. SOC-Forge does not execute remediation, integrate a SIEM, or provide live monitoring.

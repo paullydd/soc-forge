@@ -1,0 +1,43 @@
+version: 1
+rules:
+  - id: SOCF-031
+    enabled: true
+    title: SSH authorized_keys modified (possible persistence)
+    description: Detects a write to an SSH authorized_keys file via auditd
+      file-watch telemetry - the exact technique used to gain durable root
+      access in the reference CTF, where a privilege-escalation payload
+      appended an attacker-controlled key to /root/.ssh/authorized_keys.
+      Like SOCF-028, this requires an auditd watch rule to be configured
+      (e.g. "-w /root/.ssh -p wa -k ssh_persistence", repeated per home
+      directory of interest) - not on by default on a stock install.
+      Matches on the file path itself rather than requiring any specific
+      "-k" audit-rule tag, so it fires regardless of how the operator named
+      their watch rule.
+    author: SOC-Forge
+    created: "2026-09-17"
+    logsource: linux-auditd
+    tags:
+      - linux
+      - persistence
+      - ssh
+      - auditd
+    severity: critical
+    score: 95
+    mitre:
+      - tactic: Persistence
+        technique: "Account Manipulation: SSH Authorized Keys"
+        id: T1098.004
+    match:
+      all:
+        - field: path
+          op: regex
+          value: '(?i)/\.ssh/authorized_keys2?$'
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        exe: "${exe}"
+        process_name: "${process_name}"
+        pid: "${pid}"
+        path: "${path}"
+        message: "${message}"

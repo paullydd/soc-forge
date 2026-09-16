@@ -129,7 +129,16 @@ def load_linux_auditd_with_diagnostics(path: str | Path, default_host: str = "LI
                 groups[rec_id] = {"types": {}, "epoch": m.group("epoch"), "msec": m.group("msec"), "node": None}
                 order.append(rec_id)
             record = groups[rec_id]
-            record["types"][m.group("type")] = _parse_kv(m.group("kv"))
+            rtype = m.group("type")
+            if rtype == "PATH":
+                # A single watched-file access typically emits multiple PATH
+                # records sharing one audit id (e.g. the containing directory
+                # plus the target file, or old+new path for a rename) -
+                # accumulate them instead of overwriting like every other
+                # record type, which only ever appears once per id.
+                record["types"].setdefault("PATH", []).append(_parse_kv(m.group("kv")))
+            else:
+                record["types"][rtype] = _parse_kv(m.group("kv"))
             if m.group("node") and not record["node"]:
                 record["node"] = m.group("node")
 
@@ -139,17 +148,19 @@ def load_linux_auditd_with_diagnostics(path: str | Path, default_host: str = "LI
         types = group["types"]
         syscall = types.get("SYSCALL")
         execve = types.get("EXECVE")
+        path_records = types.get("PATH")
 
         if syscall is None:
             # No SYSCALL record for this id (e.g. an EXECVE record with no paired
             # SYSCALL line seen) - not enough information to build a normalized event.
             continue
 
-        if execve is None:
+        if execve is None and not path_records:
             diagnostics.append(
                 IngestDiagnostic(
                     "info",
-                    "SYSCALL record has no matching EXECVE record; skipped (not a process-exec event)",
+                    "SYSCALL record has no matching EXECVE or PATH records; skipped (not a "
+                    "process-exec or file-watch event)",
                     field="EXECVE",
                 )
             )
@@ -177,21 +188,10 @@ def load_linux_auditd_with_diagnostics(path: str | Path, default_host: str = "LI
             else:
                 uid_val = uid_raw
 
-        command_line, has_continuation = _reassemble_command_line(execve)
-        if has_continuation:
-            diagnostics.append(
-                IngestDiagnostic(
-                    "warning",
-                    "EXECVE argument may be truncated/split across continuation fields",
-                    field="command_line",
-                )
-            )
-
         event: Dict[str, Any] = {
             "timestamp": timestamp,
             "host": host,
             "process_name": comm,
-            "command_line": command_line,
         }
         if pid is not None:
             event["pid"] = pid
@@ -199,17 +199,55 @@ def load_linux_auditd_with_diagnostics(path: str | Path, default_host: str = "LI
             event["ppid"] = ppid
         if exe:
             event["exe"] = exe
+
+        if execve is not None:
+            command_line, has_continuation = _reassemble_command_line(execve)
+            if has_continuation:
+                diagnostics.append(
+                    IngestDiagnostic(
+                        "warning",
+                        "EXECVE argument may be truncated/split across continuation fields",
+                        field="command_line",
+                    )
+                )
+            event["command_line"] = command_line
+            event["message"] = f"execve pid={pid} exe={exe}: {command_line}"
+        else:
+            # File-watch event (-w <path> audit rule): no EXECVE data, so use
+            # the accumulated PATH records instead. auditd typically orders
+            # item= indices with the actual target file last (e.g. a parent
+            # directory PATH entry before the file itself) - this is a
+            # documented heuristic, same honesty standard as the EXECVE
+            # continuation-field limitation above, not a guaranteed parse.
+            path_names = [p.get("name") for p in path_records if p.get("name")]
+            if not path_names:
+                diagnostics.append(
+                    IngestDiagnostic(
+                        "info",
+                        "PATH record(s) present but none had a usable name field",
+                        field="path",
+                    )
+                )
+                continue
+            target_path = path_names[-1]
+            event["path"] = target_path
+            audit_key = syscall.get("key")
+            if audit_key:
+                event["audit_key"] = audit_key
+            event["message"] = f"write path={target_path} by pid={pid} exe={exe}"
+
         if username:
             event["username"] = username
             event["actor"] = username
         elif uid_val is not None:
             event["uid"] = uid_val
 
-        event["message"] = f"execve pid={pid} exe={exe}: {command_line}"
         events.append(event)
 
     if not events and parsed_record_count > 0:
-        diagnostics.append(IngestDiagnostic("warning", "Auditd log file contains no execve (SYSCALL+EXECVE) events"))
+        diagnostics.append(
+            IngestDiagnostic("warning", "Auditd log file contains no execve or file-watch events")
+        )
 
     return LinuxAuditdResult(events=events, diagnostics=diagnostics, parsed_record_count=parsed_record_count)
 

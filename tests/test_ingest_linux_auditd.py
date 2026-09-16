@@ -35,7 +35,7 @@ def test_linux_auditd_happy_path_reassembles_execve_and_pairs_syscall(tmp_path: 
     assert result.parsed_record_count == 4
 
 
-def test_linux_auditd_syscall_without_execve_is_skipped_with_info_diagnostic(tmp_path: Path):
+def test_linux_auditd_syscall_without_execve_or_path_is_skipped_with_info_diagnostic(tmp_path: Path):
     p = tmp_path / "audit.log"
     p.write_text(
         'type=SYSCALL msg=audit(1757990500.100:5000): syscall=2 success=yes exit=3 '
@@ -46,7 +46,7 @@ def test_linux_auditd_syscall_without_execve_is_skipped_with_info_diagnostic(tmp
     result = load_linux_auditd_with_diagnostics(p)
     assert result.events == []
     info_diagnostics = [d for d in result.diagnostics if d.level == "info"]
-    assert any("no matching EXECVE record" in d.message for d in info_diagnostics)
+    assert any("no matching EXECVE or PATH records" in d.message for d in info_diagnostics)
 
 
 def test_linux_auditd_interleaved_ids_are_grouped_by_id_not_line_position(tmp_path: Path):
@@ -137,3 +137,47 @@ def test_linux_auditd_simple_loader_matches_full_result(tmp_path: Path):
     events = load_linux_auditd(p)
     assert len(events) == 1
     assert events[0]["pid"] == 4820
+
+
+def test_linux_auditd_file_watch_event_uses_last_path_record_and_multiple_paths_not_overwritten(tmp_path: Path):
+    # A watched-file write typically emits multiple PATH records sharing one
+    # audit id (e.g. the containing directory, then the target file itself).
+    # Regression test for the bug where the second PATH record used to
+    # silently overwrite the first in the per-id "types" dict.
+    p = tmp_path / "audit.log"
+    p.write_text(
+        'type=SYSCALL msg=audit(1757990600.100:6100): arch=c000003e syscall=257 success=yes '
+        'ppid=1 pid=6001 uid=0 comm="sh" exe="/usr/bin/dash" key="ssh_persistence"\n'
+        'type=PATH msg=audit(1757990600.100:6100): item=0 name="/root/.ssh" nametype=PARENT\n'
+        'type=PATH msg=audit(1757990600.100:6100): item=1 name="/root/.ssh/authorized_keys" nametype=NORMAL\n',
+        encoding="utf-8",
+    )
+
+    result = load_linux_auditd_with_diagnostics(p)
+    assert len(result.events) == 1
+    event = result.events[0]
+
+    assert event["path"] == "/root/.ssh/authorized_keys"
+    assert event["pid"] == 6001
+    assert event["ppid"] == 1
+    assert event["process_name"] == "sh"
+    assert event["exe"] == "/usr/bin/dash"
+    assert event["audit_key"] == "ssh_persistence"
+    assert event["uid"] == "0"
+    assert "username" not in event
+    assert "command_line" not in event
+    assert "write path=/root/.ssh/authorized_keys" in event["message"]
+
+
+def test_linux_auditd_path_record_without_name_is_skipped_with_info_diagnostic(tmp_path: Path):
+    p = tmp_path / "audit.log"
+    p.write_text(
+        'type=SYSCALL msg=audit(1757990700.200:7100): ppid=1 pid=7001 uid=0 comm="sh" exe="/bin/sh"\n'
+        'type=PATH msg=audit(1757990700.200:7100): item=0 nametype=UNKNOWN\n',
+        encoding="utf-8",
+    )
+
+    result = load_linux_auditd_with_diagnostics(p)
+    assert result.events == []
+    info_diagnostics = [d for d in result.diagnostics if d.level == "info"]
+    assert any("none had a usable name field" in d.message for d in info_diagnostics)
