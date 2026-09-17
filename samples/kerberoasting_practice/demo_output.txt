@@ -1,0 +1,25 @@
+[soc-forge] Cases exported → /tmp/soc_forge_scratch/cases.json
+
+HUNT RESULTS
+------------
+No hunt findings.
+
+RISK SUMMARY
+------------
+Overall Risk: HIGH (78)
+Alerts: 1
+Hunts: 0
+Correlations: 0
+                                SOC-Forge Alerts                                
+┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Severity ┃ Rule     ┃ Title              ┃ Time (UTC)         ┃ Key Detail   ┃
+┡━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ high     │ SOCF-033 │ Kerberoasting (RC4 │ 2026-09-17T14:02:… │ ip=10.0.0.50 │
+│          │          │ TGS ticket sweep   │                    │              │
+│          │          │ across service     │                    │              │
+│          │          │ accounts)          │                    │              │
+└──────────┴──────────┴────────────────────┴────────────────────┴──────────────┘
+
+Saved alerts to: samples/kerberoasting_practice/alerts.json
+Saved HTML report to: /tmp/soc_forge_scratch/report.html
+Correlated alerts: 0

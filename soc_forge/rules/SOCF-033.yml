@@ -1,0 +1,53 @@
+version: 1
+rules:
+  - id: SOCF-033
+    enabled: true
+    title: Kerberoasting (RC4 TGS ticket sweep across service accounts)
+    description: Detects a Kerberoasting sweep - one account requesting RC4-HMAC
+      (TicketEncryptionType 0x17) Kerberos service tickets for several distinct
+      SPN accounts in a short window, the signature left by tools like Impacket's
+      GetUserSPNs.py -request or Rubeus kerberoast, the technique used in the
+      reference CTF. RC4 request for a single service account can happen from a
+      legacy application and isn't alone conclusive; requiring 3+ distinct
+      services from the same account inside 2 minutes is what separates a sweep
+      from incidental legacy-encryption noise, at the cost of missing a very
+      slow, low-and-slow roast that stays under the threshold.
+    author: SOC-Forge
+    created: "2026-09-17"
+    logsource: windows-security
+    tags:
+      - windows
+      - credential-access
+      - kerberoasting
+      - active-directory
+    severity: high
+    score: 85
+    mitre:
+      - tactic: Credential Access
+        technique: "Steal or Forge Kerberos Tickets: Kerberoasting"
+        id: T1558.003
+    match:
+      all:
+        - field: event_id
+          op: eq
+          value: 4769
+        - field: ticket_encryption_type
+          op: eq
+          value: "0x17"
+        - field: service_name
+          op: regex
+          value: '^(?!krbtgt$).+'
+    aggregate:
+      group_by:
+        - username
+      window_minutes: 2
+      distinct_count:
+        field: service_name
+        gte: 3
+    emit:
+      details:
+        host: "${host}"
+        username: "${username}"
+        service_name: "${service_name}"
+        ip: "${ip}"
+        message: "${message}"

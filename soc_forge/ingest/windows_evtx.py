@@ -254,6 +254,7 @@ def normalize_evtx_record_xml(record: EvtxRecordXml) -> tuple[Dict[str, Any] | N
         "target_filename": target_filename,
         "service_name": _first_event_data(event_data, ("ServiceName",)),
         "service_account": _first_event_data(event_data, ("ServiceAccount", "AccountName")),
+        "ticket_encryption_type": _first_event_data(event_data, ("TicketEncryptionType",)),
         "task_name": _first_event_data(event_data, ("TaskName",)),
         "group_name": group_name,
     }
