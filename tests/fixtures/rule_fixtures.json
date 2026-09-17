@@ -640,5 +640,34 @@
         "message": "write path=/etc/crontab by pid=6100 exe=/usr/bin/vi"
       }
     ]
+  },
+  {
+    "rule_id": "SOCF-033",
+    "rule_file": "SOCF-033.yml",
+    "match": {
+      "timestamp": "2026-09-17T09:00:00Z",
+      "host": "DC1",
+      "username": "jdoe",
+      "ip": "10.0.0.50",
+      "event_id": 4769,
+      "ticket_encryption_type": "0x17",
+      "service_name": "svc-sql",
+      "message": "A Kerberos service ticket was requested."
+    },
+    "match_overrides": [
+      {},
+      {"timestamp": "2026-09-17T09:00:03Z", "service_name": "svc-web"},
+      {"timestamp": "2026-09-17T09:00:06Z", "service_name": "svc-backup"}
+    ],
+    "non_match": {
+      "timestamp": "2026-09-17T09:00:00Z",
+      "host": "DC1",
+      "username": "jdoe",
+      "ip": "10.0.0.50",
+      "event_id": 4769,
+      "ticket_encryption_type": "0x12",
+      "service_name": "svc-sql",
+      "message": "A Kerberos service ticket was requested."
+    }
   }
 ]
