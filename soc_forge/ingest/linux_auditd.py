@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Tuple
 
 # "node=<host> type=SYSCALL msg=audit(1757990400.123:4821): arch=c000003e ... pid=4820 comm="tar" exe="/usr/bin/tar" ..."
 RECORD_RE = re.compile(
@@ -13,6 +13,9 @@ RECORD_RE = re.compile(
 )
 KV_RE = re.compile(r'(\w+(?:\[\d+\])?)=("(?:[^"\\]|\\.)*"|\S*)')
 UID_NAME_RE = re.compile(r"^(\d+)\((\S+)\)$")
+HEX_VALUE_RE = re.compile(r"^[0-9A-Fa-f]+$")
+EXECVE_ARG_KEY_RE = re.compile(r"^a\d+(\[\d+\])?$")
+PATH_NAME_KEY_RE = re.compile(r"^name$")
 
 
 @dataclass
@@ -45,11 +48,42 @@ class LinuxAuditdResult:
         return [diagnostic.to_dict() for diagnostic in self.diagnostics]
 
 
-def _parse_kv(kv_tail: str) -> Dict[str, str]:
+def _maybe_hex_decode(raw_value: str) -> str:
+    """auditd hex-encodes an EXECVE argument or PATH name, with no surrounding
+    quotes, when the value contains a character unsafe to print bare - notably
+    whitespace, which is exactly what an injected `--checkpoint-action=exec=sh
+    x.sh` payload contains. A quoted value is never hex; this only runs on the
+    unquoted branch. This matches auparse/ausearch's own interpretation rule
+    (even-length, all hex digits -> decode as UTF-8 bytes), not a SOC-Forge
+    guess. It has one inherent, unavoidable ambiguity that real audit tooling
+    shares: a literal unquoted value that happens to consist solely of hex
+    digit characters (e.g. a bare argument "dead") cannot be distinguished
+    from a hex-encoded value by the string alone.
+    """
+    if raw_value and len(raw_value) % 2 == 0 and HEX_VALUE_RE.match(raw_value):
+        try:
+            return bytes.fromhex(raw_value).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            return raw_value
+    return raw_value
+
+
+def _parse_kv(
+    kv_tail: str,
+    *,
+    hex_decodable_key: Callable[[str], bool] | None = None,
+) -> Dict[str, str]:
     result: Dict[str, str] = {}
     for key, raw_value in KV_RE.findall(kv_tail):
         if raw_value.startswith('"') and raw_value.endswith('"') and len(raw_value) >= 2:
             value = raw_value[1:-1]
+        elif hex_decodable_key is not None and hex_decodable_key(key):
+            # Deliberately scoped to EXECVE args / PATH name via the caller's
+            # predicate, not applied to every unquoted field: plenty of
+            # genuinely numeric SYSCALL fields (pid, uid, exit, ...) are also
+            # valid-looking even-length hex strings by coincidence and must
+            # not be reinterpreted as encoded text.
+            value = _maybe_hex_decode(raw_value)
         else:
             value = raw_value
         result[key] = value
@@ -136,7 +170,13 @@ def load_linux_auditd_with_diagnostics(path: str | Path, default_host: str = "LI
                 # plus the target file, or old+new path for a rename) -
                 # accumulate them instead of overwriting like every other
                 # record type, which only ever appears once per id.
-                record["types"].setdefault("PATH", []).append(_parse_kv(m.group("kv")))
+                record["types"].setdefault("PATH", []).append(
+                    _parse_kv(m.group("kv"), hex_decodable_key=PATH_NAME_KEY_RE.match)
+                )
+            elif rtype == "EXECVE":
+                record["types"][rtype] = _parse_kv(
+                    m.group("kv"), hex_decodable_key=EXECVE_ARG_KEY_RE.match
+                )
             else:
                 record["types"][rtype] = _parse_kv(m.group("kv"))
             if m.group("node") and not record["node"]:
