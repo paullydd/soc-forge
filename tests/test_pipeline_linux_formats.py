@@ -5,7 +5,12 @@ import pytest
 from soc_forge.ingest.linux_auditd import LinuxAuditdResult
 from soc_forge.ingest.linux_auth_log import LinuxAuthLogResult
 from soc_forge.ingest.nginx_access_log import NginxAccessLogResult
-from soc_forge.pipeline import AnalysisOptions, load_events_with_diagnostics, run_analysis
+from soc_forge.pipeline import (
+    AnalysisOptions,
+    InputLoadError,
+    load_events_with_diagnostics,
+    run_analysis,
+)
 
 
 def test_pipeline_calls_linux_auth_log_loader_and_runs_standard_rules(tmp_path):
@@ -144,3 +149,39 @@ def test_dot_log_file_with_no_explicit_format_is_unsupported(tmp_path):
 
     with pytest.raises(ValueError, match="Unsupported input format"):
         load_events_with_diagnostics(unformatted)
+
+
+def test_require_events_rejects_an_empty_load_without_writing_outputs(tmp_path):
+    source = tmp_path / "auth.log"
+    source.write_text("this is not an sshd auth log\n", encoding="utf-8")
+    out_dir = tmp_path / "out"
+
+    with pytest.raises(InputLoadError) as excinfo:
+        run_analysis(
+            AnalysisOptions(
+                input_path=source,
+                input_format="linux-auth-log",
+                output_dir=out_dir,
+                require_events=True,
+            )
+        )
+
+    assert excinfo.value.diagnostics
+    assert not out_dir.exists()
+
+
+def test_empty_load_still_yields_an_empty_analysis_by_default(tmp_path):
+    source = tmp_path / "auth.log"
+    source.write_text("this is not an sshd auth log\n", encoding="utf-8")
+
+    result = run_analysis(
+        AnalysisOptions(
+            input_path=source,
+            input_format="linux-auth-log",
+            output_dir=tmp_path / "out",
+            write_outputs=False,
+            write_report=False,
+        )
+    )
+
+    assert result.event_count == 0

@@ -55,7 +55,7 @@
         </div>
         <div class="toolbar">
           <span class="status-indicator status-available"><span aria-hidden="true"></span>Local</span>
-          <span class="technical-id">v3.6.2</span>
+          <span class="technical-id">v3.7.0</span>
           <input id="searchInput" class="compact-search" type="search" placeholder="Filter current analysis" aria-label="Filter cases, alerts, and hunts" />
           <button id="refreshButton" type="button">Refresh</button>
         </div>
@@ -108,16 +108,19 @@
         </details>
         <details class="ingest-panel panel">
           <summary>Load Telemetry File</summary>
-          <p>Analyze your own Windows Security telemetry. Replaces the current workspace with the results.</p>
+          <p>Analyze your own Windows or Linux telemetry. Replaces the current workspace with the results. Pick a format for .log/.txt files.</p>
           <div class="scenario-control" aria-label="Load telemetry file">
             <label for="ingestFileInput">File</label>
-            <input id="ingestFileInput" type="file" accept=".jsonl,.csv,.evtx" />
+            <input id="ingestFileInput" type="file" accept=".jsonl,.csv,.evtx,.log,.txt" />
             <label for="ingestFormatSelect">Format</label>
             <select id="ingestFormatSelect">
               <option value="">Auto-detect</option>
               <option value="jsonl">JSONL</option>
               <option value="windows-security-csv">Windows Security CSV</option>
               <option value="windows-security-evtx">Windows Security EVTX</option>
+              <option value="linux-auth-log">Linux SSH auth log (auth.log)</option>
+              <option value="linux-auditd">Linux auditd (audit.log)</option>
+              <option value="nginx-access-log">nginx access log</option>
             </select>
             <button id="uploadIngestButton" type="button" class="primary-button" disabled>Upload &amp; Analyze</button>
           </div>

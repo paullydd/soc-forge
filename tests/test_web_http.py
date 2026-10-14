@@ -367,6 +367,7 @@ def test_post_ingest_jsonl_file_replaces_workspace_over_http(web_server):
     "filename,body,expected_status,expected_error_fragment",
     [
         ("data.exe", b"{}", 400, "Unsupported file type"),
+        ("auth.log.1", b"x", 400, "Unsupported file type"),
         ("", b"{}", 400, "valid filename"),
         ("bad.jsonl", b"{not-json", 400, None),
     ],
@@ -436,3 +437,93 @@ def test_post_ingest_malformed_evtx_surfaces_diagnostics_over_http(web_server):
 
     status, _headers, _body = request(web_server, "GET", "/artifact?file=missing.json")
     assert status == 404
+
+
+LINUX_UPLOADS = {
+    "linux-auth-log": (
+        "auth.log",
+        "Sep 16 03:14:07 ubuntu-victim sshd[8842]: Accepted password for "
+        "dispatch-svc from 203.0.113.7 port 51000 ssh2\n",
+        "SOCF-027",
+    ),
+    "linux-auditd": (
+        "audit.log",
+        'type=SYSCALL msg=audit(1757990400.123:4821): arch=c000003e syscall=59 '
+        'success=yes exit=0 items=2 ppid=4812 pid=4820 auid=1000 uid=0 gid=0 '
+        'euid=0 comm="tar" exe="/usr/bin/tar" key="proc_exec"\n'
+        'type=EXECVE msg=audit(1757990400.123:4821): argc=4 a0="tar" a1="-czf" '
+        'a2="backup.tgz" a3="--checkpoint-action=exec=sh shell.sh"\n',
+        "SOCF-028",
+    ),
+    "nginx-access-log": (
+        "access.log",
+        '203.0.113.7 - - [16/Sep/2026:03:11:05 +0000] "GET /.git/HEAD HTTP/1.1" '
+        '200 23 "-" "gobuster/3.8.2"\n',
+        "SOCF-030",
+    ),
+}
+
+
+@pytest.mark.parametrize("input_format", sorted(LINUX_UPLOADS))
+def test_post_ingest_linux_log_formats_run_real_pipeline_over_http(web_server, input_format):
+    filename, content, expected_rule = LINUX_UPLOADS[input_format]
+
+    status, _headers, data = request(
+        web_server, "POST", f"/api/ingest?format={input_format}",
+        body=content.encode("utf-8"),
+        headers={"X-Filename": filename},
+    )
+
+    assert status == 200
+    payload = json.loads(data.decode("utf-8"))
+    assert payload["filename"] == filename
+    assert payload["workspace"]["generated_event_count"] >= 1
+    assert expected_rule in {alert["rule_id"] for alert in payload["workspace"]["alerts"]}
+
+
+@pytest.mark.parametrize(
+    ("filename", "query"),
+    [
+        ("auth.log", ""),
+        ("notes.txt", ""),
+        ("auth.log", "?format=jsonl"),
+        ("notes.txt", "?format=windows-security-csv"),
+    ],
+)
+def test_post_ingest_text_logs_require_an_explicit_log_format_over_http(web_server, filename, query):
+    status, _headers, data = request(
+        web_server, "POST", f"/api/ingest{query}",
+        body=b"anything",
+        headers={"X-Filename": filename},
+    )
+
+    assert status == 400
+    assert b"Choose a log format" in data
+    assert not (web_server["out_dir"] / "uploads").exists()
+
+
+def test_post_ingest_wrong_format_choice_does_not_replace_the_workspace(web_server):
+    first = json.dumps(
+        {"event_id": 4625, "timestamp": "2026-08-28T10:00:00Z", "host": "WIN-01"}
+    ).encode("utf-8")
+    status, _headers, _data = request(
+        web_server, "POST", "/api/ingest",
+        body=first,
+        headers={"X-Filename": "first.jsonl"},
+    )
+    assert status == 200
+    out_dir = web_server["out_dir"]
+    before = {name: (out_dir / name).read_bytes() for name in ("alerts.json", "cases.json")}
+
+    status, _headers, data = request(
+        web_server, "POST", "/api/ingest?format=linux-auth-log",
+        body=b"this is not an sshd auth log\n",
+        headers={"X-Filename": "mislabelled.log"},
+    )
+
+    assert status == 422
+    payload = json.loads(data.decode("utf-8"))
+    assert "No events were loaded" in payload["error"]
+    assert payload["diagnostics"]
+    after = {name: (out_dir / name).read_bytes() for name in before}
+    assert after == before
