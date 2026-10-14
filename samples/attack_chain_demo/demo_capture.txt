@@ -15,7 +15,7 @@ Command:
 Expected Summary:
   Alerts: 14
   Correlated Alerts: 5
-  Cases: 6
+  Cases: 3
 
 Rules Triggered:
   SOCF-005       Scheduled task created
@@ -33,7 +33,7 @@ Rules Triggered:
   SOCF-CORR-014  External initial access followed by discovery activity
 
 Best Demo Case:
-  CASE-18FA7129
+  CASE-7B42A8CD
   New privileged account followed by log clearing (possible account abuse)
   Risk Score: 400
 
