@@ -87,10 +87,10 @@ SOCF-CORR-014  external initial access -> discovery
 The richest case is:
 
 ```text
-CASE-18FA7129
+CASE-7B42A8CD
 New privileged account followed by log clearing (possible account abuse)
 Risk Score: 400
-Alerts: SOCF-007, SOCF-008, SOCF-009, SOCF-CORR-005
+Alerts: SOCF-005, SOCF-006, SOCF-007, SOCF-008, SOCF-009, SOCF-CORR-002, SOCF-CORR-003, SOCF-CORR-004, SOCF-CORR-005
 ```
 
 Expected graph entities include:
