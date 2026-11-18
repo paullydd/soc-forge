@@ -54,6 +54,7 @@ class AnalysisOptions:
     brute_force_threshold: int | None = None
     brute_force_window_minutes: int | None = None
     ingest_diagnostics: List[Dict[str, Any]] = field(default_factory=list)
+    require_events: bool = False
 
 
 @dataclass
@@ -347,6 +348,11 @@ def run_analysis(options: AnalysisOptions) -> AnalysisResult:
 
     input_path = Path(options.input_path)
     events, ingest_diagnostics = load_events_with_diagnostics(input_path, input_format=options.input_format)
+    if options.require_events and not events:
+        raise InputLoadError(
+            "No events were loaded from the input. Check that the file matches the selected format.",
+            diagnostics=ingest_diagnostics,
+        )
     analysis_options = AnalysisOptions(
         events=events,
         input_name=options.input_name or input_path.name,

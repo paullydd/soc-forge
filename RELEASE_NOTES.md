@@ -1,5 +1,34 @@
 # Release Notes
 
+## v3.7.0
+
+**Theme:** Multi-source telemetry. SOC-Forge now ingests Linux SSH, auditd, and nginx logs alongside Windows events, correlates a web-to-root attack chain across them, and fixes how overlapping correlations become cases.
+
+### Ingestion
+
+- Added three Linux/web adapters, each selected explicitly with `--format` (they have no auto-detected extension): `linux-auth-log` (sshd events, syslog and journald-ISO line shapes), `linux-auditd` (SYSCALL/EXECVE records grouped by audit id and reassembled into a command line, plus file-watch SYSCALL/PATH events), and `nginx-access-log` (combined log format).
+- The `linux-auditd` adapter now accumulates repeated `PATH` records for one audit id instead of keeping only the last, which would have dropped data for file-watch events.
+- EVTX normalization now extracts `TicketEncryptionType`, so Kerberos detections work against real `.evtx` evidence and not only synthetic JSONL.
+- The web "Load Telemetry File" panel can upload all three Linux formats (as `.log`/`.txt`, with the format chosen in the dropdown). A `.log`/`.txt` upload without a log format is refused up front, and an upload that parses to zero events is rejected with the loader's diagnostics and leaves the current workspace untouched rather than replacing it with an empty analysis.
+
+### Detection Engineering
+
+- Added `SOCF-027`: SSH accepted logon from an external-looking source address, mapped to Initial Access (`T1133`). The Linux counterpart of `SOCF-023`.
+- Added `SOCF-028`: tar `--checkpoint-action` option injection from auditd execve telemetry, mapped to Privilege Escalation (`T1053.003`) and Execution (`T1059.004`). The Linux counterpart of `SOCF-026`.
+- Added `SOCF-029`: web content-discovery burst (many distinct 404 paths from one address in a short window), mapped to Reconnaissance (`T1595.003`). Reconnaissance is mostly undetectable from endpoint telemetry, but this activity appears in the monitored web server's own access log.
+- Added `SOCF-030`: successful request to a commonly exposed sensitive path (`.git/`, `.env`, backup and config files), mapped to Credential Access (`T1552.001`).
+- Added `SOCF-031`: SSH `authorized_keys` modification, mapped to Persistence (`T1098.004`).
+- Added `SOCF-032`: modification of sensitive account and privilege files (passwd, shadow, sudoers, cron paths), mapped to Persistence (`T1098`).
+- Added `SOCF-033`: Kerberoasting, detected as an RC4 (`0x17`) service-ticket sweep (event 4769) in which one account requests tickets for several distinct service principal names (SPNs) in a short window, mapped to Credential Access (`T1558.003`).
+- Bundled rule count is now 32, covering 12 of 14 Enterprise ATT&CK tactics (Reconnaissance is newly partially covered, and Persistence now has Linux rules).
+- Added `SOCF-CORR-015`/`016`/`017`, chaining web content discovery, sensitive-path exposure, SSH access, and Linux privilege escalation into one narrative. All of `SOCF-023`/`024`/`027`/`028`/`029`/`030` now appear in attack-path reconstruction.
+
+### Correlation And Reconstruction Fixes
+
+- Correlations that share a "bridge" alert now merge into one case (a union-find pass in `correlate_alerts`). Previously each later correlation overwrote the earlier case tag, so a chain fragmented into several cases. This also corrected pre-existing fragmentation in the Windows set (`SOCF-CORR-004` and `005` overlap), so the demo scenarios now produce fewer, more complete cases: Attack Chain yields 3 cases instead of 6, and Detection Lab yields 1 instead of 3. Alert counts are unchanged.
+- Reconstruction now falls back to `details["ip"]` for an alert's source address, which is where the rule engine actually puts it, so the same-source-address link signal fires on real alerts and not only on test fixtures.
+- Attack-path extraction replaces a greedy single-path walk with a longest-path search, so a poorly connected earliest event no longer truncates the path. Events that cannot be connected to the chosen path are now listed under `gaps` instead of vanishing.
+
 ## v3.6.2
 
 **Theme:** A new detection rule inspired by a real CTF privilege-escalation technique.

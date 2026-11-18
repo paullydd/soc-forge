@@ -120,6 +120,9 @@ from soc_forge.investigations.operations_prioritization import OperationsPriorit
 from soc_forge.investigations.operations_queue import OperationsQueueService
 from soc_forge.detection_engineering import DetectionEngineeringService
 from soc_forge.pipeline import (
+    LINUX_AUDITD_FORMAT,
+    LINUX_AUTH_LOG_FORMAT,
+    NGINX_ACCESS_LOG_FORMAT,
     AnalysisOptions,
     InputLoadError,
     run_analysis,
@@ -438,8 +441,19 @@ def run_demo_scenario(scenario: str, out_dir: Path = DEFAULT_OUT_DIR) -> Dict[st
     return ScenarioWorkspace(workspace, result)
 
 
-UPLOAD_ALLOWED_SUFFIXES = {".jsonl", ".csv", ".evtx"}
-UPLOAD_FORMAT_OVERRIDES = {"jsonl", "windows-security-csv", "windows-security-evtx", "evtx"}
+UPLOAD_TEXT_LOG_SUFFIXES = {".log", ".txt"}
+UPLOAD_TEXT_LOG_FORMATS = {
+    LINUX_AUTH_LOG_FORMAT,
+    LINUX_AUDITD_FORMAT,
+    NGINX_ACCESS_LOG_FORMAT,
+}
+UPLOAD_ALLOWED_SUFFIXES = {".jsonl", ".csv", ".evtx"} | UPLOAD_TEXT_LOG_SUFFIXES
+UPLOAD_FORMAT_OVERRIDES = {
+    "jsonl",
+    "windows-security-csv",
+    "windows-security-evtx",
+    "evtx",
+} | UPLOAD_TEXT_LOG_FORMATS
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
@@ -463,7 +477,8 @@ def sanitize_upload_filename(raw_filename: str) -> str:
     suffix = Path(filename).suffix.lower()
     if suffix not in UPLOAD_ALLOWED_SUFFIXES:
         raise IngestUploadError(
-            f"Unsupported file type '{suffix or filename}'. Use .jsonl, .csv, or .evtx."
+            f"Unsupported file type '{suffix or filename}'. "
+            "Use .jsonl, .csv, .evtx, .log, or .txt (rename rotated logs such as auth.log.1)."
         )
     return filename
 
@@ -486,6 +501,7 @@ def run_ingest_upload(
                 input_name=filename,
                 input_format=input_format,
                 output_dir=out_dir,
+                require_events=True,
             )
         )
     except InputLoadError as exc:
@@ -1234,6 +1250,16 @@ class SocForgeWebHandler(BaseHTTPRequestHandler):
         input_format = parse_qs(parsed.query).get("format", [None])[0]
         if input_format is not None and input_format not in UPLOAD_FORMAT_OVERRIDES:
             self.send_json_error("Unsupported format override.", status=400)
+            return
+        if (
+            Path(filename).suffix.lower() in UPLOAD_TEXT_LOG_SUFFIXES
+            and input_format not in UPLOAD_TEXT_LOG_FORMATS
+        ):
+            self.send_json_error(
+                "Choose a log format for .log/.txt files: Linux SSH auth log, "
+                "Linux auditd, or nginx access log.",
+                status=400,
+            )
             return
 
         try:
