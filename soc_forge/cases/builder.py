@@ -31,6 +31,9 @@ def _extract_ips_from_message(message: Any) -> List[str]:
 
 
 
+USER_FIELDS = ("username", "user", "actor", "target_user", "account_name")
+
+
 def build_case_iocs(items_sorted: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     ips: List[str] = []
     hosts: List[str] = []
@@ -62,11 +65,13 @@ def build_case_iocs(items_sorted: List[Dict[str, Any]]) -> Dict[str, List[str]]:
         add_unique(hosts, event.get("computer"))
         add_unique(hosts, event.get("computer_name"))
 
-        add_unique(users, it.get("username"))
-        add_unique(users, details.get("username"))
-        add_unique(users, event.get("username"))
-        add_unique(users, event.get("target_user"))
-        add_unique(users, event.get("account_name"))
+        # Rules emit the account under different field names (username for
+        # logons, actor for whoever made a change, target_user for the account
+        # that was changed). Read the same fields the case summary does, so the
+        # IOC table never says "None observed" for a user named in the findings.
+        for source in (it, details, event):
+            for field in USER_FIELDS:
+                add_unique(users, source.get(field))
 
     return {
         "ips": ips,
