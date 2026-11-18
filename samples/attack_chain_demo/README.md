@@ -34,16 +34,16 @@ The sample contains:
 ```text
 14 alerts
 5 correlated alerts
-6 cases
+3 cases
 ```
 
 The richest case is:
 
 ```text
-CASE-18FA7129
+CASE-7B42A8CD
 New privileged account followed by log clearing (possible account abuse)
 Risk Score: 400
-Rules: SOCF-007, SOCF-008, SOCF-009, SOCF-CORR-005
+Rules: SOCF-005, SOCF-006, SOCF-007, SOCF-008, SOCF-009, SOCF-CORR-002, SOCF-CORR-003, SOCF-CORR-004, SOCF-CORR-005
 ```
 
 ## How To Recreate

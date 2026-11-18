@@ -3,7 +3,7 @@
     "rule_id": "SOCF-006",
     "severity": "medium",
     "title": "RDP logon detected (LogonType 10)",
-    "timestamp": "2026-08-29T16:45:18Z",
+    "timestamp": "2026-10-14T17:26:31Z",
     "details": {
       "host": "WS-ENG-01",
       "ip": "198.51.100.77",
@@ -20,7 +20,7 @@
     ],
     "score": 55,
     "status": "new",
-    "correlation_id": "3221f258a60b",
+    "correlation_id": "044596ac3ae5",
     "rule": {
       "description": "Detects successful RDP logons by matching LogonType 10 activity.",
       "author": "SOC-Forge",
@@ -37,7 +37,7 @@
     "rule_id": "SOCF-023",
     "severity": "high",
     "title": "RDP logon from external source address (possible initial access)",
-    "timestamp": "2026-08-29T16:45:18Z",
+    "timestamp": "2026-10-14T17:26:31Z",
     "details": {
       "host": "WS-ENG-01",
       "ip": "198.51.100.77",
@@ -72,7 +72,7 @@
     "rule_id": "SOCF-024",
     "severity": "low",
     "title": "Account or group discovery command executed",
-    "timestamp": "2026-08-29T16:46:18Z",
+    "timestamp": "2026-10-14T17:27:31Z",
     "details": {
       "host": "WS-ENG-01",
       "username": "alice",
@@ -108,7 +108,7 @@
     "rule_id": "SOCF-024",
     "severity": "low",
     "title": "Account or group discovery command executed",
-    "timestamp": "2026-08-29T16:46:48Z",
+    "timestamp": "2026-10-14T17:28:01Z",
     "details": {
       "host": "WS-ENG-01",
       "username": "alice",
@@ -144,7 +144,7 @@
     "rule_id": "SOCF-005",
     "severity": "critical",
     "title": "Scheduled task created",
-    "timestamp": "2026-08-29T16:47:18Z",
+    "timestamp": "2026-10-14T17:28:31Z",
     "details": {
       "host": "WS-ENG-01",
       "actor": "alice",
@@ -182,7 +182,7 @@
     "rule_id": "SOCF-011",
     "severity": "high",
     "title": "Suspicious PowerShell execution",
-    "timestamp": "2026-08-29T16:47:18Z",
+    "timestamp": "2026-10-14T17:28:31Z",
     "details": {
       "host": "WS-ENG-01",
       "username": "alice",
@@ -203,6 +203,11 @@
         "tactic": "Defense Evasion",
         "technique": "Obfuscated Files or Information",
         "id": "T1027"
+      },
+      {
+        "tactic": "Command and Control",
+        "technique": "Ingress Tool Transfer",
+        "id": "T1105"
       }
     ],
     "score": 85,
@@ -224,7 +229,7 @@
     "rule_id": "SOCF-007",
     "severity": "high",
     "title": "New user account created",
-    "timestamp": "2026-08-29T16:49:18Z",
+    "timestamp": "2026-10-14T17:30:31Z",
     "details": {
       "host": "WS-ENG-01",
       "ip": "198.51.100.77",
@@ -250,7 +255,7 @@
     ],
     "score": 70,
     "status": "new",
-    "correlation_id": "e353a2e912eb",
+    "correlation_id": "044596ac3ae5",
     "rule": {
       "description": "Detects new Windows user account creation and highlights suspicious service-style account names.",
       "author": "SOC-Forge",
@@ -267,7 +272,7 @@
     "rule_id": "SOCF-008",
     "severity": "high",
     "title": "User added to privileged group",
-    "timestamp": "2026-08-29T16:50:18Z",
+    "timestamp": "2026-10-14T17:31:31Z",
     "details": {
       "host": "WS-ENG-01",
       "ip": "198.51.100.77",
@@ -291,7 +296,7 @@
     ],
     "score": 75,
     "status": "new",
-    "correlation_id": "e353a2e912eb",
+    "correlation_id": "044596ac3ae5",
     "rule": {
       "description": "Detects additions to privileged local or universal Windows groups using structured group-change events.",
       "author": "SOC-Forge",
@@ -308,7 +313,7 @@
     "rule_id": "SOCF-009",
     "severity": "high",
     "title": "Audit logs cleared",
-    "timestamp": "2026-08-29T16:52:18Z",
+    "timestamp": "2026-10-14T17:33:31Z",
     "details": {
       "host": "WS-ENG-01",
       "ip": "198.51.100.77",
@@ -325,7 +330,7 @@
     ],
     "score": 80,
     "status": "new",
-    "correlation_id": "e353a2e912eb",
+    "correlation_id": "044596ac3ae5",
     "rule": {
       "description": "Detects Windows audit log clearing, which can indicate attempted evidence removal.",
       "author": "SOC-Forge",
@@ -342,7 +347,7 @@
     "rule_id": "SOCF-CORR-002",
     "severity": "high",
     "title": "RDP logon followed by scheduled task creation (possible persistence)",
-    "timestamp": "2026-08-29T16:47:18Z",
+    "timestamp": "2026-10-14T17:28:31Z",
     "details": {
       "host": "WS-ENG-01",
       "username": "alice",
@@ -351,11 +356,11 @@
       "evidence": [
         {
           "rule_id": "SOCF-006",
-          "timestamp": "2026-08-29T16:45:18Z"
+          "timestamp": "2026-10-14T17:26:31Z"
         },
         {
           "rule_id": "SOCF-005",
-          "timestamp": "2026-08-29T16:47:18Z"
+          "timestamp": "2026-10-14T17:28:31Z"
         }
       ]
     },
@@ -379,7 +384,7 @@
     "rule_id": "SOCF-CORR-003",
     "severity": "critical",
     "title": "RDP logon followed by privileged group change (possible takeover)",
-    "timestamp": "2026-08-29T16:50:18Z",
+    "timestamp": "2026-10-14T17:31:31Z",
     "details": {
       "host": "WS-ENG-01",
       "username": "alice",
@@ -388,11 +393,11 @@
       "evidence": [
         {
           "rule_id": "SOCF-006",
-          "timestamp": "2026-08-29T16:45:18Z"
+          "timestamp": "2026-10-14T17:26:31Z"
         },
         {
           "rule_id": "SOCF-008",
-          "timestamp": "2026-08-29T16:50:18Z"
+          "timestamp": "2026-10-14T17:31:31Z"
         }
       ]
     },
@@ -410,13 +415,13 @@
     ],
     "score": 130,
     "status": "new",
-    "correlation_id": "3221f258a60b"
+    "correlation_id": "044596ac3ae5"
   },
   {
     "rule_id": "SOCF-CORR-004",
     "severity": "critical",
     "title": "New account followed by privileged group assignment",
-    "timestamp": "2026-08-29T16:50:18Z",
+    "timestamp": "2026-10-14T17:31:31Z",
     "details": {
       "host": "WS-ENG-01",
       "target_user": "svc-backup-admin",
@@ -424,11 +429,11 @@
       "evidence": [
         {
           "rule_id": "SOCF-007",
-          "timestamp": "2026-08-29T16:49:18Z"
+          "timestamp": "2026-10-14T17:30:31Z"
         },
         {
           "rule_id": "SOCF-008",
-          "timestamp": "2026-08-29T16:50:18Z"
+          "timestamp": "2026-10-14T17:31:31Z"
         }
       ],
       "source_rule_ids": [
@@ -450,13 +455,13 @@
     ],
     "score": 130,
     "status": "new",
-    "correlation_id": "076a09c83b53"
+    "correlation_id": "044596ac3ae5"
   },
   {
     "rule_id": "SOCF-CORR-005",
     "severity": "critical",
     "title": "New privileged account followed by log clearing (possible account abuse)",
-    "timestamp": "2026-08-29T16:52:18Z",
+    "timestamp": "2026-10-14T17:33:31Z",
     "details": {
       "host": "WS-ENG-01",
       "target_user": "svc-backup-admin",
@@ -465,15 +470,15 @@
       "evidence": [
         {
           "rule_id": "SOCF-007",
-          "timestamp": "2026-08-29T16:49:18Z"
+          "timestamp": "2026-10-14T17:30:31Z"
         },
         {
           "rule_id": "SOCF-008",
-          "timestamp": "2026-08-29T16:50:18Z"
+          "timestamp": "2026-10-14T17:31:31Z"
         },
         {
           "rule_id": "SOCF-009",
-          "timestamp": "2026-08-29T16:52:18Z"
+          "timestamp": "2026-10-14T17:33:31Z"
         }
       ],
       "source_rule_ids": [
@@ -501,13 +506,13 @@
     ],
     "score": 150,
     "status": "new",
-    "correlation_id": "e353a2e912eb"
+    "correlation_id": "044596ac3ae5"
   },
   {
     "rule_id": "SOCF-CORR-014",
     "severity": "high",
     "title": "External initial access followed by discovery activity",
-    "timestamp": "2026-08-29T16:46:18Z",
+    "timestamp": "2026-10-14T17:27:31Z",
     "details": {
       "host": "WS-ENG-01",
       "username": "alice",
@@ -515,11 +520,11 @@
       "evidence": [
         {
           "rule_id": "SOCF-023",
-          "timestamp": "2026-08-29T16:45:18Z"
+          "timestamp": "2026-10-14T17:26:31Z"
         },
         {
           "rule_id": "SOCF-024",
-          "timestamp": "2026-08-29T16:46:18Z"
+          "timestamp": "2026-10-14T17:27:31Z"
         }
       ],
       "source_rule_ids": [
